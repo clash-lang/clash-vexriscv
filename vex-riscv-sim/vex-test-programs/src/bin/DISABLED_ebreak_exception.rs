@@ -16,7 +16,7 @@ use bittide_sys::println;
 #[cfg_attr(not(test), entry)]
 fn main() -> ! {
     unsafe {
-        bittide_sys::character_device::initialise(0x2000_0000 as *mut u8);
+        bittide_sys::character_device::initialise(0x0000_1000 as *mut u8);
     }
 
     println!("Executing `ebreak` instruction...");

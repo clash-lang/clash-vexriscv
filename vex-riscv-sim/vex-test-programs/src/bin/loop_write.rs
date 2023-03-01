@@ -14,7 +14,7 @@ extern crate panic_halt;
 use core::fmt::Write;
 use heapless::String;
 
-const ADDR: *mut u8 = 0x2000_0000 as *mut u8;
+const ADDR: *mut u8 = 0x0000_1000 as *mut u8;
 
 fn print(s: &str) {
     for b in s.bytes() {

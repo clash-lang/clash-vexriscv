@@ -11,7 +11,7 @@ use riscv_rt::entry;
 #[cfg(not(test))]
 extern crate panic_halt;
 
-const ADDR: *mut u8 = 0x2000_0000 as *mut u8;
+const ADDR: *mut u8 = 0x0000_1000 as *mut u8;
 
 #[cfg_attr(not(test), entry)]
 fn main() -> ! {

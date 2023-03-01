@@ -1,57 +1,52 @@
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE NumericUnderscores #-}
 -- SPDX-FileCopyrightText: 2022 Google LLC
 --
 -- SPDX-License-Identifier: Apache-2.0
-
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE NumericUnderscores #-}
-
-import Prelude
-import Clash.Prelude hiding (not, (&&))
-
-import VexRiscv
-import Utils.ReadElf
 
 import Bittide.DoubleBufferedRam
 import Bittide.SharedTypes hiding (delayControls)
 import Bittide.Wishbone (singleMasterInterconnect')
-import Protocols.Wishbone
-
+import Clash.Prelude hiding (not, (&&))
 import Clash.Prelude.BlockRam.File
-import Clash.Signal.Internal (Signal((:-)))
-
+import Clash.Signal.Internal (Signal ((:-)))
+import Control.Monad (forM)
 import qualified Data.ByteString as BS
 import qualified Data.IntMap as I
 import qualified Data.List as L
-import qualified GHC.TypeNats as TN
-
-import Test.Tasty
-import GHC.Stack
-import GHC.Base (assert, when)
-
-import System.Directory (removeFile, listDirectory, doesFileExist, copyFile)
-import System.IO
-import System.FilePath
-import Control.Monad (forM)
 import Data.Maybe (catMaybes)
-import Test.Tasty.HUnit (testCase, Assertion, (@?=))
-import System.IO.Temp (withSystemTempFile)
-import Utils.Print (getPrintContents)
+import GHC.Base (assert, when)
+import GHC.Stack
+import qualified GHC.TypeNats as TN
+import Protocols.Wishbone
+import System.Directory (copyFile, doesFileExist, listDirectory, removeFile)
 import System.Exit (exitFailure)
-
+import System.FilePath
+import System.IO
+import System.IO.Temp (withSystemTempFile)
+import Test.Tasty
+import Test.Tasty.HUnit (Assertion, testCase, (@?=))
+import Utils.Print (getPrintContents)
+import Utils.ReadElf
+import VexRiscv
+import Prelude
 
 emptyInput :: Input
 emptyInput =
   Input
-    { timerInterrupt = low
-    , externalInterrupt = low
-    , softwareInterrupt = low
-    , iBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0}
-    , dBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0}
+    { timerInterrupt = low,
+      externalInterrupt = low,
+      softwareInterrupt = low,
+      iBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0},
+      dBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0}
     }
 
-type Memory dom = (BitVector 32, Signal dom (WishboneM2S 32 4 (BitVector 32))
-  -> Signal dom (WishboneS2M (BitVector 32)))
+type Memory dom =
+  ( BitVector 32,
+    Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
+    Signal dom (WishboneS2M (BitVector 32))
+  )
 
 -- When passing S2M values from Haskell to VexRiscv over the FFI, undefined
 -- bits/values cause errors when forcing their evaluation to something that can
@@ -59,72 +54,123 @@ type Memory dom = (BitVector 32, Signal dom (WishboneM2S 32 4 (BitVector 32))
 --
 -- This function makes sure the Wishbone S2M values are free from undefined bits.
 makeDefined :: WishboneS2M (BitVector 32) -> WishboneS2M (BitVector 32)
-makeDefined wb = wb { readData = defaultX 0 (readData wb) }
+makeDefined wb = wb {readData = defaultX 0 (readData wb)}
 
 defaultX :: (NFDataX a) => a -> a -> a
 defaultX dflt val
   | hasUndefined val = dflt
-  | otherwise        = val
+  | otherwise = val
+
+{-
+Address space
+
+0b0000 0x0000_0000 Character device / Debug addresses
+0b0010 0x2000_0000 Boot instruction memory
+0b0100 0x4000_0000 Boot data memory
+0b0110 0x6000_0000 Loaded instruction memory
+0b1000 0x8000_0000 Loaded data memory
+
+for instruction bus
+
+0b000 0x0 dummy
+0b001 0x2 boot instructions
+0b010 0x4 dummy
+0b011 0x6 loaded instruction memory
+0b100 0x8 dummy
+
+for data bus
+
+0b000 0x0 dummy
+0b001 0x2 dummy
+0b010 0x4 boot data memory
+0b011 0x6 loaded instruction memory
+0b100 0x8 loaded data memory
+
+-}
 
 cpu ::
   (HasCallStack, HiddenClockResetEnable dom) =>
   Memory dom ->
   Memory dom ->
-  ( Signal dom Output
+  ( Signal dom Output,
     -- writes
-  , Signal dom (Maybe (BitVector 32, BitVector 32))
+    Signal dom (Maybe (BitVector 32, BitVector 32)),
     -- iBus responses
-  , Signal dom (WishboneS2M (BitVector 32))
+    Signal dom (WishboneS2M (BitVector 32)),
     -- dBus responses
-  , Signal dom (WishboneS2M (BitVector 32))
+    Signal dom (WishboneS2M (BitVector 32))
   )
-cpu (iMemStart, iMem) (_dMemStart, dMem) = (output, writes, iWb, dS2M)
+cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
   where
     output = vexRiscv (emptyInput :- input)
     dM2S = dBusWbM2S <$> output
-    iWb = iMem (mapAddr (\x -> x - iMemStart) . unBusAddr . iBusWbM2S <$> output)
+
+    errS2M = emptyWishboneS2M {err = True}
+
+    (iS2M, unbundle -> (_ :> bootIM2S :> _ :> loadedIM2S :> _ :> Nil)) =
+      singleMasterInterconnect'
+        -- 3 bit prefix
+        (0b000 :> 0b001 :> 0b010 :> 0b011 :> 0b100 :> Nil)
+        (unBusAddr . iBusWbM2S <$> output)
+        (bundle (pure errS2M :> bootIS2M :> pure errS2M :> loadedIS2M :> pure errS2M :> Nil))
+
+    bootIS2M = bootIMem (mapAddr @29 @32 resize <$> bootIM2S)
+    (loadedIS2M, loadedIS2MDbus) =
+      wbStorageDP
+        (Undefined :: InitialContent 4096 (Bytes 4))
+        -- port A, prioritised, instruction bus
+        (mapAddr @29 @32 resize <$> loadedIM2S)
+        -- port B, data bus
+        (mapAddr @29 @32 resize <$> loadedIM2SDbus)
+
+    -- iWb = iMem (mapAddr (\x -> x - iMemStart) . unBusAddr . iBusWbM2S <$> output)
 
     (_, dummy) = dummyWb 0x0000_0000
-    -- both dummyS2M and dMemS2M use 32 bit, but the M2S signals are 30bit
-    dummyS2M = dummy (mapAddr @30 @32 resize <$> dummyM2S)
-    dMemS2M = dMem (mapAddr @30 @32 resize <$> dMemM2S)
 
-    dSlaveS2Ms = bundle (dMemS2M :> dummyS2M :> Nil)
+    dummyS2M = dummy (mapAddr @29 @32 resize <$> dummyM2S)
+    bootDS2M = bootDMem (mapAddr @29 @32 resize <$> bootDM2S)
+    loadedDS2M = wbStorage' (Undefined :: InitialContent 4096 (Bytes 4)) (mapAddr @29 @32 resize <$> loadedDM2S)
 
-    (dS2M, unbundle -> (dMemM2S :> dummyM2S :> Nil)) =
+    (dS2M, unbundle -> (dummyM2S :> _ :> bootDM2S :> loadedIM2SDbus :> loadedDM2S :> Nil)) =
       singleMasterInterconnect'
-        -- 1 bit prefixes (31bit -> 30 bit after prefix removal)
-        (0x1 :> 0x0 :> Nil)
+        -- 3 bit prefix
+        (0b000 :> 0b001 :> 0b010 :> 0b011 :> 0b100 :> Nil)
         -- going from 0b0xyz to 0bxyz (32bit to 31 bit)
-        (mapAddr @32 @31 resize . unBusAddr <$> dM2S)
-        dSlaveS2Ms
+        (unBusAddr . dBusWbM2S <$> output)
+        ( bundle
+            (dummyS2M :> pure errS2M :> bootDS2M :> loadedIS2MDbus :> loadedDS2M :> Nil)
+        )
 
     input =
       ( \iBus dBus ->
           Input
-            { timerInterrupt = low
-            , externalInterrupt = low
-            , softwareInterrupt = low
-            , iBusWbS2M = makeDefined iBus
-            , dBusWbS2M = makeDefined dBus
+            { timerInterrupt = low,
+              externalInterrupt = low,
+              softwareInterrupt = low,
+              iBusWbS2M = makeDefined iBus,
+              dBusWbS2M = makeDefined dBus
             }
       )
-        <$> iWb
+        <$> iS2M
         <*> dS2M
 
     unBusAddr = mapAddr ((`shiftL` 2) . extend @_ @_ @2)
 
-    writes = mux
-      ( (busCycle <$> dM2S) .&&. (strobe <$> dM2S) .&&. (writeEnable <$> dM2S)
-          .&&. (acknowledge <$> dS2M) )
-      (do
-        dM2S' <- dM2S
-        pure $ Just (extend (addr dM2S') `shiftL` 2, writeData dM2S')
+    writes =
+      mux
+        ( (busCycle <$> dM2S)
+            .&&. (strobe <$> dM2S)
+            .&&. (writeEnable <$> dM2S)
+            .&&. (acknowledge <$> dS2M)
         )
-      (pure Nothing)
+        ( do
+            dM2S' <- dM2S
+            pure $ Just (extend (addr dM2S') `shiftL` 2, writeData dM2S')
+        )
+        (pure Nothing)
 
 mapAddr :: (BitVector aw1 -> BitVector aw2) -> WishboneM2S aw1 selWidth a -> WishboneM2S aw2 selWidth a
-mapAddr f wb = wb { addr = f (addr wb) }
+mapAddr f wb = wb {addr = f (addr wb)}
 
 -- | Wishbone circuit that always acknowledges every request
 --
@@ -134,36 +180,39 @@ mapAddr f wb = wb { addr = f (addr wb) }
 dummyWb :: (HiddenClockResetEnable dom) => BitVector 32 -> Memory dom
 dummyWb address = (address, \m2s -> delayControls m2s (reply <$> m2s))
   where
-    reply WishboneM2S{..} =
-      (emptyWishboneS2M @(BitVector 32)) { acknowledge = acknowledge, readData = 0 }
-     where
-      acknowledge = busCycle && strobe
+    reply WishboneM2S {..} =
+      (emptyWishboneS2M @(BitVector 32)) {acknowledge = acknowledge, readData = 0}
+      where
+        acknowledge = busCycle && strobe
 
-    -- | Delays the output controls to align them with the actual read / write timing.
+    -- \| Delays the output controls to align them with the actual read / write timing.
     delayControls ::
       (HiddenClockResetEnable dom, NFDataX a) =>
       Signal dom (WishboneM2S addressWidth selWidth a) -> -- current M2S signal
       Signal dom (WishboneS2M a) ->
       Signal dom (WishboneS2M a)
     delayControls m2s s2m0 = mux inCycle s2m1 (pure emptyWishboneS2M)
-     where
-      inCycle = (busCycle <$> m2s) .&&. (strobe <$> m2s)
+      where
+        inCycle = (busCycle <$> m2s) .&&. (strobe <$> m2s)
 
-      -- It takes a single cycle to lookup elements in a block ram. We can therfore
-      -- only process a request every other clock cycle.
-      ack = (acknowledge <$> s2m0) .&&. (not <$> delayedAck) .&&. inCycle
-      err1 = (err <$> s2m0) .&&. inCycle
-      delayedAck = register False ack
-      delayedErr1 = register False err1
-      s2m1 = (\wb newAck newErr-> wb{acknowledge = newAck, err = newErr})
-        <$> s2m0 <*> delayedAck <*> delayedErr1
+        -- It takes a single cycle to lookup elements in a block ram. We can therfore
+        -- only process a request every other clock cycle.
+        ack = (acknowledge <$> s2m0) .&&. (not <$> delayedAck) .&&. inCycle
+        err1 = (err <$> s2m0) .&&. inCycle
+        delayedAck = register False ack
+        delayedErr1 = register False err1
+        s2m1 =
+          (\wb newAck newErr -> wb {acknowledge = newAck, err = newErr})
+            <$> s2m0
+            <*> delayedAck
+            <*> delayedErr1
 
 loadProgram :: (HiddenClockResetEnable dom) => FilePath -> IO (IO (), Memory dom, Memory dom)
 loadProgram path = do
   elfBytes <- BS.readFile path
   let (entry, iMem, dMem) = readElfFromMemory elfBytes
 
-  assert (entry == 0x8000_0000) (pure ())
+  assert (entry == 0x2000_0000) (pure ())
 
   (iPath, iHandle) <- openTempFile "/tmp" "imem.blob"
 
@@ -174,25 +223,25 @@ loadProgram path = do
 
   let removeFiles = mapM_ removeFile [iPath, d0Path, d1Path, d2Path, d3Path]
 
-  let
-    -- endian swap instructions
-    iMemBS = memFile Nothing $
-        L.map (\[a, b, c, d] -> bitCoerce (d, c, b, a) :: BitVector 32) $
-        chunkFill 4 0 (content iMem)
+  let -- endian swap instructions
+      iMemBS =
+        memFile Nothing $
+          L.map (\[a, b, c, d] -> bitCoerce (d, c, b, a) :: BitVector 32) $
+            chunkFill 4 0 (content iMem)
 
-    (dL0, dL1, dL2, dL3) = split4 $ content dMem
-    dMem0BS = memFile Nothing dL0
-    dMem1BS = memFile Nothing dL1
-    dMem2BS = memFile Nothing dL2
-    dMem3BS = memFile Nothing dL3
+      (dL0, dL1, dL2, dL3) = split4 $ content dMem
+      dMem0BS = memFile Nothing dL0
+      dMem1BS = memFile Nothing dL1
+      dMem2BS = memFile Nothing dL2
+      dMem3BS = memFile Nothing dL3
 
-    iMemStart = startAddr iMem
-    dMemStart = startAddr dMem
+      iMemStart = startAddr iMem
+      dMemStart = startAddr dMem
 
-    iMemSize = I.size iMem `divRU` 4
-    dMemSize = I.size dMem `divRU` 4
+      iMemSize = I.size iMem `divRU` 4
+      dMemSize = I.size dMem `divRU` 4
 
-    dContentVec = d0Path :> d1Path :> d2Path :> d3Path :> Nil
+      dContentVec = d0Path :> d1Path :> d2Path :> d3Path :> Nil
 
   assert (dMemStart == 0x4000_0000) (pure ())
 
@@ -211,66 +260,66 @@ loadProgram path = do
   hClose d2Handle
   hClose d3Handle
 
-  let
-    instrMem = case TN.someNatVal (toEnum iMemSize) of
-      SomeNat (snatProxy -> depth) ->
-        case compareSNat depth d1 of
-          SNatLE -> error "should not happen"
-          SNatGT ->
-            let
-              initContent = helper depth $ Reloadable $ File iPath
-            in (iMemStart, wbStorage' initContent)
+  let instrMem = case TN.someNatVal (toEnum iMemSize) of
+        SomeNat (snatProxy -> depth) ->
+          case compareSNat depth d1 of
+            SNatLE -> error "should not happen"
+            SNatGT ->
+              let initContent = helper depth $ Reloadable $ File iPath
+               in (iMemStart, wbStorage' initContent)
 
-    dataMem = case TN.someNatVal (toEnum dMemSize) of
-      SomeNat (snatProxy -> depth) ->
-        case compareSNat depth d1 of
-          SNatLE -> error "should not happen"
-          SNatGT ->
-            let initContent = helper depth $ NonReloadable $ FileVec dContentVec
-            in (dMemStart, wbStorage' initContent)
-
+      dataMem = case TN.someNatVal (toEnum dMemSize) of
+        SomeNat (snatProxy -> depth) ->
+          case compareSNat depth d1 of
+            SNatLE -> error "should not happen"
+            SNatGT ->
+              let initContent = helper depth $ NonReloadable $ FileVec dContentVec
+               in (dMemStart, wbStorage' initContent)
 
   pure (removeFiles, instrMem, dataMem)
- where
+  where
+    helper ::
+      SNat depth ->
+      InitialContent depth (BitVector 32) ->
+      InitialContent depth (BitVector 32)
+    helper SNat cont = cont
 
-  helper ::
-    SNat depth ->
-    InitialContent depth (BitVector 32) ->
-    InitialContent depth (BitVector 32)
-  helper SNat cont = cont
+    startAddr :: BinaryData -> BitVector 32
+    startAddr bin = resize . bitCoerce $ fst . L.head $ I.toAscList bin
 
-  startAddr :: BinaryData -> BitVector 32
-  startAddr bin = resize . bitCoerce $ fst . L.head $ I.toAscList bin
+    content :: BinaryData -> [BitVector 8]
+    content bin = L.map snd $ I.toAscList bin
 
-  content :: BinaryData -> [BitVector 8]
-  content bin = L.map snd $ I.toAscList bin
+    split4 :: [BitVector 8] -> ([BitVector 8], [BitVector 8], [BitVector 8], [BitVector 8])
+    split4 xs = L.unzip4 $ L.map (\[a, b, c, d] -> (a, b, c, d)) $ chunkFill 4 0 xs
 
-  split4 :: [BitVector 8] -> ([BitVector 8], [BitVector 8], [BitVector 8], [BitVector 8])
-  split4 xs = L.unzip4 $ L.map (\[a, b, c, d] -> (a, b, c, d)) $ chunkFill 4 0 xs
+    chunkFill :: Int -> a -> [a] -> [[a]]
+    chunkFill _ _ [] = []
+    chunkFill n fill xs =
+      let (first0, rest) = L.splitAt n xs
+          first1 = first0 <> L.replicate (n - L.length first0) fill
+       in first1 : chunkFill n fill rest
 
-  chunkFill :: Int -> a -> [a] -> [[a]]
-  chunkFill _ _    [] = []
-  chunkFill n fill xs =
-    let (first0, rest) = L.splitAt n xs
-        first1 = first0 <> L.replicate (n - L.length first0) fill
-    in first1 : chunkFill n fill rest
-
-
-runProgramExpect
-  :: (FilePath -> IO ()) -- ^ action to copy ELF file
-  -> Int -- ^ number of cycles to simulate
-  -> BS.ByteString -- ^ expected output
-  -> Assertion
+runProgramExpect ::
+  -- | action to copy ELF file
+  (FilePath -> IO ()) ->
+  -- | number of cycles to simulate
+  Int ->
+  -- | expected output
+  BS.ByteString ->
+  Assertion
 runProgramExpect act n expected = withSystemTempFile "ELF" $ \fp _ -> do
   act fp
   (removeFiles, iMem, dMem) <- withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $ loadProgram fp
 
-  let _all@(unbundle -> (_circuit, writes, _iBus, _dBus)) = withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
-        bundle (cpu iMem dMem)
+  let _all@(unbundle -> (_circuit, writes, _iBus, _dBus)) =
+        withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
+          bundle (cpu iMem dMem)
 
-
-  let output = getPrintContents (BS.length expected) 0x2000_0000 $
-        L.map bitCoerce $ sampleN_lazy n writes
+  let output =
+        getPrintContents (BS.length expected) 0x0000_1000 $
+          L.map bitCoerce $
+            sampleN_lazy n writes
 
   output @?= expected
   removeFiles
@@ -279,7 +328,7 @@ findTests ::
   FilePath ->
   FilePath ->
   IO [(String, FilePath, FilePath)]
-  -- test name  bin path  expected-path
+-- test name  bin path  expected-path
 findTests srcDir binDir = do
   srcFiles <- listDirectory srcDir
 
@@ -289,12 +338,14 @@ findTests srcDir binDir = do
   paths <- forM (L.zip binaryPaths expectFiles) $ \(binPath, expectPath) -> do
     exists <- doesFileExist binPath
     if exists
-      then
-        pure $ Just (takeBaseName binPath, binPath, srcDir </> expectPath)
+      then pure $ Just (takeBaseName binPath, binPath, srcDir </> expectPath)
       else do
         hPutStrLn stderr $
-          "No binary file found for test program " <> takeBaseName binPath
-            <> " (expected path " <> binPath <> ")"
+          "No binary file found for test program "
+            <> takeBaseName binPath
+            <> " (expected path "
+            <> binPath
+            <> ")"
         pure Nothing
 
   pure $ catMaybes paths
@@ -304,18 +355,22 @@ sourceDir = "vex-riscv-sim/vex-test-programs/src/bin"
 releaseBinDir = "target/riscv32imc-unknown-none-elf/release"
 debugBinDir = "target/riscv32imc-unknown-none-elf/debug"
 
-
 releaseCycles, debugCycles :: Int
 releaseCycles = 1_000_000 -- 1 million cycles
 debugCycles = 1_000_000 -- 10 million cycles
 
-runTest
-  :: String -- ^ name of the test
-  -> String -- ^ mode of the test (debug / release)
-  -> Int -- ^ Cycles to simulate
-  -> FilePath -- ^ path to the binary
-  -> FilePath -- ^ path to the expected output file
-  -> TestTree
+runTest ::
+  -- | name of the test
+  String ->
+  -- | mode of the test (debug / release)
+  String ->
+  -- | Cycles to simulate
+  Int ->
+  -- | path to the binary
+  FilePath ->
+  -- | path to the expected output file
+  FilePath ->
+  TestTree
 runTest name mode n elfPath expectPath =
   testCase ("Integration test `" <> name <> "` (" <> mode <> ")") $ do
     expected <- BS.readFile expectPath
@@ -343,9 +398,11 @@ main = do
   let releaseTestCases = flip L.map releaseTests $ \(name, binPath, expectPath) ->
         runTest name "release" releaseCycles binPath expectPath
 
-  let tests = testGroup "VexRiscv Tests" [
-          testGroup "Debug builds" debugTestCases,
-          testGroup "Release builds" releaseTestCases
-        ]
+  let tests =
+        testGroup
+          "VexRiscv Tests"
+          [ testGroup "Debug builds" debugTestCases,
+            testGroup "Release builds" releaseTestCases
+          ]
 
   defaultMain tests
