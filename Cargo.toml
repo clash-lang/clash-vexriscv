@@ -13,5 +13,8 @@ opt-level = "z"
 [workspace]
 members = [
   "vex-riscv-sim/vex-test-programs",
+
+  "firmware/loaded-program",
+  "firmware/bootloader",
 ]
 resolver = "2"

@@ -30,12 +30,13 @@ import qualified GHC.TypeNats as TN
 import Protocols.Wishbone
 import System.Directory (removeFile)
 import System.Environment
-import System.IO (openTempFile)
+import System.IO (openTempFile, stdout)
 import Text.Printf
 import Utils.Print (performPrintsToStdout)
 import Utils.ReadElf
 import VexRiscv
 import Prelude as P hiding ((||))
+import Data.Char (chr)
 
 --------------------------------------
 --
@@ -54,7 +55,7 @@ data DebugConfiguration where
     -- | # of "uninteresting" cycles to skip, such as runtime setup code
     Int ->
     -- | # of "interesting" cycles to inspect
-    Int ->
+    Maybe Int ->
     -- | inspect instruct-bus interactions
     Bool ->
     -- | inspect data-bus interactions
@@ -66,16 +67,18 @@ data DebugConfiguration where
 -- change this variable to the configuration you want to use
 
 debugConfig :: DebugConfiguration
-debugConfig = RunCharacterDevice
+debugConfig =
+  -- InspectWrites
+  -- RunCharacterDevice
 
-{-
-InspectBusses
-  100
-  0
-  500
-  True
-  True
--}
+-- {-
+  InspectBusses
+    100
+    0
+    Nothing
+    True
+    True
+-- -}
 
 --------------------------------------
 
@@ -164,7 +167,7 @@ cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
     bootIS2M = bootIMem (mapAddr @29 @32 resize <$> bootIM2S)
     (loadedIS2M, loadedIS2MDbus) =
       wbStorageDP
-        (Undefined :: InitialContent 4096 (Bytes 4))
+        (Undefined :: InitialContent (512 * 1024) (Bytes 4))
         -- port A, prioritised, instruction bus
         (mapAddr @29 @32 resize <$> loadedIM2S)
         -- port B, data bus
@@ -176,13 +179,12 @@ cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
 
     dummyS2M = dummy (mapAddr @29 @32 resize <$> dummyM2S)
     bootDS2M = bootDMem (mapAddr @29 @32 resize <$> bootDM2S)
-    loadedDS2M = wbStorage' (Undefined :: InitialContent 4096 (Bytes 4)) (mapAddr @29 @32 resize <$> loadedDM2S)
+    loadedDS2M = wbStorage' (Undefined :: InitialContent (512 * 1024) (Bytes 4)) (mapAddr @29 @32 resize <$> loadedDM2S)
 
     (dS2M, unbundle -> (dummyM2S :> _ :> bootDM2S :> loadedIM2SDbus :> loadedDM2S :> Nil)) =
       singleMasterInterconnect'
         -- 3 bit prefix
         (0b000 :> 0b001 :> 0b010 :> 0b011 :> 0b100 :> Nil)
-        -- going from 0b0xyz to 0bxyz (32bit to 31 bit)
         (unBusAddr . dBusWbM2S <$> output)
         ( bundle
             (dummyS2M :> pure errS2M :> bootDS2M :> loadedIS2MDbus :> loadedDS2M :> Nil)
@@ -355,19 +357,35 @@ main = do
     withClockResetEnable @System clockGen resetGen enableGen $
       loadProgram @System elfFile
 
-  let cpuOut@(unbundle -> (_circuit, writes, _iBus, _dBus)) =
+  let cpuOut@(unbundle -> (_circuit, writes, iBus, dBus)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
           bundle (cpu iMem dMem)
 
   bracket (pure ()) (const removeFiles) $ \_ -> do
     case debugConfig of
       RunCharacterDevice ->
-        performPrintsToStdout 0x0000_1000 (sample_lazy $ bitCoerce <$> writes)
+        forM_ (sample_lazy @System (bundle (dBus, iBus, writes))) $ \(dS2M, iS2M, write) -> do
+          when (err dS2M) $
+            putStrLn "D-bus ERR reply"
+
+          when (err iS2M) $
+            putStrLn "I-bus ERR reply"
+          
+          case write of
+            Just (addr, value) | addr == 0x0000_1000 -> do
+              let (_ :: BitVector 24, b :: BitVector 8) = unpack value
+              putChar $ chr (fromEnum b)
+              hFlush stdout
+            _ -> pure ()
+        -- performPrintsToStdout 0x0000_1000 (sample_lazy $ bitCoerce <$> writes)
       InspectBusses initCycles uninteresting interesting iEnabled dEnabled -> do
-        let total = initCycles + uninteresting + interesting
+        
         let skipTotal = initCycles + uninteresting
 
-        let sampled = L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
+        let sampled = case interesting of
+              Nothing -> L.zip [0 ..] $ sample_lazy @System cpuOut
+              Just nInteresting ->
+                let total = initCycles + uninteresting + nInteresting in L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
 
         forM_ sampled $ \(i, (out, _, iBusS2M, dBusS2M)) -> do
           let doPrint = i >= skipTotal
