@@ -161,13 +161,13 @@ cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
         (bundle (pure errS2M :> bootIS2M :> pure errS2M :> loadedIS2M :> pure errS2M :> Nil))
 
     bootIS2M = bootIMem (mapAddr @29 @32 resize <$> bootIM2S)
-    (loadedIS2MDbus, loadedIS2M) =
+    (loadedIS2M, loadedIS2MDbus) =
       dualPortStorage
         (Undefined :: InitialContent (512 * 1024) (Bytes 4))
         -- port A, prioritised, instruction bus
-        (mapAddr @29 @32 resize <$> loadedIM2SDbus)
-        -- port B, data bus
         (mapAddr @29 @32 resize <$> loadedIM2S)
+        -- port B, data bus
+        (mapAddr @29 @32 resize <$> loadedIM2SDbus)
 
     (_, dummy) = dummyWb 0x0000_0000
 
@@ -351,8 +351,8 @@ dualPortStorage ::
   Signal dom (WishboneM2S addrWidth 4 (Bytes 4)) ->
   -- port B
   Signal dom (WishboneM2S addrWidth 4 (Bytes 4)) ->
-  ( Signal dom (WishboneS2M (Bytes 4))
-  , Signal dom (WishboneS2M (Bytes 4))
+  ( Signal dom (WishboneS2M (Bytes 4)) -- port A
+  , Signal dom (WishboneS2M (Bytes 4)) -- port B
   )
 dualPortStorage initContent aM2S bM2S = (aS2M, bS2M)
   where
@@ -360,14 +360,12 @@ dualPortStorage initContent aM2S bM2S = (aS2M, bS2M)
       (bundle (pure emptyWishboneS2M, ramOut))
       (bundle (ramOut, pure emptyWishboneS2M))
 
-    bSelected = (\f -> f <$> aM2S <*> bM2S) $ \a b ->
-      if
-        | not (busCycle a) && not (strobe a) && busCycle b && strobe b -> True
-        | busCycle a && strobe a && busCycle b && strobe b -> errorX "both port A and B are active, which is not supported"
-        | otherwise -> False 
+    active m2s = busCycle m2s && strobe m2s
+
+    -- when ONLY B is active, use B, otherwise prioritize A
+    bSelected = (not . active <$> aM2S) .&&. (active <$> bM2S)
 
     cM2S = mux bSelected bM2S aM2S
-
     ramOut = wbStorage' initContent cM2S
 
 main :: IO ()
