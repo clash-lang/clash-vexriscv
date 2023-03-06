@@ -18,9 +18,11 @@ fn main() -> ! {
         bittide_sys::character_device::initialise(0x0000_1000 as *mut u8);
     }
 
-    println!("hello, world.");
+    println!("hello, world from the payload program.");
 
     loop {
-        continue;
+        for i in 0..100 {
+            println!("Doing some work.... {i}");
+        }
     }
 }

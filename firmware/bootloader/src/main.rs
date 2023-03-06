@@ -25,8 +25,6 @@ fn main() -> ! {
         bittide_sys::character_device::initialise(0x0000_1000 as *mut u8);
     }
 
-    println!("hello, world.");
-
     println!("The payload is {} bytes large.", PAYLOAD.len());
 
     println!("Reading ELF");
@@ -79,23 +77,33 @@ fn main() -> ! {
 
         print!("  Loading data into address...");
 
-        for (i, &b) in seg_data.iter().enumerate() {
-            unsafe {
-                core::ptr::write_volatile((seg.p_paddr as usize + i) as *mut u8, b);
-            }
-            print!(".");
+        unsafe {
+            core::ptr::copy_nonoverlapping(
+                seg_data.as_ptr(),
+                seg.p_paddr as *mut u8,
+                seg_data.len(),
+            );
         }
 
         println!("done!");
 
         if padding_len > 0 {
             print!("  Writing any needed padding...");
-            for i in 0..padding_len {
-                unsafe {
-                    core::ptr::write_volatile((padding_addr + i) as *mut u8, 0);
-                }
+            unsafe {
+                core::ptr::write_bytes(padding_addr as *mut u8, 0, padding_len);
             }
+
             println!("done!");
+        }
+    }
+
+    println!("Jumping to 0x6000_0000");
+    println!("----------------------");
+
+    unsafe {
+        core::arch::asm! {
+            "li t0, 0x60000000",
+            "jr t0"
         }
     }
 

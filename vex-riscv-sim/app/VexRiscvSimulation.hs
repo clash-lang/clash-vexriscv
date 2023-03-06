@@ -2,16 +2,12 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
--- SPDX-FileCopyrightText: 2022 Google LLC
---
--- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
 
-import Bittide.DoubleBufferedRam (ContentType (..), InitialContent (..), wbStorage', wbStorageDP)
+import Bittide.DoubleBufferedRam (ContentType (..), InitialContent (..), wbStorage')
 import Bittide.SharedTypes hiding (delayControls)
 import Bittide.Wishbone (singleMasterInterconnect')
 import Clash.Explicit.BlockRam.File (memFile)
@@ -32,7 +28,6 @@ import System.Directory (removeFile)
 import System.Environment
 import System.IO (openTempFile, stdout)
 import Text.Printf
-import Utils.Print (performPrintsToStdout)
 import Utils.ReadElf
 import VexRiscv
 import Prelude as P hiding ((||))
@@ -69,9 +64,10 @@ data DebugConfiguration where
 debugConfig :: DebugConfiguration
 debugConfig =
   -- InspectWrites
-  -- RunCharacterDevice
+  RunCharacterDevice
 
--- {-
+--
+{-
   InspectBusses
     100
     0
@@ -165,15 +161,13 @@ cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
         (bundle (pure errS2M :> bootIS2M :> pure errS2M :> loadedIS2M :> pure errS2M :> Nil))
 
     bootIS2M = bootIMem (mapAddr @29 @32 resize <$> bootIM2S)
-    (loadedIS2M, loadedIS2MDbus) =
-      wbStorageDP
+    (loadedIS2MDbus, loadedIS2M) =
+      dualPortStorage
         (Undefined :: InitialContent (512 * 1024) (Bytes 4))
         -- port A, prioritised, instruction bus
-        (mapAddr @29 @32 resize <$> loadedIM2S)
-        -- port B, data bus
         (mapAddr @29 @32 resize <$> loadedIM2SDbus)
-
-    -- iWb = iMem (mapAddr (\x -> x - iMemStart) . unBusAddr . iBusWbM2S <$> output)
+        -- port B, data bus
+        (mapAddr @29 @32 resize <$> loadedIM2S)
 
     (_, dummy) = dummyWb 0x0000_0000
 
@@ -349,6 +343,33 @@ loadProgram path = do
           first1 = first0 <> L.replicate (n - L.length first0) fill
        in first1 : chunkFill n fill rest
 
+dualPortStorage ::
+  forall dom n addrWidth .
+  (HiddenClockResetEnable dom, KnownNat n, KnownNat addrWidth, 1 <= n, 2 <= addrWidth) =>
+  InitialContent n (Bytes 4) ->
+  -- port A
+  Signal dom (WishboneM2S addrWidth 4 (Bytes 4)) ->
+  -- port B
+  Signal dom (WishboneM2S addrWidth 4 (Bytes 4)) ->
+  ( Signal dom (WishboneS2M (Bytes 4))
+  , Signal dom (WishboneS2M (Bytes 4))
+  )
+dualPortStorage initContent aM2S bM2S = (aS2M, bS2M)
+  where
+    (unbundle -> (aS2M, bS2M)) = mux bSelected
+      (bundle (pure emptyWishboneS2M, ramOut))
+      (bundle (ramOut, pure emptyWishboneS2M))
+
+    bSelected = (\f -> f <$> aM2S <*> bM2S) $ \a b ->
+      if
+        | not (busCycle a) && not (strobe a) && busCycle b && strobe b -> True
+        | busCycle a && strobe a && busCycle b && strobe b -> errorX "both port A and B are active, which is not supported"
+        | otherwise -> False 
+
+    cM2S = mux bSelected bM2S aM2S
+
+    ramOut = wbStorage' initContent cM2S
+
 main :: IO ()
 main = do
   elfFile <- L.head <$> getArgs
@@ -393,9 +414,12 @@ main = do
           -- I-bus interactions
 
           when (doPrint && iEnabled) $ do
-            let iBus = iBusWbM2S out
-            let iAddr = toInteger (addr iBus) -- `shiftL` 2
-            let iValid = busCycle iBus && strobe iBus
+            let iBusM2S = iBusWbM2S out
+            let iAddr = toInteger (addr iBusM2S) -- `shiftL` 2
+
+            let cyc = if busCycle iBusM2S then "CYC" else "   "
+            let stb = if strobe iBusM2S then "STB" else "   "
+
             let iResp =
                   if
                       | acknowledge iBusS2M -> "ACK  "
@@ -410,10 +434,10 @@ main = do
 
             putStr $
               "iM2S:   ("
-                <> (if not iValid then "!" else " ")
-                <> "V) "
+                <> (cyc <> " " <> stb)
+                <> ") "
                 <> "("
-                <> showX (busSelect iBus)
+                <> showX (busSelect iBusM2S)
                 <> ") "
                 <> printf "% 8X" iAddr
                 <> " ("
@@ -424,10 +448,13 @@ main = do
           -- D-bus interactions
 
           when (doPrint && dEnabled) $ do
-            let dBus = dBusWbM2S out
-            let dAddr = toInteger (addr dBus) -- `shiftL` 2
-            let dWrite = writeEnable dBus
-            let dValid = busCycle dBus && strobe dBus
+            let dBusM2S = dBusWbM2S out
+            let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
+            let dWrite = writeEnable dBusM2S
+            let cyc = if busCycle dBusM2S then "CYC" else "   "
+            let stb = if strobe dBusM2S then "STB" else "   "
+            let dValid = busCycle dBusM2S && strobe dBusM2S
+            let dActive = busCycle dBusM2S
 
             let mode = if dWrite then "W" else "R"
 
@@ -439,24 +466,25 @@ main = do
                       | otherwise -> "NONE "
 
             let dRespData
-                  | acknowledge dBusS2M = printf " - % 8X" (toInteger $ readData dBusS2M)
+                  | acknowledge dBusS2M && hasUndefined (readData dBusS2M) && not dWrite = printf " - undefined!!"
+                  | acknowledge dBusS2M && not dWrite = printf " - % 8X" (toInteger $ readData dBusS2M)
                   | not dWrite = " - <no data>"
                   | otherwise = ""
 
             let writeDat =
                   if dValid && dWrite
-                    then printf "% 8X" (toInteger $ writeData dBus)
+                    then printf "% 8X" (toInteger $ writeData dBusM2S)
                     else " no data"
 
-            when (dValid || hasTerminateFlag dBusS2M) $ do
+            when (dActive || hasTerminateFlag dBusS2M) $ do
               putStr $
                 "dM2S: "
                   <> mode
                   <> " ("
-                  <> (if not dValid then "!" else " ")
-                  <> "V) "
+                  <> (cyc <> " " <> stb)
+                  <> ") "
                   <> "("
-                  <> showX (busSelect dBus)
+                  <> showX (busSelect dBusM2S)
                   <> ") "
                   <> printf "% 8X" dAddr
                   <> " ("
