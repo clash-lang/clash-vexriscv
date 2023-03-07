@@ -12,6 +12,8 @@ opt-level = "z"
 
 [workspace]
 members = [
+  "bittide-sys",
+
   "vex-riscv-sim/vex-test-programs",
 
   "firmware/loaded-program",

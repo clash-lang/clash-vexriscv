@@ -7,17 +7,13 @@
 
 use core::fmt::Write;
 
-use elf::{abi, endian::AnyEndian, ElfBytes};
 #[cfg(not(test))]
 use riscv_rt::entry;
 
-use bittide_sys::{print, println};
+use bittide_sys::{elf_loading::validation::ElfConfig, print, println};
 
 static PAYLOAD: &[u8] =
     include_bytes!("../../../target/riscv32imc-unknown-none-elf/release/loaded-program");
-
-const PAYLOAD_INSTR_ADDR: usize = 0x6000_0000;
-const PAYLOAD_DATA_ADDR: usize = 0x8000_0000;
 
 #[cfg_attr(not(test), entry)]
 fn main() -> ! {
@@ -27,83 +23,38 @@ fn main() -> ! {
 
     println!("The payload is {} bytes large.", PAYLOAD.len());
 
-    println!("Reading ELF");
+    let config = ElfConfig {
+        instruction_memory_address: 0x6000_0000..(0x6000_0000 + (64 * 1024)),
+        data_memory_address: 0x8000_0000..(0x8000_0000 + (16 * 1024)),
+    };
 
-    let file = ElfBytes::<AnyEndian>::minimal_parse(PAYLOAD).expect("Payload ELF is not valid");
+    print!("Validating ELF...");
 
-    println!("Done reading ELF");
-
-    let segs = file.segments().expect("ELF has no segments");
-
-    println!("Done reading segs");
-
-    for seg in segs {
-        if seg.p_type != abi::PT_LOAD {
-            // doesn't need loading, skip.
-            continue;
+    let elf = match bittide_sys::elf_loading::validation::validate_elf_file(PAYLOAD, &config) {
+        Ok(elf) => elf,
+        Err(err) => {
+            panic!("Error when validating ELF file! {err:?}")
         }
+    };
+    println!("done!");
 
-        if seg.p_paddr as usize == PAYLOAD_INSTR_ADDR {
-            if (seg.p_flags & abi::PF_X) == 0 {
-                panic!(
-                    "Segment at instruction memory address is not marked as executable: {:X?}",
-                    seg.p_flags
-                );
-            }
-        }
+    print!("Loading ELF into memory...");
 
-        if seg.p_paddr as usize == PAYLOAD_DATA_ADDR {
-            if (seg.p_flags & abi::PF_R) == 0 {
-                panic!(
-                    "Segment at data memory address is not marked as readable: {:X?}",
-                    seg.p_flags
-                );
-            }
-        }
-
-        let seg_data = file
-            .segment_data(&seg)
-            .expect("Could not read segment data");
-
-        let padding_addr = seg.p_paddr as usize + seg_data.len();
-        let padding_len = seg.p_memsz as usize - seg_data.len();
-
-        println!("Segment found!");
-        println!("  Load at   {:X?}", seg.p_paddr);
-        println!("  File-size {:X?}", seg_data.len());
-        println!("  Mem-Size  {:X?}", seg.p_memsz);
-        println!("  Padding   {padding_len:X?}");
-        println!();
-
-        print!("  Loading data into address...");
-
-        unsafe {
-            core::ptr::copy_nonoverlapping(
-                seg_data.as_ptr(),
-                seg.p_paddr as *mut u8,
-                seg_data.len(),
-            );
-        }
-
-        println!("done!");
-
-        if padding_len > 0 {
-            print!("  Writing any needed padding...");
-            unsafe {
-                core::ptr::write_bytes(padding_addr as *mut u8, 0, padding_len);
-            }
-
-            println!("done!");
-        }
+    unsafe {
+        bittide_sys::elf_loading::load_elf_file(&elf);
     }
 
-    println!("Jumping to 0x6000_0000");
+    println!("done!");
+
+    println!("Jumping to entry point");
     println!("----------------------");
+
+    let entry_point = elf.entry_point();
 
     unsafe {
         core::arch::asm! {
-            "li t0, 0x60000000",
-            "jr t0"
+            "jr {0}",
+            in(reg) entry_point,
         }
     }
 
