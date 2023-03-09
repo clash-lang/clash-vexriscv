@@ -22,7 +22,7 @@ fn main() -> ! {
         ADDR.write_volatile(b'\n');
     }
 
-    for i in 0..100u64 {
+    for i in 0..52u64 {
         unsafe {
             ADDR.write_volatile(b'a' + (i % 26) as u8);
         }

@@ -224,10 +224,10 @@ loadProgram path = do
   let removeFiles = mapM_ removeFile [iPath, d0Path, d1Path, d2Path, d3Path]
 
   let -- endian swap instructions
-      iMemBS =
-        memFile Nothing $
-          L.map (\[a, b, c, d] -> bitCoerce (d, c, b, a) :: BitVector 32) $
-            chunkFill 4 0 (content iMem)
+      iMemContents =
+        L.map (\[a, b, c, d] -> bitCoerce (d, c, b, a) :: BitVector 32) $
+            chunkFill 4 0 (content iMem <> [0, 0, 0, 0, 0, 0, 0, 0])
+      iMemBS = memFile Nothing iMemContents
 
       (dL0, dL1, dL2, dL3) = split4 $ content dMem
       dMem0BS = memFile Nothing dL0
@@ -238,7 +238,7 @@ loadProgram path = do
       iMemStart = startAddr iMem
       dMemStart = startAddr dMem
 
-      iMemSize = I.size iMem `divRU` 4
+      iMemSize = L.length iMemContents
       dMemSize = I.size dMem `divRU` 4
 
       dContentVec = d0Path :> d1Path :> d2Path :> d3Path :> Nil

@@ -13,7 +13,7 @@ use riscv_rt::entry;
 use bittide_sys::{elf_loading::validation::ElfConfig, print, println};
 
 static PAYLOAD: &[u8] =
-    include_bytes!("../../../target/riscv32imc-unknown-none-elf/release/loaded-program");
+    include_bytes!("../../../target/riscv32imc-unknown-none-elf/release/payload-program");
 
 #[cfg_attr(not(test), entry)]
 fn main() -> ! {

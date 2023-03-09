@@ -16,7 +16,7 @@ members = [
 
   "vex-riscv-sim/vex-test-programs",
 
-  "firmware/loaded-program",
+  "firmware/payload-program",
   "firmware/bootloader",
 ]
 resolver = "2"
