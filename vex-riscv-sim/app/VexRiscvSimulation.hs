@@ -7,13 +7,11 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
 
-import Bittide.DoubleBufferedRam (ContentType (..), InitialContent (..), wbStorage')
+import Bittide.DoubleBufferedRam (InitialContent (..), wbStorage')
 import Bittide.SharedTypes hiding (delayControls)
 import Bittide.Wishbone (singleMasterInterconnect')
-import Clash.Explicit.BlockRam.File (memFile)
 import Clash.Prelude hiding (not, (&&))
 import Clash.Signal.Internal (Signal ((:-)))
-import Control.Exception (bracket)
 import Control.Monad
 import qualified Data.ByteString as BS
 import qualified Data.IntMap as I
@@ -22,16 +20,15 @@ import Data.Maybe (catMaybes)
 import GHC.Base (assert)
 import GHC.IO.Handle
 import GHC.Stack (HasCallStack)
-import qualified GHC.TypeNats as TN
 import Protocols.Wishbone
-import System.Directory (removeFile)
 import System.Environment
-import System.IO (openTempFile, stdout)
+import System.IO (stdout)
 import Text.Printf
 import Utils.ReadElf
 import VexRiscv
 import Prelude as P hiding ((||))
 import Data.Char (chr)
+import Utils.Storage (storage)
 
 --------------------------------------
 --
@@ -69,9 +66,9 @@ debugConfig =
 --
 {-
   InspectBusses
-    200
+    500
     0
-    (Just 200)
+    (Just 150)
     True
     True
 -- -}
@@ -89,8 +86,7 @@ emptyInput =
     }
 
 type Memory dom =
-  ( BitVector 32,
-    Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
+  ( Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
     Signal dom (WishboneS2M (BitVector 32))
   )
 
@@ -146,7 +142,7 @@ cpu ::
     -- dBus responses
     Signal dom (WishboneS2M (BitVector 32))
   )
-cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
+cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
     output = vexRiscv (emptyInput :- input)
     dM2S = dBusWbM2S <$> output
@@ -169,7 +165,7 @@ cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
         -- port B, data bus
         (mapAddr @29 @32 resize <$> loadedIM2SDbus)
 
-    (_, dummy) = dummyWb 0x0000_0000
+    dummy = dummyWb
 
     dummyS2M = dummy (mapAddr @29 @32 resize <$> dummyM2S)
     bootDS2M = bootDMem (mapAddr @29 @32 resize <$> bootDM2S)
@@ -220,8 +216,8 @@ mapAddr f wb = wb {addr = f (addr wb)}
 -- Used for the character device. The character device address gets mapped to this
 -- component because if it were to be routed to the data memory (where this address is
 -- not in the valid space) it would return ERR and would halt execution.
-dummyWb :: (HiddenClockResetEnable dom) => BitVector 32 -> Memory dom
-dummyWb address = (address, \m2s -> delayControls m2s (reply <$> m2s))
+dummyWb :: (HiddenClockResetEnable dom) => Memory dom
+dummyWb m2s' = delayControls m2s' (reply <$> m2s')
   where
     reply WishboneM2S {..} =
       (emptyWishboneS2M @(BitVector 32)) {acknowledge = acknowledge, readData = 0}
@@ -250,91 +246,32 @@ dummyWb address = (address, \m2s -> delayControls m2s (reply <$> m2s))
             <*> delayedAck
             <*> delayedErr1
 
-loadProgram :: (HiddenClockResetEnable dom) => FilePath -> IO (IO (), Memory dom, Memory dom)
+loadProgram :: (HiddenClockResetEnable dom) => FilePath -> IO (Memory dom, Memory dom)
 loadProgram path = do
   elfBytes <- BS.readFile path
   let (entry, iMem, dMem) = readElfFromMemory elfBytes
 
   assert (entry == 0x2000_0000) (pure ())
 
-  (iPath, iHandle) <- openTempFile "/tmp" "imem.blob"
+  let
+      endianSwap dat =
+        L.concatMap (\[a, b, c, d] -> [d, c, b, a]) $
+        chunkFill 4 0 dat
 
-  (d0Path, d0Handle) <- openTempFile "/tmp" "dmem.0.blob"
-  (d1Path, d1Handle) <- openTempFile "/tmp" "dmem.1.blob"
-  (d2Path, d2Handle) <- openTempFile "/tmp" "dmem.2.blob"
-  (d3Path, d3Handle) <- openTempFile "/tmp" "dmem.3.blob"
+      -- endian swap instructions
+      iMemContents = endianSwap $
+        content iMem <> [0, 0, 0, 0, 0, 0, 0, 0]
+      dMemContents = endianSwap $
+        content dMem <> [0, 0, 0, 0, 0, 0, 0, 0]
 
-  let removeFiles = mapM_ removeFile [iPath, d0Path, d1Path, d2Path, d3Path]
 
-  let -- endian swap instructions
-      iMemContents =
-        L.map (\[a, b, c, d] -> bitCoerce (d, c, b, a) :: BitVector 32) $
-            chunkFill 4 0 (content iMem <> [0, 0, 0, 0, 0, 0, 0, 0])
-      iMemBS = memFile Nothing iMemContents
+  let instrMem = storage iMemContents
+      dataMem = storage dMemContents
 
-      (dL0, dL1, dL2, dL3) = split4 $ content dMem
-      dMem0BS = memFile Nothing dL0
-      dMem1BS = memFile Nothing dL1
-      dMem2BS = memFile Nothing dL2
-      dMem3BS = memFile Nothing dL3
-
-      iMemStart = startAddr iMem
-      dMemStart = startAddr dMem
-
-      iMemSize = L.length iMemContents
-      dMemSize = I.size dMem `divRU` 4
-
-      dContentVec = d0Path :> d1Path :> d2Path :> d3Path :> Nil
-
-  assert (dMemStart == 0x4000_0000) (pure ())
-
-  -- write data to files
-  hPutStr iHandle iMemBS
-  -- endian swap data
-  hPutStr d0Handle dMem3BS
-  hPutStr d1Handle dMem2BS
-  hPutStr d2Handle dMem1BS
-  hPutStr d3Handle dMem0BS
-
-  -- close files
-  hClose iHandle
-  hClose d0Handle
-  hClose d1Handle
-  hClose d2Handle
-  hClose d3Handle
-
-  let instrMem = case TN.someNatVal (toEnum iMemSize) of
-        SomeNat (snatProxy -> depth) ->
-          case compareSNat depth d1 of
-            SNatLE -> error "should not happen"
-            SNatGT ->
-              let initContent = helper depth $ Reloadable $ File iPath
-               in (iMemStart, wbStorage' initContent)
-
-      dataMem = case TN.someNatVal (toEnum dMemSize) of
-        SomeNat (snatProxy -> depth) ->
-          case compareSNat depth d1 of
-            SNatLE -> error "should not happen"
-            SNatGT ->
-              let initContent = helper depth $ NonReloadable $ FileVec dContentVec
-               in (dMemStart, wbStorage' initContent)
-
-  pure (removeFiles, instrMem, dataMem)
+  pure (instrMem, dataMem)
   where
-    helper ::
-      SNat depth ->
-      InitialContent depth (BitVector 32) ->
-      InitialContent depth (BitVector 32)
-    helper SNat cont = cont
-
-    startAddr :: BinaryData -> BitVector 32
-    startAddr bin = resize . bitCoerce $ fst . L.head $ I.toAscList bin
-
     content :: BinaryData -> [BitVector 8]
     content bin = L.map snd $ I.toAscList bin
-
-    split4 :: [BitVector 8] -> ([BitVector 8], [BitVector 8], [BitVector 8], [BitVector 8])
-    split4 xs = L.unzip4 $ L.map (\[a, b, c, d] -> (a, b, c, d)) $ chunkFill 4 0 xs
 
     chunkFill :: Int -> a -> [a] -> [[a]]
     chunkFill _ _ [] = []
@@ -372,7 +309,7 @@ main :: IO ()
 main = do
   elfFile <- L.head <$> getArgs
 
-  (removeFiles, iMem, dMem) <-
+  (iMem, dMem) <-
     withClockResetEnable @System clockGen resetGen enableGen $
       loadProgram @System elfFile
 
@@ -380,118 +317,117 @@ main = do
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
           bundle (cpu iMem dMem)
 
-  bracket (pure ()) (const removeFiles) $ \_ -> do
-    case debugConfig of
-      RunCharacterDevice ->
-        forM_ (sample_lazy @System (bundle (dBus, iBus, writes))) $ \(dS2M, iS2M, write) -> do
-          when (err dS2M) $
-            putStrLn "D-bus ERR reply"
+  case debugConfig of
+    RunCharacterDevice ->
+      forM_ (sample_lazy @System (bundle (dBus, iBus, writes))) $ \(dS2M, iS2M, write) -> do
+        when (err dS2M) $
+          putStrLn "D-bus ERR reply"
 
-          when (err iS2M) $
-            putStrLn "I-bus ERR reply"
-          
-          case write of
-            Just (addr, value) | addr == 0x0000_1000 -> do
-              let (_ :: BitVector 24, b :: BitVector 8) = unpack value
-              putChar $ chr (fromEnum b)
-              hFlush stdout
-            _ -> pure ()
-        -- performPrintsToStdout 0x0000_1000 (sample_lazy $ bitCoerce <$> writes)
-      InspectBusses initCycles uninteresting interesting iEnabled dEnabled -> do
+        when (err iS2M) $
+          putStrLn "I-bus ERR reply"
         
-        let skipTotal = initCycles + uninteresting
+        case write of
+          Just (addr, value) | addr == 0x0000_1000 -> do
+            let (_ :: BitVector 24, b :: BitVector 8) = unpack value
+            putChar $ chr (fromEnum b)
+            hFlush stdout
+          _ -> pure ()
+      -- performPrintsToStdout 0x0000_1000 (sample_lazy $ bitCoerce <$> writes)
+    InspectBusses initCycles uninteresting interesting iEnabled dEnabled -> do
+      
+      let skipTotal = initCycles + uninteresting
 
-        let sampled = case interesting of
-              Nothing -> L.zip [0 ..] $ sample_lazy @System cpuOut
-              Just nInteresting ->
-                let total = initCycles + uninteresting + nInteresting in L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
+      let sampled = case interesting of
+            Nothing -> L.zip [0 ..] $ sample_lazy @System cpuOut
+            Just nInteresting ->
+              let total = initCycles + uninteresting + nInteresting in L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
 
-        forM_ sampled $ \(i, (out, _, iBusS2M, dBusS2M)) -> do
-          let doPrint = i >= skipTotal
+      forM_ sampled $ \(i, (out, _, iBusS2M, dBusS2M)) -> do
+        let doPrint = i >= skipTotal
 
-          -- I-bus interactions
+        -- I-bus interactions
 
-          when (doPrint && iEnabled) $ do
-            let iBusM2S = iBusWbM2S out
-            let iAddr = toInteger (addr iBusM2S) -- `shiftL` 2
+        when (doPrint && iEnabled) $ do
+          let iBusM2S = iBusWbM2S out
+          let iAddr = toInteger (addr iBusM2S) -- `shiftL` 2
 
-            let cyc = if busCycle iBusM2S then "CYC" else "   "
-            let stb = if strobe iBusM2S then "STB" else "   "
+          let cyc = if busCycle iBusM2S then "CYC" else "   "
+          let stb = if strobe iBusM2S then "STB" else "   "
 
-            let iResp =
-                  if
-                      | acknowledge iBusS2M -> "ACK  "
-                      | err iBusS2M -> "ERR  "
-                      | retry iBusS2M -> "RETRY"
-                      | otherwise -> "NONE "
+          let iResp =
+                if
+                    | acknowledge iBusS2M -> "ACK  "
+                    | err iBusS2M -> "ERR  "
+                    | retry iBusS2M -> "RETRY"
+                    | otherwise -> "NONE "
 
-            let iRespData =
-                  if acknowledge iBusS2M
-                    then printf "% 8X" (toInteger $ readData iBusS2M)
-                    else "<no data>"
+          let iRespData =
+                if acknowledge iBusS2M
+                  then printf "% 8X" (toInteger $ readData iBusS2M)
+                  else "<no data>"
 
+          putStr $
+            "iM2S:   ("
+              <> (cyc <> " " <> stb)
+              <> ") "
+              <> "("
+              <> showX (busSelect iBusM2S)
+              <> ") "
+              <> printf "% 8X" iAddr
+              <> " ("
+              <> printf "%X" (iAddr `shiftL` 2)
+              <> ")"
+          putStrLn $ "            - iS2M: " <> iResp <> " - " <> iRespData
+
+        -- D-bus interactions
+
+        when (doPrint && dEnabled) $ do
+          let dBusM2S = dBusWbM2S out
+          let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
+          let dWrite = writeEnable dBusM2S
+          let cyc = if busCycle dBusM2S then "CYC" else "   "
+          let stb = if strobe dBusM2S then "STB" else "   "
+          let dValid = busCycle dBusM2S && strobe dBusM2S
+          let dActive = busCycle dBusM2S
+
+          let mode = if dWrite then "W" else "R"
+
+          let dResp =
+                if
+                    | acknowledge dBusS2M -> "ACK  "
+                    | err dBusS2M -> "ERR  "
+                    | retry dBusS2M -> "RETRY"
+                    | otherwise -> "NONE "
+
+          let dRespData
+                | acknowledge dBusS2M && hasUndefined (readData dBusS2M) && not dWrite = printf " - undefined!!"
+                | acknowledge dBusS2M && not dWrite = printf " - % 8X" (toInteger $ readData dBusS2M)
+                | not dWrite = " - <no data>"
+                | otherwise = ""
+
+          let writeDat =
+                if dValid && dWrite
+                  then printf "% 8X" (toInteger $ writeData dBusM2S)
+                  else " no data"
+
+          when (dActive || hasTerminateFlag dBusS2M) $ do
             putStr $
-              "iM2S:   ("
+              "dM2S: "
+                <> mode
+                <> " ("
                 <> (cyc <> " " <> stb)
                 <> ") "
                 <> "("
-                <> showX (busSelect iBusM2S)
+                <> showX (busSelect dBusM2S)
                 <> ") "
-                <> printf "% 8X" iAddr
+                <> printf "% 8X" dAddr
                 <> " ("
-                <> printf "%X" (iAddr `shiftL` 2)
-                <> ")"
-            putStrLn $ "            - iS2M: " <> iResp <> " - " <> iRespData
-
-          -- D-bus interactions
-
-          when (doPrint && dEnabled) $ do
-            let dBusM2S = dBusWbM2S out
-            let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
-            let dWrite = writeEnable dBusM2S
-            let cyc = if busCycle dBusM2S then "CYC" else "   "
-            let stb = if strobe dBusM2S then "STB" else "   "
-            let dValid = busCycle dBusM2S && strobe dBusM2S
-            let dActive = busCycle dBusM2S
-
-            let mode = if dWrite then "W" else "R"
-
-            let dResp =
-                  if
-                      | acknowledge dBusS2M -> "ACK  "
-                      | err dBusS2M -> "ERR  "
-                      | retry dBusS2M -> "RETRY"
-                      | otherwise -> "NONE "
-
-            let dRespData
-                  | acknowledge dBusS2M && hasUndefined (readData dBusS2M) && not dWrite = printf " - undefined!!"
-                  | acknowledge dBusS2M && not dWrite = printf " - % 8X" (toInteger $ readData dBusS2M)
-                  | not dWrite = " - <no data>"
-                  | otherwise = ""
-
-            let writeDat =
-                  if dValid && dWrite
-                    then printf "% 8X" (toInteger $ writeData dBusM2S)
-                    else " no data"
-
-            when (dActive || hasTerminateFlag dBusS2M) $ do
-              putStr $
-                "dM2S: "
-                  <> mode
-                  <> " ("
-                  <> (cyc <> " " <> stb)
-                  <> ") "
-                  <> "("
-                  <> showX (busSelect dBusM2S)
-                  <> ") "
-                  <> printf "% 8X" dAddr
-                  <> " ("
-                  <> printf "% 8X" (dAddr `shiftL` 2)
-                  <> ") "
-                  <> "<"
-                  <> writeDat
-                  <> "> - "
-              putStrLn $ "dS2M: " <> dResp <> dRespData
-      InspectWrites ->
-        forM_ (catMaybes $ sample_lazy @System writes) $ \(addr, value) -> do
-          printf "W: % 8X <- % 8X\n" (toInteger addr) (toInteger value)
+                <> printf "% 8X" (dAddr `shiftL` 2)
+                <> ") "
+                <> "<"
+                <> writeDat
+                <> "> - "
+            putStrLn $ "dS2M: " <> dResp <> dRespData
+    InspectWrites ->
+      forM_ (catMaybes $ sample_lazy @System writes) $ \(addr, value) -> do
+        printf "W: % 8X <- % 8X\n" (toInteger addr) (toInteger value)
