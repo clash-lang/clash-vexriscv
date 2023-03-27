@@ -12,11 +12,6 @@ opt-level = "z"
 
 [workspace]
 members = [
-  "bittide-sys",
-
   "vex-riscv-sim/vex-test-programs",
-
-  "firmware/payload-program",
-  "firmware/bootloader",
 ]
 resolver = "2"

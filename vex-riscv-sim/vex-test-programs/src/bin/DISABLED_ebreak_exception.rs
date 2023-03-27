@@ -6,27 +6,32 @@
 #![cfg_attr(not(test), no_main)]
 #![allow(non_snake_case)]
 
-use core::fmt::Write;
+#[cfg(not(test))]
+extern crate panic_halt;
 
 #[cfg(not(test))]
 use riscv_rt::entry;
 
-use bittide_sys::println;
+const ADDR: *mut u8 = 0x0000_1000 as *mut u8;
+
+fn print(s: &str) {
+    for b in s.bytes() {
+        unsafe {
+            ADDR.write_volatile(b);
+        }
+    }
+}
 
 #[cfg_attr(not(test), entry)]
 fn main() -> ! {
-    unsafe {
-        bittide_sys::character_device::initialise(0x0000_1000 as *mut u8);
-    }
-
-    println!("Executing `ebreak` instruction...");
+    print("Executing `ebreak` instruction...\n");
 
     /*
     unsafe {
         riscv::asm::ebreak();
     }
 
-    println!("This should never be reached");
+    print("This should never be reached\n");
 
     */
     loop {
@@ -37,7 +42,7 @@ fn main() -> ! {
 #[export_name = "ExceptionHandler"]
 fn exception_handler(_trap_frame: &riscv_rt::TrapFrame) -> ! {
     riscv::interrupt::free(|| {
-        println!("... caught an exception. Looping forever now.");
+        print("... caught an exception. Looping forever now.\n");
     });
     loop {
         continue;

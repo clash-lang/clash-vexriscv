@@ -10,21 +10,39 @@ use core::fmt::Write;
 #[cfg(not(test))]
 use riscv_rt::entry;
 
-use bittide_sys::println;
+#[cfg(not(test))]
+extern crate panic_halt;
+
+const ADDR: *mut u8 = 0x0000_1000 as *mut u8;
+
+fn print(s: &str) {
+    for b in s.bytes() {
+        unsafe {
+            ADDR.write_volatile(b);
+        }
+    }
+}
+
+struct PrintAddr;
+
+impl core::fmt::Write for PrintAddr {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        print(s);
+        Ok(())
+    }
+}
 
 #[cfg_attr(not(test), entry)]
 fn main() -> ! {
-    unsafe {
-        bittide_sys::character_device::initialise(0x0000_1000 as *mut u8);
-    }
+    let mut addr = PrintAddr;
 
-    println!("This test serves as a regression test.");
-    println!("The regression this tests for is that a lone `format_args!()`");
-    println!("to display a numeric value does in fact cause the value to print.");
-    println!();
+    print("This test serves as a regression test.\n");
+    print("The regression this tests for is that a lone `format_args!()`\n");
+    print("to display a numeric value does in fact cause the value to print.\n");
+    print("\n");
 
     for i in 0..10 {
-        println!("{i}");
+        let _ = writeln!(addr, "{i}");
     }
 
     loop {

@@ -37,12 +37,6 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Build payload release binary
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target riscv32imc-unknown-none-elf --package payload-program
-
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -68,12 +62,6 @@ jobs:
           profile: minimal
           target: riscv32imc-unknown-none-elf
           components: clippy, rustfmt
-
-      - name: Build payload release binary
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target riscv32imc-unknown-none-elf --package payload-program
 
       - name: Build release binaries
         uses: actions-rs/cargo@v1
