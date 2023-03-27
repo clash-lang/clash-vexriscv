@@ -319,7 +319,7 @@ vexRiscv# !_clk rst0
       wire ~GENSYM[iBus_CYC][#{iBus_CYC}];
       wire ~GENSYM[iBus_STB][#{iBus_STB}];
       wire ~GENSYM[iBus_WE][#{iBus_WE}];
-      wire [31:0] ~GENSYM[iBus_ADR][#{iBus_ADR}];
+      wire [29:0] ~GENSYM[iBus_ADR][#{iBus_ADR}];
       wire [31:0] ~GENSYM[iBus_DAT_MOSI][#{iBus_DAT_MOSI}];
       wire [3:0] ~GENSYM[iBus_SEL][#{iBus_SEL}];
       wire [2:0] ~GENSYM[iBus_CTI][#{iBus_CTI}];
@@ -328,7 +328,7 @@ vexRiscv# !_clk rst0
       wire ~GENSYM[dBus_CYC][#{dBus_CYC}];
       wire ~GENSYM[dBus_STB][#{dBus_STB}];
       wire ~GENSYM[dBus_WE][#{dBus_WE}];
-      wire [31:0] ~GENSYM[dBus_ADR][#{dBus_ADR}];
+      wire [29:0] ~GENSYM[dBus_ADR][#{dBus_ADR}];
       wire [31:0] ~GENSYM[dBus_DAT_MOSI][#{dBus_DAT_MOSI}];
       wire [3:0] ~GENSYM[dBus_SEL][#{dBus_SEL}];
       wire [2:0] ~GENSYM[dBus_CTI][#{dBus_CTI}];

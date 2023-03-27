@@ -67,6 +67,25 @@ common common-options
     ghc-typelits-extra,
     ghc-typelits-knownnat,
 
+library
+  import: common-options
+  hs-source-dirs: src
+  default-language: Haskell2010
+  exposed-modules:
+    VexRiscvSim.Uart
+  build-depends:
+    base,
+    clash-prelude,
+    clash-protocols,
+    clash-cores,
+    vex-riscv,
+    bytestring,
+    containers,
+    directory,
+    bittide-extra,
+    bittide,
+    string-interpolate,
+
 executable vex-riscv-bin
   import: common-options
   main-is: VexRiscvSimulation.hs
@@ -76,12 +95,15 @@ executable vex-riscv-bin
     base,
     clash-prelude,
     clash-protocols,
+    clash-cores,
     vex-riscv,
     bytestring,
     containers,
     directory,
     bittide-extra,
-    bittide
+    bittide,
+    vex-riscv-sim,
+    pureMD5,
 
 test-suite unittests
   import: common-options

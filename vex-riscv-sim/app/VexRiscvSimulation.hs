@@ -6,19 +6,21 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 import Bittide.DoubleBufferedRam (ContentType (..), InitialContent (..), wbStorage')
 import Bittide.SharedTypes hiding (delayControls)
 import Bittide.Wishbone (singleMasterInterconnect')
 import Clash.Explicit.BlockRam.File (memFile)
 import Clash.Prelude hiding (not, (&&))
-import Clash.Signal.Internal (Signal ((:-)))
+import Clash.Signal.Internal (Signal ((:-)), DomainConfigurationPeriod)
 import Control.Exception (bracket)
 import Control.Monad
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.IntMap as I
 import qualified Data.List as L
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, isJust)
 import GHC.Base (assert)
 import GHC.IO.Handle
 import GHC.Stack (HasCallStack)
@@ -26,12 +28,17 @@ import qualified GHC.TypeNats as TN
 import Protocols.Wishbone
 import System.Directory (removeFile)
 import System.Environment
-import System.IO (openTempFile, stdout)
+import System.IO (openTempFile, stdout, stdin)
 import Text.Printf
 import Utils.ReadElf
 import VexRiscv
 import Prelude as P hiding ((||))
 import Data.Char (chr)
+import Clash.Cores.UART (ValidBaud, uart)
+import VexRiscvSim.Uart (uartWb, uartIO, runUart, uartState)
+import Debug.Trace (trace)
+import Data.Digest.Pure.MD5 (md5, md5DigestBytes)
+import Numeric (showHex)
 
 --------------------------------------
 --
@@ -69,7 +76,7 @@ debugConfig =
 --
 {-
   InspectBusses
-    200
+    64800
     0
     (Just 200)
     True
@@ -108,9 +115,77 @@ defaultX dflt val
   | otherwise = val
 
 {-
+data UartLoaderState
+  = UWaitingForStart
+  | UReadPreamble String
+  | UWriteSize [Byte]
+  | UWritePayload [Byte]
+  deriving (Generic, NFDataX)
+
+uartLoaderComponent ::
+  forall dom baud.
+  (HiddenClockResetEnable dom, ValidBaud dom baud) =>
+  [Byte] ->
+  -- ^ Payload
+  SNat baud ->
+  Signal dom Bit ->
+  Signal dom Bit
+uartLoaderComponent payload baud rx = tx
+  where
+    loaderOut = uartLoader payload rxDat txSuccess
+    (rxDat, tx, txSuccess) = uart baud rx loaderOut
+
+uartLoader ::
+  (HiddenClockResetEnable dom) =>
+  [Byte] ->
+  -- ^ Payload
+  Signal dom (Maybe Byte) ->
+  -- ^ data from remote
+  Signal dom Bool ->
+  -- ^ signal if send was successful
+  Signal dom (Maybe Byte)
+  -- ^ write output
+uartLoader payload readByte txSuccess = outSignal
+  where
+    outSignal = mealyB go UWaitingForStart (readByte, canWrite)
+    justWritten = isJust <$> outSignal
+    writeJustDone = txSuccess
+    waitingForWriteAck = register False $
+      mux waitingForWriteAck
+        -- True
+        (mux writeJustDone (pure False) (pure True))
+        -- False
+        (mux justWritten (pure True) (pure False))
+    canWrite = not <$> waitingForWriteAck
+
+    payloadSize = fromIntegral $ L.length payload :: BitVector 32
+    payloadSizeBytesLe =
+      let (a :: Byte, b :: Byte, c :: Byte, d :: Byte) = unpack payloadSize
+      in [d, c, b, a]
+
+    go :: UartLoaderState -> (Maybe Byte, Bool) -> (UartLoaderState, Maybe (BitVector 8))
+    go UWaitingForStart (Nothing, _) = (UWaitingForStart, Nothing)
+    go UWaitingForStart (Just (chr . fromEnum -> b), _) = trace ("received a character: " <> show b) (UReadPreamble [b], Nothing)
+    -- adding characters to the front, so it's backwards
+    go (UReadPreamble "dl") (Just (chr . fromEnum -> '\n'), _) = trace "done with preamble!" (UWriteSize payloadSizeBytesLe, Nothing)
+    go (UReadPreamble buf) (Just (chr . fromEnum -> b), _) = trace ("received a character [" <> show buf <> "]: " <> show b) (UReadPreamble (b:buf), Nothing)
+    go (UReadPreamble buf) (Nothing, _) = (UReadPreamble buf, Nothing)
+
+    go (UWriteSize []) (_, _) = trace "done writing size" (UWritePayload payload, Nothing)
+    go (UWriteSize bs) (_, False) = (UWriteSize bs, Nothing)
+    go (UWriteSize (b:bs)) (_, True) = trace "writing size byte" (UWriteSize bs, Just b)
+
+    go (UWritePayload []) (_, _) = (UWaitingForStart, Nothing)
+    go (UWritePayload bs) (_, False) = (UWritePayload bs, Nothing)
+    go (UWritePayload (b:bs)) (_, True) = (UWritePayload bs, Just b)
+
+-}
+
+
+{-
 Address space
 
-0b0000 0x0000_0000 Character device / Debug addresses
+0b0000 0x0000_0000 UART Addresses (prefixes 0b000x)
 0b0010 0x2000_0000 Boot instruction memory
 0b0100 0x4000_0000 Boot data memory
 0b0110 0x6000_0000 Loaded instruction memory
@@ -135,21 +210,52 @@ for data bus
 -}
 
 cpu ::
-  (HasCallStack, HiddenClockResetEnable dom) =>
+  forall dom baud .
+  (HasCallStack, HiddenClockResetEnable dom
+  , 1 <= DomainConfigurationPeriod (KnownConf dom)
+  , ValidBaud dom baud) =>
   Memory dom ->
   Memory dom ->
+  SNat baud ->
+  -- Term IO UART receive line
+  Signal dom Bit ->
+  -- bootloader UART receive line
+  Signal dom Bit ->
   ( Signal dom Output,
     -- writes
     Signal dom (Maybe (BitVector 32, BitVector 32)),
     -- iBus responses
     Signal dom (WishboneS2M (BitVector 32)),
     -- dBus responses
-    Signal dom (WishboneS2M (BitVector 32))
+    Signal dom (WishboneS2M (BitVector 32)),
+    -- Term IO UART transmit line
+    Signal dom Bit,
+    -- bootlader UART transmit line
+    Signal dom Bit
   )
-cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
+cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) baud termUartRx bootUartRx = (output, writes, iS2M, dS2M, termUartTx, bootUartTx)
   where
     output = vexRiscv (emptyInput :- input)
     dM2S = dBusWbM2S <$> output
+
+    -- 0x0100_0000
+    (termUartS2M, _, termUartTx) =
+        uartWb (SNat @32) (SNat @32) baud
+          (mapAddr @28 @29 ((\a -> a - 0x0100_0000) . resize) <$> termUartM2S)
+          termUartRx
+    
+    -- 0x1000_0000
+    (bootUartS2M, _, bootUartTx) =
+        uartWb (SNat @16) (SNat @512) baud
+          (mapAddr @28 @29 resize <$> bootUartM2S)
+          bootUartRx
+    
+    (uartS2M, unbundle -> (termUartM2S :> bootUartM2S :> Nil)) =
+      singleMasterInterconnect'
+        -- 1 bit prefix
+        (0b0 :> 0b1 :> Nil)
+        uartM2S
+        (bundle (termUartS2M :> bootUartS2M :> Nil))
 
     errS2M = emptyWishboneS2M {err = True}
 
@@ -169,19 +275,16 @@ cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
         -- port B, data bus
         (mapAddr @29 @32 resize <$> loadedIM2SDbus)
 
-    (_, dummy) = dummyWb 0x0000_0000
-
-    dummyS2M = dummy (mapAddr @29 @32 resize <$> dummyM2S)
     bootDS2M = bootDMem (mapAddr @29 @32 resize <$> bootDM2S)
     loadedDS2M = wbStorage' (Undefined :: InitialContent (512 * 1024) (Bytes 4)) (mapAddr @29 @32 resize <$> loadedDM2S)
 
-    (dS2M, unbundle -> (dummyM2S :> _ :> bootDM2S :> loadedIM2SDbus :> loadedDM2S :> Nil)) =
+    (dS2M, unbundle -> (uartM2S :> _ :> bootDM2S :> loadedIM2SDbus :> loadedDM2S :> Nil)) =
       singleMasterInterconnect'
         -- 3 bit prefix
         (0b000 :> 0b001 :> 0b010 :> 0b011 :> 0b100 :> Nil)
         (unBusAddr . dBusWbM2S <$> output)
         ( bundle
-            (dummyS2M :> pure errS2M :> bootDS2M :> loadedIS2MDbus :> loadedDS2M :> Nil)
+            (uartS2M :> pure errS2M :> bootDS2M :> loadedIS2MDbus :> loadedDS2M :> Nil)
         )
 
     input =
@@ -215,40 +318,6 @@ cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
 mapAddr :: (BitVector aw1 -> BitVector aw2) -> WishboneM2S aw1 selWidth a -> WishboneM2S aw2 selWidth a
 mapAddr f wb = wb {addr = f (addr wb)}
 
--- | Wishbone circuit that always acknowledges every request
---
--- Used for the character device. The character device address gets mapped to this
--- component because if it were to be routed to the data memory (where this address is
--- not in the valid space) it would return ERR and would halt execution.
-dummyWb :: (HiddenClockResetEnable dom) => BitVector 32 -> Memory dom
-dummyWb address = (address, \m2s -> delayControls m2s (reply <$> m2s))
-  where
-    reply WishboneM2S {..} =
-      (emptyWishboneS2M @(BitVector 32)) {acknowledge = acknowledge, readData = 0}
-      where
-        acknowledge = busCycle && strobe
-
-    -- \| Delays the output controls to align them with the actual read / write timing.
-    delayControls ::
-      (HiddenClockResetEnable dom, NFDataX a) =>
-      Signal dom (WishboneM2S addressWidth selWidth a) -> -- current M2S signal
-      Signal dom (WishboneS2M a) ->
-      Signal dom (WishboneS2M a)
-    delayControls m2s s2m0 = mux inCycle s2m1 (pure emptyWishboneS2M)
-      where
-        inCycle = (busCycle <$> m2s) .&&. (strobe <$> m2s)
-
-        -- It takes a single cycle to lookup elements in a block ram. We can therfore
-        -- only process a request every other clock cycle.
-        ack = (acknowledge <$> s2m0) .&&. (not <$> delayedAck) .&&. inCycle
-        err1 = (err <$> s2m0) .&&. inCycle
-        delayedAck = register False ack
-        delayedErr1 = register False err1
-        s2m1 =
-          (\wb newAck newErr -> wb {acknowledge = newAck, err = newErr})
-            <$> s2m0
-            <*> delayedAck
-            <*> delayedErr1
 
 loadProgram :: (HiddenClockResetEnable dom) => FilePath -> IO (IO (), Memory dom, Memory dom)
 loadProgram path = do
@@ -257,20 +326,24 @@ loadProgram path = do
 
   assert (entry == 0x2000_0000) (pure ())
 
-  (iPath, iHandle) <- openTempFile "/tmp" "imem.blob"
+  (i0Path, i0Handle) <- openTempFile "/tmp" "imem.0.blob"
+  (i1Path, i1Handle) <- openTempFile "/tmp" "imem.1.blob"
+  (i2Path, i2Handle) <- openTempFile "/tmp" "imem.2.blob"
+  (i3Path, i3Handle) <- openTempFile "/tmp" "imem.3.blob"
 
   (d0Path, d0Handle) <- openTempFile "/tmp" "dmem.0.blob"
   (d1Path, d1Handle) <- openTempFile "/tmp" "dmem.1.blob"
   (d2Path, d2Handle) <- openTempFile "/tmp" "dmem.2.blob"
   (d3Path, d3Handle) <- openTempFile "/tmp" "dmem.3.blob"
 
-  let removeFiles = mapM_ removeFile [iPath, d0Path, d1Path, d2Path, d3Path]
+  let removeFiles = mapM_ removeFile [i0Path, i1Path, i2Path, i3Path, d0Path, d1Path, d2Path, d3Path]
 
   let -- endian swap instructions
-      iMemContents =
-        L.map (\[a, b, c, d] -> bitCoerce (d, c, b, a) :: BitVector 32) $
-            chunkFill 4 0 (content iMem <> [0, 0, 0, 0, 0, 0, 0, 0])
-      iMemBS = memFile Nothing iMemContents
+      (iL0, iL1, iL2, iL3) = split4 $ content iMem <> [0, 0, 0, 0, 0, 0, 0, 0]
+      iMem0BS = memFile Nothing iL0
+      iMem1BS = memFile Nothing iL1
+      iMem2BS = memFile Nothing iL2
+      iMem3BS = memFile Nothing iL3
 
       (dL0, dL1, dL2, dL3) = split4 $ content dMem
       dMem0BS = memFile Nothing dL0
@@ -281,23 +354,31 @@ loadProgram path = do
       iMemStart = startAddr iMem
       dMemStart = startAddr dMem
 
-      iMemSize = L.length iMemContents
+      iMemSize = (I.size iMem + 8) `divRU` 4
       dMemSize = I.size dMem `divRU` 4
 
+      iContentVec = i0Path :> i1Path :> i2Path :> i3Path :> Nil
       dContentVec = d0Path :> d1Path :> d2Path :> d3Path :> Nil
 
   assert (dMemStart == 0x4000_0000) (pure ())
 
   -- write data to files
-  hPutStr iHandle iMemBS
   -- endian swap data
+  hPutStr i0Handle iMem3BS
+  hPutStr i1Handle iMem2BS
+  hPutStr i2Handle iMem1BS
+  hPutStr i3Handle iMem0BS
+
   hPutStr d0Handle dMem3BS
   hPutStr d1Handle dMem2BS
   hPutStr d2Handle dMem1BS
   hPutStr d3Handle dMem0BS
 
   -- close files
-  hClose iHandle
+  hClose i0Handle
+  hClose i1Handle
+  hClose i2Handle
+  hClose i3Handle
   hClose d0Handle
   hClose d1Handle
   hClose d2Handle
@@ -308,7 +389,7 @@ loadProgram path = do
           case compareSNat depth d1 of
             SNatLE -> error "should not happen"
             SNatGT ->
-              let initContent = helper depth $ Reloadable $ File iPath
+              let initContent = helper depth $ NonReloadable $ FileVec iContentVec
                in (iMemStart, wbStorage' initContent)
 
       dataMem = case TN.someNatVal (toEnum dMemSize) of
@@ -368,35 +449,101 @@ dualPortStorage initContent aM2S bM2S = (aS2M, bS2M)
     cM2S = mux bSelected bM2S aM2S
     ramOut = wbStorage' initContent cM2S
 
+payloadContents :: FilePath -> IO (BitVector 32, [Byte], [Byte])
+payloadContents path = do
+  payloadData <- BL.readFile path
+  let payloadBytes = pack <$> BL.unpack payloadData
+
+  let payloadSize = fromIntegral $ BL.length payloadData :: BitVector 32
+  let payloadSizeBytesLe =
+        let (a :: Byte, b :: Byte, c :: Byte, d :: Byte) = unpack payloadSize
+        in [d, c, b, a]
+  
+  let digest = md5 payloadData
+  let md5Bytes = pack <$> BS.unpack (md5DigestBytes digest)
+  let fullData = payloadSizeBytesLe <> md5Bytes <> payloadBytes
+
+  pure (payloadSize, md5Bytes, fullData)
+
+
+data UartReponseState
+  = UWaitForNextChunk [Byte]
+  | UTransmitChunk [Byte] [Byte]
+  deriving (Generic, NFDataX)
+
+uartResponse ::
+  Int ->
+  -- ^ Chunk size
+  UartReponseState ->
+  [Maybe Byte] ->
+  -- ^ write
+  [Maybe Byte]
+uartResponse _         _                      []                   = L.repeat Nothing
+uartResponse chunkSize (UWaitForNextChunk bs) (Nothing:inputs)     = uartResponse chunkSize (UWaitForNextChunk bs) inputs
+uartResponse chunkSize (UWaitForNextChunk bs) (Just _:inputs)      = uartResponse chunkSize (UTransmitChunk chunk rest) inputs
+  where
+    (chunk, rest) = trace "split waiting" $ L.splitAt chunkSize bs
+uartResponse _         (UTransmitChunk [] []) _                    = L.repeat Nothing
+uartResponse chunkSize (UTransmitChunk [] bs) (Nothing:inputs)     = uartResponse chunkSize (UWaitForNextChunk bs) inputs
+uartResponse chunkSize (UTransmitChunk [] bs) (Just _:inputs)      = uartResponse chunkSize (UTransmitChunk chunk rest) inputs
+ where
+    (chunk, rest) = trace "split with no bytes left" $ L.splitAt chunkSize bs
+uartResponse chunkSize (UTransmitChunk (c:cs) bs) (Nothing:inputs) = -- trace ("transmit " <> showHex c "") $
+  Just c : uartResponse chunkSize (UTransmitChunk cs bs) inputs
+uartResponse chunkSize (UTransmitChunk cs bs)     (Just _:inputs)  = uartResponse chunkSize (UTransmitChunk chunk rest) inputs
+  where
+    (chunk, rest) = trace "split with bytes left" $ L.splitAt chunkSize (cs <> bs)
+
+type Payload = [Byte]
+
+transmitFn ::
+  Int ->
+  -- ^ chunk size
+  Payload ->
+  [Maybe Byte] ->
+  ([Byte], Payload)
+transmitFn chunkSize = go
+  where
+    go bs inputs
+      | L.any isJust inputs = L.splitAt chunkSize bs
+      | otherwise = ([], bs)
+
+
 main :: IO ()
 main = do
-  elfFile <- L.head <$> getArgs
+  let bootLoaderElf = "target/riscv32imc-unknown-none-elf/release/bootloader"
 
   (removeFiles, iMem, dMem) <-
     withClockResetEnable @System clockGen resetGen enableGen $
-      loadProgram @System elfFile
+      loadProgram @System bootLoaderElf
+  
+  payloadPath <- L.head <$> getArgs
+  (payloadSize, payloadMd5, payload) <- payloadContents payloadPath
 
-  let cpuOut@(unbundle -> (_circuit, writes, iBus, dBus)) =
+  hSetBuffering stdin NoBuffering
+
+  let baud = (SNat @6000000)
+
+  let chunkSize = 128
+
+  let
+    (unbundle -> (bootUartRxBytes, bootUartRx)) = withClockResetEnable @System clockGen resetGen enableGen
+      uartState baud payload (transmitFn chunkSize) bootUartTx
+      -- runUart baud bootUartTx uartInp
+    
+    -- uartInp = uartResponse 128 (UWaitForNextChunk $ payload <> L.repeat 0) (sample bootUartRxBytes)
+
+    cpuOut@(unbundle -> (_circuit, writes, _iBus, _dBus, _termUartTx, bootUartTx)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
-          bundle (cpu iMem dMem)
+          bundle (cpu iMem dMem baud (pure 1) bootUartRx)
 
   bracket (pure ()) (const removeFiles) $ \_ -> do
     case debugConfig of
-      RunCharacterDevice ->
-        forM_ (sample_lazy @System (bundle (dBus, iBus, writes))) $ \(dS2M, iS2M, write) -> do
-          when (err dS2M) $
-            putStrLn "D-bus ERR reply"
+      RunCharacterDevice -> do
+        hSetBuffering stdin NoBuffering
+        withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
+          uartIO stdin stdout baud (fmap (\(_,_,_,_,uartTx,_)-> uartTx) (\b -> cpu iMem dMem baud b bootUartRx))
 
-          when (err iS2M) $
-            putStrLn "I-bus ERR reply"
-          
-          case write of
-            Just (addr, value) | addr == 0x0000_1000 -> do
-              let (_ :: BitVector 24, b :: BitVector 8) = unpack value
-              putChar $ chr (fromEnum b)
-              hFlush stdout
-            _ -> pure ()
-        -- performPrintsToStdout 0x0000_1000 (sample_lazy $ bitCoerce <$> writes)
       InspectBusses initCycles uninteresting interesting iEnabled dEnabled -> do
         
         let skipTotal = initCycles + uninteresting
@@ -406,7 +553,7 @@ main = do
               Just nInteresting ->
                 let total = initCycles + uninteresting + nInteresting in L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
 
-        forM_ sampled $ \(i, (out, _, iBusS2M, dBusS2M)) -> do
+        forM_ sampled $ \(i, (out, _, iBusS2M, dBusS2M, _, _)) -> do
           let doPrint = i >= skipTotal
 
           -- I-bus interactions

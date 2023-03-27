@@ -18,3 +18,4 @@ heapless = { version = "0.7", default-features = false }
 panic-halt = "0.2.0"
 # bittide-sys = { git = "https://github.com/bittide/bittide-hardware" }
 bittide-sys = { path = "../../bittide-sys" }
+md-5 = { version = "0.10", default-features = false }

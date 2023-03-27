@@ -1,13 +1,3 @@
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum SendError {
-    Timeout,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub enum ReceiveError {
-    Timeout,
-}
-
 pub struct Uart {
     payload_addr: *mut u8,
     flags_addr: *const u8,
@@ -33,15 +23,6 @@ impl Uart {
         }
     }
 
-    pub fn receive_timeout(&mut self, timeout: u32) -> Result<u8, ReceiveError> {
-        for _ in 0..timeout {
-            if let Some(val) = self.try_receive() {
-                return Ok(val);
-            }
-        }
-        Err(ReceiveError::Timeout)
-    }
-
     pub fn try_receive(&mut self) -> Option<u8> {
         if self.has_rec_data() {
             unsafe {
@@ -55,29 +36,20 @@ impl Uart {
 
     pub fn send(&mut self, data: u8) {
         loop {
-            if self.try_send(data) {
+            if let Ok(()) = self.try_send(data) {
                 return;
             }
         }
     }
 
-    pub fn send_timeout(&mut self, data: u8, timeout: u32) -> Result<(), SendError> {
-        for _ in 0..timeout {
-            if self.try_send(data) {
-                return Ok(());
-            }
-        }
-        Err(SendError::Timeout)
-    }
-
-    pub fn try_send(&mut self, data: u8) -> bool {
+    pub fn try_send(&mut self, data: u8) -> Result<(), ()> {
         if self.can_send() {
             unsafe {
                 self.payload_addr.write_volatile(data);
-                true
+                Ok(())
             }
         } else {
-            false
+            Err(())
         }
     }
 
@@ -102,28 +74,5 @@ impl core::fmt::Write for Uart {
             self.send(b);
         }
         Ok(())
-    }
-}
-
-static mut PANIC_UART: Option<Uart> = None;
-
-pub unsafe fn set_panic_handler_uart(uart: Uart) {
-    PANIC_UART = Some(uart);
-}
-
-#[panic_handler]
-fn panic_handler(info: &core::panic::PanicInfo) -> ! {
-    use core::fmt::Write;
-    let Some(uart) = (unsafe {
-        PANIC_UART.as_mut()
-    }) else {
-        loop {
-            continue;
-        }
-    };
-
-    let _ = writeln!(uart, "{info}");
-    loop {
-        continue;
     }
 }

@@ -10,19 +10,22 @@ use core::fmt::Write;
 #[cfg(not(test))]
 use riscv_rt::entry;
 
-use bittide_sys::println;
+pub mod uart;
+
+#[panic_handler]
+fn panic_handler(_: &core::panic::PanicInfo) -> ! {
+    loop {}
+}
+
+use uart::Uart;
 
 #[cfg_attr(not(test), entry)]
 fn main() -> ! {
-    unsafe {
-        bittide_sys::character_device::initialise(0x0000_1000 as *mut u8);
-    }
+    let mut uart = unsafe { Uart::new(0x0100_0000 as *mut u8) };
 
-    println!("hello, world from the payload program.");
+    let _ = writeln!(uart, "hello, world from the payload program.");
 
     loop {
-        for i in 0..100 {
-            println!("Doing some work.... {i}");
-        }
+        let _ = writeln!(uart, "Doing some work....");
     }
 }
