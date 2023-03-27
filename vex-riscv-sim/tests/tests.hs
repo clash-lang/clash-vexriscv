@@ -4,6 +4,7 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE BlockArguments #-}
 
 import Bittide.DoubleBufferedRam
 import Bittide.SharedTypes hiding (delayControls)
@@ -15,7 +16,8 @@ import Control.Monad (forM)
 import qualified Data.ByteString as BS
 import qualified Data.IntMap as I
 import qualified Data.List as L
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, mapMaybe)
+import Data.Word (Word8)
 import GHC.Base (assert, when)
 import GHC.Stack
 import qualified GHC.TypeNats as TN
@@ -27,7 +29,6 @@ import System.IO
 import System.IO.Temp (withSystemTempFile)
 import Test.Tasty
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
-import Utils.Print (getPrintContents)
 import Utils.ReadElf
 import VexRiscv
 import Prelude
@@ -316,12 +317,14 @@ runProgramExpect act n expected = withSystemTempFile "ELF" $ \fp _ -> do
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
           bundle (cpu iMem dMem)
 
-  let output =
-        getPrintContents (BS.length expected) 0x0000_1000 $
-          L.map bitCoerce $
-            sampleN_lazy n writes
+  let output = L.take (BS.length expected) $
+        flip mapMaybe (sampleN_lazy n writes) $ \case
+            Just (addr, value) | addr == 0x0000_1000 ->
+              let (_ :: BitVector 24, b :: Word8) = unpack value
+              in Just b
+            _ -> Nothing
 
-  output @?= expected
+  BS.pack output @?= expected
   removeFiles
 
 findTests ::

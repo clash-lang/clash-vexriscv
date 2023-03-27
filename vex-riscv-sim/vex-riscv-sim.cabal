@@ -67,6 +67,18 @@ common common-options
     ghc-typelits-extra,
     ghc-typelits-knownnat,
 
+library
+  import: common-options
+  hs-source-dirs: src
+  default-language: Haskell2010
+  exposed-modules:
+    Utils.ReadElf
+  build-depends:
+    base,
+    clash-prelude,
+    elf >= 0.31 && < 0.32,
+    bytestring >= 0.10 && < 0.11,
+
 executable vex-riscv-bin
   import: common-options
   main-is: VexRiscvSimulation.hs
@@ -77,6 +89,7 @@ executable vex-riscv-bin
     clash-prelude,
     clash-protocols,
     vex-riscv,
+    vex-riscv-sim,
     bytestring,
     containers,
     directory,
@@ -95,6 +108,7 @@ test-suite unittests
     clash-prelude,
     clash-protocols,
     vex-riscv,
+    vex-riscv-sim,
     bytestring,
     containers,
     directory,
