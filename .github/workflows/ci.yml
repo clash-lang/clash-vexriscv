@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022 Google LLC
+# 
+# SPDX-License-Identifier: Apache-2.0
+
 name: CI
 
 on: [push]
@@ -9,6 +13,15 @@ on: [push]
 # That file determines which version gets used locally on developer machines.
 
 jobs:
+  license-check:
+    runs-on: self-hosted
+    container:
+      image: ubuntu:22.04
+    steps:
+    - uses: actions/checkout@v3
+    - name: REUSE Compliance Check
+      uses: fsfe/reuse-action@v1
+
 
   rust-checks:
     name: Rust checks

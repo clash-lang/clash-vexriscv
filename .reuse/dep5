@@ -1,0 +1,16 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: bittide
+Upstream-Contact: QBayLogic <devops@qbaylogic.com>
+Source: https://github.com/clash-lang/clash-vexrisc
+
+
+# Sample paragraph, commented out:
+#
+# Files: src/*
+# Copyright: $YEAR $NAME <$CONTACT>
+# License: ...
+
+Files: vex-riscv-sim/vex-test-programs/src/bin/*.expected
+Copyright: 2022-2023 Google LLC
+License: CC0-1.0
+
