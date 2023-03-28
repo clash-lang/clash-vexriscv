@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package bittide
+package example
 
 import spinal.core._
 import spinal.lib._
 import vexriscv.plugin._
 import vexriscv.{VexRiscv, VexRiscvConfig, plugin}
 
-object BittideCpu extends App{
+object ExampleCpu extends App {
   def cpu() : VexRiscv = {
     val config = VexRiscvConfig(
       plugins = List(

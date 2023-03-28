@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: CC0-1.0
 
-CPU_DIR = bittide-cpu
+CPU_DIR = example-cpu
 OUT_DIR = build_out_dir
 VERILATOR_DIR = $(OUT_DIR)/verilator_output
 FFI_DIR = src/ffi
@@ -20,8 +20,8 @@ clean:
 	rm $(CPU_DIR)/VexRiscv.v -rf
 	rm $(OUT_DIR) -rf
 
-$(OUT_DIR)/VexRiscv.v: $(CPU_DIR)/src/main/scala/bittide/BittideCpu.scala
-	cd $(CPU_DIR); sbt "runMain bittide.BittideCpu"
+$(OUT_DIR)/VexRiscv.v: $(CPU_DIR)/src/main/scala/example/ExampleCpu.scala
+	cd $(CPU_DIR); sbt "runMain example.ExampleCpu"
 	mkdir -p $(OUT_DIR)
 	mv $(CPU_DIR)/VexRiscv.v $(OUT_DIR)/VexRiscv.v
 

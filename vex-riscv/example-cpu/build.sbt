@@ -13,7 +13,7 @@ ThisBuild / organizationName := "Google"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "bittide-cpu",
+    name := "example-cpu",
     libraryDependencies ++= Seq(
       "com.github.spinalhdl" % "spinalhdl-core_2.11" % spinalVersion,
       "com.github.spinalhdl" % "spinalhdl-lib_2.11" % spinalVersion,
