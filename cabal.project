@@ -55,21 +55,3 @@ source-repository-package
   type: git
   location: https://github.com/cchalmers/circuit-notation.git
   tag: 618e37578e699df235f2e7150108b6401731919b
-
-source-repository-package
-  type: git
-  location: https://github.com/bittide/bittide-hardware.git
-  tag: 96cd24c2ef8b95193c64edd235d09c0d65066d61
-  subdir: bittide
-
-source-repository-package
-  type: git
-  location: https://github.com/bittide/bittide-hardware.git
-  tag: 96cd24c2ef8b95193c64edd235d09c0d65066d61
-  subdir: bittide-extra
-
-source-repository-package
-  type: git
-  location: https://github.com/bittide/bittide-hardware.git
-  tag: 96cd24c2ef8b95193c64edd235d09c0d65066d61
-  subdir: contranomy

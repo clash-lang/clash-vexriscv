@@ -1,16 +1,12 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE NumericUnderscores #-}
 -- SPDX-FileCopyrightText: 2022 Google LLC
 --
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE BlockArguments #-}
 
-import Bittide.DoubleBufferedRam
-import Bittide.SharedTypes hiding (delayControls)
-import Bittide.Wishbone (singleMasterInterconnect')
 import Clash.Prelude hiding (not, (&&))
-import Clash.Prelude.BlockRam.File
 import Clash.Signal.Internal (Signal ((:-)))
 import Control.Monad (forM)
 import qualified Data.ByteString as BS
@@ -20,9 +16,8 @@ import Data.Maybe (catMaybes, mapMaybe)
 import Data.Word (Word8)
 import GHC.Base (assert, when)
 import GHC.Stack
-import qualified GHC.TypeNats as TN
 import Protocols.Wishbone
-import System.Directory (copyFile, doesFileExist, listDirectory, removeFile)
+import System.Directory (copyFile, doesFileExist, listDirectory)
 import System.Exit (exitFailure)
 import System.FilePath
 import System.IO
@@ -32,6 +27,8 @@ import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 import Utils.ReadElf
 import VexRiscv
 import Prelude
+import Utils.Storage (storage)
+import Utils.Interconnect (interconnectTwo)
 
 emptyInput :: Input
 emptyInput =
@@ -44,8 +41,7 @@ emptyInput =
     }
 
 type Memory dom =
-  ( BitVector 32,
-    Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
+  ( Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
     Signal dom (WishboneS2M (BitVector 32))
   )
 
@@ -101,46 +97,23 @@ cpu ::
     -- dBus responses
     Signal dom (WishboneS2M (BitVector 32))
   )
-cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
+cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
     output = vexRiscv (emptyInput :- input)
     dM2S = dBusWbM2S <$> output
 
-    errS2M = emptyWishboneS2M {err = True}
+    iM2S = unBusAddr . iBusWbM2S <$> output
 
-    (iS2M, unbundle -> (_ :> bootIM2S :> _ :> loadedIM2S :> _ :> Nil)) =
-      singleMasterInterconnect'
-        -- 3 bit prefix
-        (0b000 :> 0b001 :> 0b010 :> 0b011 :> 0b100 :> Nil)
-        (unBusAddr . iBusWbM2S <$> output)
-        (bundle (pure errS2M :> bootIS2M :> pure errS2M :> loadedIS2M :> pure errS2M :> Nil))
+    iS2M = bootIMem (mapAddr (\x -> x - 0x2000_0000) <$> iM2S)
 
-    bootIS2M = bootIMem (mapAddr @29 @32 resize <$> bootIM2S)
-    (loadedIS2M, loadedIS2MDbus) =
-      wbStorageDP
-        (Undefined :: InitialContent 4096 (Bytes 4))
-        -- port A, prioritised, instruction bus
-        (mapAddr @29 @32 resize <$> loadedIM2S)
-        -- port B, data bus
-        (mapAddr @29 @32 resize <$> loadedIM2SDbus)
+    dummy = dummyWb
 
-    -- iWb = iMem (mapAddr (\x -> x - iMemStart) . unBusAddr . iBusWbM2S <$> output)
+    dummyS2M = dummy dummyM2S
+    bootDS2M = bootDMem bootDM2S
 
-    (_, dummy) = dummyWb 0x0000_0000
-
-    dummyS2M = dummy (mapAddr @29 @32 resize <$> dummyM2S)
-    bootDS2M = bootDMem (mapAddr @29 @32 resize <$> bootDM2S)
-    loadedDS2M = wbStorage' (Undefined :: InitialContent 4096 (Bytes 4)) (mapAddr @29 @32 resize <$> loadedDM2S)
-
-    (dS2M, unbundle -> (dummyM2S :> _ :> bootDM2S :> loadedIM2SDbus :> loadedDM2S :> Nil)) =
-      singleMasterInterconnect'
-        -- 3 bit prefix
-        (0b000 :> 0b001 :> 0b010 :> 0b011 :> 0b100 :> Nil)
-        -- going from 0b0xyz to 0bxyz (32bit to 31 bit)
-        (unBusAddr . dBusWbM2S <$> output)
-        ( bundle
-            (dummyS2M :> pure errS2M :> bootDS2M :> loadedIS2MDbus :> loadedDS2M :> Nil)
-        )
+    (dS2M, unbundle -> (dummyM2S :> bootDM2S :> Nil)) = interconnectTwo
+      (unBusAddr <$> dM2S)
+      ((0x0000_0000, dummyS2M) :> (0x4000_0000, bootDS2M) :> Nil)
 
     input =
       ( \iBus dBus ->
@@ -166,7 +139,7 @@ cpu (_iMemStart, bootIMem) (_dMemStart, bootDMem) = (output, writes, iS2M, dS2M)
         )
         ( do
             dM2S' <- dM2S
-            pure $ Just (extend (addr dM2S') `shiftL` 2, writeData dM2S')
+            pure $ Just (extend $ addr dM2S' `shiftL` 2, writeData dM2S')
         )
         (pure Nothing)
 
@@ -178,8 +151,8 @@ mapAddr f wb = wb {addr = f (addr wb)}
 -- Used for the character device. The character device address gets mapped to this
 -- component because if it were to be routed to the data memory (where this address is
 -- not in the valid space) it would return ERR and would halt execution.
-dummyWb :: (HiddenClockResetEnable dom) => BitVector 32 -> Memory dom
-dummyWb address = (address, \m2s -> delayControls m2s (reply <$> m2s))
+dummyWb :: (HiddenClockResetEnable dom) => Memory dom
+dummyWb m2s' = delayControls m2s' (reply <$> m2s')
   where
     reply WishboneM2S {..} =
       (emptyWishboneS2M @(BitVector 32)) {acknowledge = acknowledge, readData = 0}
@@ -208,91 +181,32 @@ dummyWb address = (address, \m2s -> delayControls m2s (reply <$> m2s))
             <*> delayedAck
             <*> delayedErr1
 
-loadProgram :: (HiddenClockResetEnable dom) => FilePath -> IO (IO (), Memory dom, Memory dom)
+loadProgram :: (HiddenClockResetEnable dom) => FilePath -> IO (Memory dom, Memory dom)
 loadProgram path = do
   elfBytes <- BS.readFile path
   let (entry, iMem, dMem) = readElfFromMemory elfBytes
 
   assert (entry == 0x2000_0000) (pure ())
 
-  (iPath, iHandle) <- openTempFile "/tmp" "imem.blob"
+  let
+      endianSwap dat =
+        L.concatMap (\[a, b, c, d] -> [d, c, b, a]) $
+        chunkFill 4 0 dat
 
-  (d0Path, d0Handle) <- openTempFile "/tmp" "dmem.0.blob"
-  (d1Path, d1Handle) <- openTempFile "/tmp" "dmem.1.blob"
-  (d2Path, d2Handle) <- openTempFile "/tmp" "dmem.2.blob"
-  (d3Path, d3Handle) <- openTempFile "/tmp" "dmem.3.blob"
+      -- endian swap instructions
+      iMemContents = endianSwap $
+        content iMem <> [0, 0, 0, 0, 0, 0, 0, 0]
+      dMemContents = endianSwap $
+        content dMem <> [0, 0, 0, 0, 0, 0, 0, 0]
 
-  let removeFiles = mapM_ removeFile [iPath, d0Path, d1Path, d2Path, d3Path]
 
-  let -- endian swap instructions
-      iMemContents =
-        L.map (\[a, b, c, d] -> bitCoerce (d, c, b, a) :: BitVector 32) $
-            chunkFill 4 0 (content iMem <> [0, 0, 0, 0, 0, 0, 0, 0])
-      iMemBS = memFile Nothing iMemContents
+  let instrMem = storage iMemContents
+      dataMem = storage dMemContents
 
-      (dL0, dL1, dL2, dL3) = split4 $ content dMem
-      dMem0BS = memFile Nothing dL0
-      dMem1BS = memFile Nothing dL1
-      dMem2BS = memFile Nothing dL2
-      dMem3BS = memFile Nothing dL3
-
-      iMemStart = startAddr iMem
-      dMemStart = startAddr dMem
-
-      iMemSize = L.length iMemContents
-      dMemSize = I.size dMem `divRU` 4
-
-      dContentVec = d0Path :> d1Path :> d2Path :> d3Path :> Nil
-
-  assert (dMemStart == 0x4000_0000) (pure ())
-
-  -- write data to files
-  hPutStr iHandle iMemBS
-  -- endian swap data
-  hPutStr d0Handle dMem3BS
-  hPutStr d1Handle dMem2BS
-  hPutStr d2Handle dMem1BS
-  hPutStr d3Handle dMem0BS
-
-  -- close files
-  hClose iHandle
-  hClose d0Handle
-  hClose d1Handle
-  hClose d2Handle
-  hClose d3Handle
-
-  let instrMem = case TN.someNatVal (toEnum iMemSize) of
-        SomeNat (snatProxy -> depth) ->
-          case compareSNat depth d1 of
-            SNatLE -> error "should not happen"
-            SNatGT ->
-              let initContent = helper depth $ Reloadable $ File iPath
-               in (iMemStart, wbStorage' initContent)
-
-      dataMem = case TN.someNatVal (toEnum dMemSize) of
-        SomeNat (snatProxy -> depth) ->
-          case compareSNat depth d1 of
-            SNatLE -> error "should not happen"
-            SNatGT ->
-              let initContent = helper depth $ NonReloadable $ FileVec dContentVec
-               in (dMemStart, wbStorage' initContent)
-
-  pure (removeFiles, instrMem, dataMem)
+  pure (instrMem, dataMem)
   where
-    helper ::
-      SNat depth ->
-      InitialContent depth (BitVector 32) ->
-      InitialContent depth (BitVector 32)
-    helper SNat cont = cont
-
-    startAddr :: BinaryData -> BitVector 32
-    startAddr bin = resize . bitCoerce $ fst . L.head $ I.toAscList bin
-
     content :: BinaryData -> [BitVector 8]
     content bin = L.map snd $ I.toAscList bin
-
-    split4 :: [BitVector 8] -> ([BitVector 8], [BitVector 8], [BitVector 8], [BitVector 8])
-    split4 xs = L.unzip4 $ L.map (\[a, b, c, d] -> (a, b, c, d)) $ chunkFill 4 0 xs
 
     chunkFill :: Int -> a -> [a] -> [[a]]
     chunkFill _ _ [] = []
@@ -311,7 +225,7 @@ runProgramExpect ::
   Assertion
 runProgramExpect act n expected = withSystemTempFile "ELF" $ \fp _ -> do
   act fp
-  (removeFiles, iMem, dMem) <- withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $ loadProgram fp
+  (iMem, dMem) <- withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $ loadProgram fp
 
   let _all@(unbundle -> (_circuit, writes, _iBus, _dBus)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
@@ -325,7 +239,6 @@ runProgramExpect act n expected = withSystemTempFile "ELF" $ \fp _ -> do
             _ -> Nothing
 
   BS.pack output @?= expected
-  removeFiles
 
 findTests ::
   FilePath ->

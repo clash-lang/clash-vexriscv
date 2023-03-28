@@ -7,9 +7,6 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
 
-import Bittide.DoubleBufferedRam (InitialContent (..), wbStorage')
-import Bittide.SharedTypes hiding (delayControls)
-import Bittide.Wishbone (singleMasterInterconnect')
 import Clash.Prelude hiding (not, (&&))
 import Clash.Signal.Internal (Signal ((:-)))
 import Control.Monad
@@ -29,6 +26,7 @@ import VexRiscv
 import Prelude as P hiding ((||))
 import Data.Char (chr)
 import Utils.Storage (storage)
+import Utils.Interconnect (interconnectTwo)
 
 --------------------------------------
 --
@@ -147,38 +145,18 @@ cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
     output = vexRiscv (emptyInput :- input)
     dM2S = dBusWbM2S <$> output
 
-    errS2M = emptyWishboneS2M {err = True}
+    iM2S = unBusAddr . iBusWbM2S <$> output
 
-    (iS2M, unbundle -> (_ :> bootIM2S :> _ :> loadedIM2S :> _ :> Nil)) =
-      singleMasterInterconnect'
-        -- 3 bit prefix
-        (0b000 :> 0b001 :> 0b010 :> 0b011 :> 0b100 :> Nil)
-        (unBusAddr . iBusWbM2S <$> output)
-        (bundle (pure errS2M :> bootIS2M :> pure errS2M :> loadedIS2M :> pure errS2M :> Nil))
-
-    bootIS2M = bootIMem (mapAddr @29 @32 resize <$> bootIM2S)
-    (loadedIS2M, loadedIS2MDbus) =
-      dualPortStorage
-        (Undefined :: InitialContent (512 * 1024) (Bytes 4))
-        -- port A, prioritised, instruction bus
-        (mapAddr @29 @32 resize <$> loadedIM2S)
-        -- port B, data bus
-        (mapAddr @29 @32 resize <$> loadedIM2SDbus)
+    iS2M = bootIMem (mapAddr (\x -> x - 0x2000_0000) <$> iM2S)
 
     dummy = dummyWb
 
-    dummyS2M = dummy (mapAddr @29 @32 resize <$> dummyM2S)
-    bootDS2M = bootDMem (mapAddr @29 @32 resize <$> bootDM2S)
-    loadedDS2M = wbStorage' (Undefined :: InitialContent (512 * 1024) (Bytes 4)) (mapAddr @29 @32 resize <$> loadedDM2S)
+    dummyS2M = dummy dummyM2S
+    bootDS2M = bootDMem bootDM2S
 
-    (dS2M, unbundle -> (dummyM2S :> _ :> bootDM2S :> loadedIM2SDbus :> loadedDM2S :> Nil)) =
-      singleMasterInterconnect'
-        -- 3 bit prefix
-        (0b000 :> 0b001 :> 0b010 :> 0b011 :> 0b100 :> Nil)
-        (unBusAddr . dBusWbM2S <$> output)
-        ( bundle
-            (dummyS2M :> pure errS2M :> bootDS2M :> loadedIS2MDbus :> loadedDS2M :> Nil)
-        )
+    (dS2M, unbundle -> (dummyM2S :> bootDM2S :> Nil)) = interconnectTwo
+      (unBusAddr <$> dM2S)
+      ((0x0000_0000, dummyS2M) :> (0x4000_0000, bootDS2M) :> Nil)
 
     input =
       ( \iBus dBus ->
@@ -204,7 +182,7 @@ cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
         )
         ( do
             dM2S' <- dM2S
-            pure $ Just (extend (addr dM2S') `shiftL` 2, writeData dM2S')
+            pure $ Just (extend $ addr dM2S' `shiftL` 2, writeData dM2S')
         )
         (pure Nothing)
 
@@ -280,30 +258,6 @@ loadProgram path = do
           first1 = first0 <> L.replicate (n - L.length first0) fill
        in first1 : chunkFill n fill rest
 
-dualPortStorage ::
-  forall dom n addrWidth .
-  (HiddenClockResetEnable dom, KnownNat n, KnownNat addrWidth, 1 <= n, 2 <= addrWidth) =>
-  InitialContent n (Bytes 4) ->
-  -- port A
-  Signal dom (WishboneM2S addrWidth 4 (Bytes 4)) ->
-  -- port B
-  Signal dom (WishboneM2S addrWidth 4 (Bytes 4)) ->
-  ( Signal dom (WishboneS2M (Bytes 4)) -- port A
-  , Signal dom (WishboneS2M (Bytes 4)) -- port B
-  )
-dualPortStorage initContent aM2S bM2S = (aS2M, bS2M)
-  where
-    (unbundle -> (aS2M, bS2M)) = mux bSelected
-      (bundle (pure emptyWishboneS2M, ramOut))
-      (bundle (ramOut, pure emptyWishboneS2M))
-
-    active m2s = busCycle m2s && strobe m2s
-
-    -- when ONLY B is active, use B, otherwise prioritize A
-    bSelected = (not . active <$> aM2S) .&&. (active <$> bM2S)
-
-    cM2S = mux bSelected bM2S aM2S
-    ramOut = wbStorage' initContent cM2S
 
 main :: IO ()
 main = do
