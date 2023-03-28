@@ -14,7 +14,7 @@ on: [push]
 
 jobs:
   license-check:
-    runs-on: self-hosted
+    runs-on: ubuntu-22.04
     container:
       image: ubuntu:22.04
     steps:
