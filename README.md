@@ -13,7 +13,8 @@ For now this repository only contains one
 [example CPU configuration](vex-riscv/example-cpu/src/main/scala/example/ExampleCpu.scala),
 which implements a 32 bit IMC RISC-V core.
 
-This package includes simulation via [`verilator`] as well as a black-box for Verilog synthesis.
+This package includes simulation via [`verilator`](https://github.com/verilator/verilator) as
+well as a black-box for Verilog synthesis.
 
 The core interfaces with other components via [Wishbone](https://cdn.opencores.org/downloads/wbspec_b4.pdf)
 interfaces, using [`clash-protocols`](https://github.com/clash-lang/clash-protocols) types.
