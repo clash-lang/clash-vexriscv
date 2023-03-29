@@ -26,14 +26,12 @@ fn print(s: &str) {
 fn main() -> ! {
     print("Executing `ebreak` instruction...\n");
 
-    /*
     unsafe {
         riscv::asm::ebreak();
     }
 
     print("This should never be reached\n");
 
-    */
     loop {
         continue;
     }

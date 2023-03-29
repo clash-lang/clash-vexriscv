@@ -26,7 +26,7 @@ object ExampleCpu extends App {
           catchAccessFault = true
         ),
         new CsrPlugin(
-          CsrPluginConfig.smallest.copy(ebreakGen = true)
+          CsrPluginConfig.smallest.copy(ebreakGen = true, mtvecAccess = CsrAccess.READ_WRITE)
         ),
         new DecoderSimplePlugin(
           catchIllegalInstruction = true
