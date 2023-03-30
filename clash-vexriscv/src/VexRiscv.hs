@@ -21,9 +21,10 @@ import GHC.IO (unsafePerformIO)
 import GHC.Stack (HasCallStack)
 import Protocols.Wishbone
 import VexRiscv.FFI
+import VexRiscv.TH
 import qualified Data.List
 import Language.Haskell.TH.Syntax
-import Paths_clash_vexriscv
+
 
 data Input = Input
   { timerInterrupt :: Bit
@@ -296,8 +297,8 @@ vexRiscv# !_clk rst0
         in unlines l1
 
       vexRiscvSrc0 = $(do
-        elfPath <- runIO $ getDataFileName "build_out_dir/VexRiscv.v"
-        content <- runIO $ readFile elfPath
+        cpuSrcPath <- runIO $ getPackageRelFilePath "example-cpu/VexRiscv.v"
+        content <- runIO $ readFile cpuSrcPath
         pure $ LitE $ StringL content
         )
       vexRiscvSrc1 = indent 6 vexRiscvSrc0

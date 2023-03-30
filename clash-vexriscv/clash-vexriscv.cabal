@@ -9,7 +9,24 @@ Copyright:           Copyright © 2022 Google LLC
 build-type:          Custom
 
 data-files:
+  example-cpu/VexRiscv.v
+
+extra-tmp-files:
   build_out_dir/VexRiscv.v
+
+extra-source-files:
+  -- FFI code
+  src/ffi/impl.cpp
+  src/ffi/interface.h
+
+  -- Scala VexRiscv CPU code
+  example-cpu/project/build.properties
+  example-cpu/project/Dependencies.scala
+  example-cpu/src/main/scala/example/ExampleCpu.scala
+  example-cpu/lib/vexriscv_2.11-2.0.0.jar
+  example-cpu/lib/vexriscv_2.11-2.0.0.jar.license
+  example-cpu/build.sbt
+  Makefile
 
 custom-setup
   setup-depends:
@@ -86,6 +103,7 @@ library
   exposed-modules:
     VexRiscv
     VexRiscv.FFI
+    VexRiscv.TH
   build-depends:
     base,
     clash-prelude,
@@ -96,6 +114,7 @@ library
     filepath,
     containers,
     string-interpolate,
-    template-haskell
+    template-haskell,
+    Glob,
   extra-libraries: VexRiscvFFI, stdc++
   include-dirs: src/
