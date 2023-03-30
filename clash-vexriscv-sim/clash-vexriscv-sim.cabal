@@ -1,5 +1,5 @@
 cabal-version:       2.4
-name:                vex-riscv-sim
+name:                clash-vexriscv-sim
 version:             0.1
 License:             Apache-2.0
 license-file:        LICENSE
@@ -81,11 +81,11 @@ library
     base,
     clash-prelude,
     clash-protocols,
-    vex-riscv,
+    clash-vexriscv,
     elf >= 0.31 && < 0.32,
     bytestring >= 0.10 && < 0.11,
 
-executable vex-riscv-bin
+executable clash-vexriscv-bin
   import: common-options
   main-is: VexRiscvSimulation.hs
   hs-source-dirs: app
@@ -94,8 +94,8 @@ executable vex-riscv-bin
     base,
     clash-prelude,
     clash-protocols,
-    vex-riscv,
-    vex-riscv-sim,
+    clash-vexriscv,
+    clash-vexriscv-sim,
     bytestring,
     containers,
     directory,
@@ -111,8 +111,8 @@ test-suite unittests
     base,
     clash-prelude,
     clash-protocols,
-    vex-riscv,
-    vex-riscv-sim,
+    clash-vexriscv,
+    clash-vexriscv-sim,
     bytestring,
     containers,
     directory,

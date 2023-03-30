@@ -12,6 +12,6 @@ opt-level = "z"
 
 [workspace]
 members = [
-  "vex-riscv-sim/vex-test-programs",
+  "clash-vexriscv-sim/test-programs",
 ]
 resolver = "2"

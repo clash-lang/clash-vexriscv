@@ -89,13 +89,13 @@ jobs:
       
       - name: Archive Integration Test Binaries
         run: |
-          cd vex-riscv-sim; sh bundle_test_binaries.sh
+          cd clash-vexriscv-sim; sh bundle_test_binaries.sh
       
       - name: Upload Integration Test Binaries
         uses: actions/upload-artifact@v2
         with:
-          name: vex-riscv-test-binaries
-          path: vex-riscv-sim/vex-riscv-test-binaries.tar
+          name: vexriscv-test-binaries
+          path: clash-vexriscv-sim/vexriscv-test-binaries.tar
 
 
   vex-riscv:
@@ -140,22 +140,22 @@ jobs:
           curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | apt-key add
           apt-get update
           apt-get install sbt -y
-      - name: Build VexRiscv
+      - name: Build clash-vexriscv
         run: |
           # export PKG_CONFIG_PATH=/opt/share/pkgconfig/:${PKG_CONFIG_PATH}
-          cabal build vex-riscv
-      - name: Build VexRiscv-sim
+          cabal build clash-vexriscv
+      - name: Build clash-vexriscv-sim
         run: |
-          cabal build vex-riscv-sim
+          cabal build clash-vexriscv-sim
 
       - name: Download VexRiscv Integration Tests
         uses: actions/download-artifact@v2
         with:
-          name: vex-riscv-test-binaries
+          name: vexriscv-test-binaries
 
       - name: Extract VexRiscv Integration Tests
         run: |
-          tar -x -f vex-riscv-test-binaries.tar
+          tar -x -f vexriscv-test-binaries.tar
       - name: Run unittests
         run: |
-          cabal run vex-riscv-sim:unittests
+          cabal run clash-vexriscv-sim:unittests

@@ -77,7 +77,7 @@ findTests srcDir binDir = do
   pure $ catMaybes paths
 
 sourceDir, releaseBinDir, debugBinDir :: FilePath
-sourceDir = "vex-riscv-sim/vex-test-programs/src/bin"
+sourceDir = "clash-vexriscv-sim/test-programs/src/bin"
 releaseBinDir = "target/riscv32imc-unknown-none-elf/release"
 debugBinDir = "target/riscv32imc-unknown-none-elf/debug"
 

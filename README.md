@@ -10,7 +10,7 @@ This repository contains a [VexRiscv](https://github.com/SpinalHDL/VexRiscv) bas
 bindings for use in [Clash](https://clash-lang.org/).
 
 For now this repository only contains one
-[example CPU configuration](vex-riscv/example-cpu/src/main/scala/example/ExampleCpu.scala),
+[example CPU configuration](clash-vexriscv/example-cpu/src/main/scala/example/ExampleCpu.scala),
 which implements a 32 bit IMC RISC-V core.
 
 This package includes simulation via [`verilator`](https://github.com/verilator/verilator) as

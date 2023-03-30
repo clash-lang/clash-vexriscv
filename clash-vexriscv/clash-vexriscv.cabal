@@ -1,5 +1,5 @@
 cabal-version:       2.4
-name:                vex-riscv
+name:                clash-vexriscv
 version:             0.1
 License:             Apache-2.0
 license-file:        LICENSE
@@ -77,7 +77,7 @@ common common-options
     ghc-typelits-extra,
     ghc-typelits-knownnat,
 
-  other-modules: Paths_vex_riscv
+  other-modules: Paths_clash_vexriscv
 
 library
   import: common-options

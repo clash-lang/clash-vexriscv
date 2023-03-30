@@ -16,7 +16,7 @@ mkdir -p $out_dir_debug
 mkdir -p $out_dir_release
 
 
-for test in $(ls vex-test-programs/src/bin/*.rs); do
+for test in $(ls test-programs/src/bin/*.rs); do
   filename=$(basename $test .rs)
   expect_file=src/bin/$filename.expected
 
@@ -25,5 +25,5 @@ for test in $(ls vex-test-programs/src/bin/*.rs); do
 done
 
 cd build_out_dir
-tar -c -f ../vex-riscv-test-binaries.tar target
+tar -c -f ../vexriscv-test-binaries.tar target
 cd ..

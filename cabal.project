@@ -3,8 +3,8 @@
 -- SPDX-License-Identifier: CC0-1.0
 
 packages:
-  vex-riscv/
-  vex-riscv-sim/
+  clash-vexriscv/
+  clash-vexriscv-sim/
 
 write-ghc-environment-files: always
 

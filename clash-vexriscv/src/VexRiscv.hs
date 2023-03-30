@@ -23,7 +23,7 @@ import Protocols.Wishbone
 import VexRiscv.FFI
 import qualified Data.List
 import Language.Haskell.TH.Syntax
-import Paths_vex_riscv
+import Paths_clash_vexriscv
 
 data Input = Input
   { timerInterrupt :: Bit

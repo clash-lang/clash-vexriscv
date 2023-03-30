@@ -10,7 +10,7 @@ Source: https://github.com/clash-lang/clash-vexrisc
 # Copyright: $YEAR $NAME <$CONTACT>
 # License: ...
 
-Files: vex-riscv-sim/vex-test-programs/src/bin/*.expected
+Files: clash-vexriscv-sim/test-programs/src/bin/*.expected
 Copyright: 2022-2023 Google LLC
 License: CC0-1.0
 
