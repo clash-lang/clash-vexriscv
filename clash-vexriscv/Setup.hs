@@ -9,6 +9,8 @@ import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Setup
 import Distribution.Simple.Utils
 import System.Directory
+import System.FilePath.Glob (glob)
+import System.FilePath ((</>))
 
 main :: IO ()
 main =
@@ -16,6 +18,7 @@ main =
     simpleUserHooks
       { preConf = makeExtLib,
         confHook = \a f -> confHook simpleUserHooks a f >>= updateExtraLibDirs,
+        postBuild = \a f p l -> postBuild simpleUserHooks a f p l >> patchLibHSfile f l,
         copyHook = copyVexRiscvFfiLib
       }
 
@@ -57,6 +60,20 @@ makeExtLib _ flags = do
     "env"
     ["make"]
   return emptyHookedBuildInfo
+
+-- Patch the location of libVexRiscvFFI.so into the RUNPATH header of
+-- libHSclash-vexriscv-[...].so file.
+-- So ghc will know where to find it.
+-- This is a bit of a hack, but we couldn't find a more direct way of accomplishing this.
+patchLibHSfile :: BuildFlags -> LocalBuildInfo -> IO ()
+patchLibHSfile flags localBuildInfo = do
+  let verbosity = fromFlag $ buildVerbosity flags
+  let packageDescription = localPkgDescr localBuildInfo
+      lib = fromJust $ library packageDescription
+      libBuild = libBuildInfo lib
+      libBuildDir = buildDir localBuildInfo
+  [soFile] <- glob (libBuildDir </> "libHSclash-vexriscv-*.so")
+  rawSystemExit verbosity "patchelf" ["--add-rpath",libBuildDir,soFile]
 
 updateExtraLibDirs :: LocalBuildInfo -> IO LocalBuildInfo
 updateExtraLibDirs localBuildInfo = do

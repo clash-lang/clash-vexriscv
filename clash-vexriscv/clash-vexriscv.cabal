@@ -32,6 +32,8 @@ custom-setup
   setup-depends:
     base,
     Cabal,
+    Glob,
+    filepath,
     directory
 
 common common-options
