@@ -96,6 +96,8 @@ updateExtraLibDirs localBuildInfo = do
 
   putStrLn $ "LIB DIRS!!!!! " <> show (extraLibDirs libBuild)
 
+  buildDir <- makeAbsolute libBuildDir
+
   return
     localBuildInfo
       { localPkgDescr =
@@ -106,11 +108,8 @@ updateExtraLibDirs localBuildInfo = do
                     { libBuildInfo =
                         libBuild
                           { extraLibDirs =
-                              libBuildDir :
+                              buildDir :
                               extraLibDirs libBuild
-                          , extraLibs =
-                              "VexRiscvFFI" : "stdc++" :
-                              extraLibs libBuild
                           }
                     }
             }
