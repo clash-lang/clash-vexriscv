@@ -104,7 +104,7 @@ jobs:
     needs: [rust-build-programs]
 
     container:
-      image: ghcr.io/clash-lang/clash-ci-9.0.2:2022-12-13
+      image: ghcr.io/clash-lang/clash-ci-9.0.2:2023-03-25
 
     steps:
       - name: Checkout
@@ -119,13 +119,13 @@ jobs:
         with:
           path: |
             ~/.cabal/store
-          key: packages-cachebust-1-${{ hashFiles('cabal.project.freeze') }}
-          restore-keys: packages-cachebust-1-
+          key: packages-cachebust-2-${{ hashFiles('cabal.project.freeze') }}
+          restore-keys: packages-cachebust-2-
 
       - name: Install build deps
         run: |
           apt-get update
-          apt-get install gnupg pkg-config -y
+          apt-get install gnupg pkg-config patchelf -y
       - name: Install Java
         run: |
           # install Java 8

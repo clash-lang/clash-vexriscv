@@ -43,8 +43,8 @@ copyVexRiscvFfiLib pkgDescr lbi _ flags = do
   createDirectoryIfMissing True libPref
 
   let
-    tmpPath file = libBuildDir ++ "/" ++ file
-    finalPath file = libPref ++ "/" ++ file
+    tmpPath file = libBuildDir </> file
+    finalPath file = libPref </> file
   
   copyFile (tmpPath "libVexRiscvFFI.so") (finalPath "libVexRiscvFFI.so")
   copyFile (tmpPath "libVexRiscvFFI.a") (finalPath "libVexRiscvFFI.a")
@@ -85,8 +85,8 @@ updateExtraLibDirs localBuildInfo = do
 
   dir <- getCurrentDirectory
 
-  let tmpPath file = dir ++ "/build_out_dir/" ++ file
-      finalPath file = libBuildDir ++ "/" ++ file
+  let tmpPath file = dir </> "build_out_dir" </> file
+      finalPath file = libBuildDir </> file
   
   copyFile (tmpPath "libVexRiscvFFI.so") (finalPath "libVexRiscvFFI.so")
   copyFile (tmpPath "libVexRiscvFFI.a") (finalPath "libVexRiscvFFI.a")

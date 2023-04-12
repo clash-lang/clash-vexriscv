@@ -1,3 +1,7 @@
+-- SPDX-FileCopyrightText: 2023 Google LLC
+--
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE MultiWayIf #-}
 
 module VexRiscv.TH where
