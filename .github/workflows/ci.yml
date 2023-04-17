@@ -142,7 +142,7 @@ jobs:
           apt-get install sbt -y
       - name: Build clash-vexriscv
         run: |
-          # export PKG_CONFIG_PATH=/opt/share/pkgconfig/:${PKG_CONFIG_PATH}
+          export PKG_CONFIG_PATH=/opt/share/pkgconfig/:${PKG_CONFIG_PATH}
           cabal build clash-vexriscv
       - name: Build clash-vexriscv-sim
         run: |
