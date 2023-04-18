@@ -38,20 +38,55 @@ updateExtraLibDirs localBuildInfo = do
 
   dir <- getCurrentDirectory
 
-  let tmpPath file = dir </> "build_out_dir" </> file
-      finalPath file = libBuildDir </> file
-  
-  -- when using `extra-bundled-libraries`, cabal seems to get confused
-  -- and needs multiple versions of the library at different points
-  -- during compilation
-  copyFile (tmpPath "libVexRiscvFFI.so") (finalPath "libVexRiscvFFI.so")
-  copyFile (tmpPath "libVexRiscvFFI.so") (finalPath "libCVexRiscvFFI.so")
-  copyFile (tmpPath "libVexRiscvFFI.so") (finalPath "libCVexRiscvFFI-ghc9.0.2.so")
-  
-  copyFile (tmpPath "libVexRiscvFFI.a") (finalPath "libCVexRiscvFFI.a")
+  let
+    buildOutDir = dir </> "build_out_dir"
 
-  pure localBuildInfo
+    tmpPath file = buildOutDir </> file
+    finalPath file = libBuildDir </> file
+  
+  let copy name = copyFile (tmpPath name) (finalPath name)
 
+  copy "libVexRiscvFFI.a"
+  copy "impl.o"
+  copy "VVexRiscv__ALL.a"
+  copy "verilated.o"
+
+  -- staticLib <- makeAbsolute $ finalPath "libVexRiscvFFI.a"
+  let staticLib = "VexRiscvFFI"
+
+  let
+    compileFlags =
+      [ "-fPIC"
+      , "-pgml c++"
+      ]
+
+    ldFlags =
+      [ "-Wl,-L" <> libBuildDir
+      , "-Wl,--whole-archive"
+      , "-Wl,-Bstatic"
+      , "-Wl,-l" <> staticLib
+      , "-Wl,-Bdynamic"
+      , "-Wl,--no-whole-archive"
+      , "-Wl,-lstdc++"
+      ]
+
+  pure 
+    localBuildInfo
+      { localPkgDescr =
+          packageDescription
+            { library =
+                Just $
+                  lib
+                    { libBuildInfo =
+                        libBuild
+                          { options =
+                              (compileFlags <>) <$> (options libBuild)
+                          , ldOptions =
+                              ldFlags <> ldOptions libBuild
+                          }
+                    }
+            }
+      }
 
 copyVexRiscvFfiLib :: PackageDescription -> LocalBuildInfo -> CopyFlags -> IO ()
 copyVexRiscvFfiLib pkgDescr lbi flags = do
@@ -72,7 +107,14 @@ copyVexRiscvFfiLib pkgDescr lbi flags = do
   -- when using `extra-bundled-libraries`, cabal seems to get confused
   -- and needs multiple versions of the library at different points
   -- during compilation
-  copyFile (tmpPath "libVexRiscvFFI.so") (finalPath "libVexRiscvFFI.so")
-  copyFile (tmpPath "libCVexRiscvFFI.so") (finalPath "libCVexRiscvFFI.so")
-  copyFile (tmpPath "libCVexRiscvFFI-ghc9.0.2.so") (finalPath "libCVexRiscvFFI-ghc9.0.2.so")
-  copyFile (tmpPath "libCVexRiscvFFI.a") (finalPath "libCVexRiscvFFI.a")
+  -- copyFile (tmpPath "libVexRiscvFFI.so") (finalPath "libVexRiscvFFI.so")
+  -- copyFile (tmpPath "libCVexRiscvFFI.so") (finalPath "libCVexRiscvFFI.so")
+  -- copyFile (tmpPath "libCVexRiscvFFI-ghc9.0.2.so") (finalPath "libCVexRiscvFFI-ghc9.0.2.so")
+  -- copyFile (tmpPath "libCVexRiscvFFI.a") (finalPath "libCVexRiscvFFI.a")
+
+  let copy name = copyFile (tmpPath name) (finalPath name)
+
+  copy "libVexRiscvFFI.a"
+  copy "impl.o"
+  copy "VVexRiscv__ALL.a"
+  copy "verilated.o"

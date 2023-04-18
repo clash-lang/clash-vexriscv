@@ -117,5 +117,6 @@ library
     string-interpolate,
     template-haskell,
     Glob,
-  extra-bundled-libraries: CVexRiscvFFI
+  -- extra-libraries: stdc++
+  -- extra-bundled-libraries: CVexRiscvFFI
   include-dirs: src/
