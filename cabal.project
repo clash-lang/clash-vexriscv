@@ -9,7 +9,6 @@ packages:
 write-ghc-environment-files: always
 
 with-compiler: ghc-9.0.2
-executable-dynamic: True
 
 tests: True
 
