@@ -22,6 +22,7 @@ clean:
 
 $(CPU_DIR)/VexRiscv.v: $(CPU_DIR)/src/main/scala/example/ExampleCpu.scala
 	cd $(CPU_DIR); sbt "runMain example.ExampleCpu"
+	cd $(CPU_DIR); sed -i -E '/\/\/ Git hash  :.*$$/d' VexRiscv.v
 
 $(OUT_DIR)/VexRiscv.v: $(CPU_DIR)/VexRiscv.v
 	mkdir -p $(OUT_DIR)

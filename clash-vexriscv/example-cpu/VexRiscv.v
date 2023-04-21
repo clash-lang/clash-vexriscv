@@ -1,6 +1,5 @@
 // Generator : SpinalHDL v1.7.1    git head : 0444bb76ab1d6e19f0ec46bc03c4769776deb7d5
 // Component : VexRiscv
-// Git hash  : edd4d371d58f877a0c8feda07445fd2254a4b31f
 
 `timescale 1ns/1ps
 
