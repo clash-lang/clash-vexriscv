@@ -9,13 +9,15 @@ import Distribution.Simple.LocalBuildInfo
 import Distribution.Simple.Setup
 import Distribution.Simple.Utils
 import System.Directory
+import System.FilePath ((</>))
 
 main :: IO ()
 main =
   defaultMainWithHooks
     simpleUserHooks
       { preConf = makeExtLib,
-        confHook = \a f -> confHook simpleUserHooks a f >>= updateExtraLibDirs
+        confHook = \a f -> confHook simpleUserHooks a f >>= updateExtraLibDirs,
+        copyHook = \desc lbi h f -> copyHook simpleUserHooks desc lbi h f >> copyVexRiscvFfiLib desc lbi f
       }
 
 makeExtLib :: Args -> ConfigFlags -> IO HookedBuildInfo
@@ -32,8 +34,36 @@ updateExtraLibDirs localBuildInfo = do
   let packageDescription = localPkgDescr localBuildInfo
       lib = fromJust $ library packageDescription
       libBuild = libBuildInfo lib
+      libBuildDir = buildDir localBuildInfo
+  
   dir <- getCurrentDirectory
-  return
+
+  let
+    buildOutDir = dir </> "build_out_dir"
+    
+    copy file = copyFile (buildOutDir </> file) (libBuildDir </> file)
+  
+  copy "libVexRiscvFFI.a"
+
+  let staticLib = "VexRiscvFFI"
+
+  let
+    compileFlags =
+      [ "-fPIC"
+      , "-pgml c++"
+      ]
+
+    ldFlags =
+      [ "-Wl,-L" <> libBuildDir
+      , "-Wl,--whole-archive"
+      , "-Wl,-Bstatic"
+      , "-Wl,-l" <> staticLib
+      , "-Wl,-Bdynamic"
+      , "-Wl,--no-whole-archive"
+      , "-Wl,-lstdc++"
+      ]
+
+  pure 
     localBuildInfo
       { localPkgDescr =
           packageDescription
@@ -42,10 +72,31 @@ updateExtraLibDirs localBuildInfo = do
                   lib
                     { libBuildInfo =
                         libBuild
-                          { extraLibDirs =
-                              (dir ++ "/build_out_dir") :
-                              extraLibDirs libBuild
+                          { options =
+                              (compileFlags <>) <$> (options libBuild)
+                          , ldOptions =
+                              ldFlags <> ldOptions libBuild
                           }
                     }
             }
       }
+
+copyVexRiscvFfiLib :: PackageDescription -> LocalBuildInfo -> CopyFlags -> IO ()
+copyVexRiscvFfiLib pkgDescr lbi flags = do
+  let
+    libBuildDir0 = buildDir lbi
+    libPref = libdir . absoluteInstallDirs pkgDescr lbi
+              . fromFlag . copyDest
+              $ flags
+
+  libBuildDir <- makeAbsolute libBuildDir0
+
+  createDirectoryIfMissing True libPref
+
+  let
+    tmpPath file = libBuildDir </> file
+    finalPath file = libPref </> file
+
+  let copy name = copyFile (tmpPath name) (finalPath name)
+
+  copy "libVexRiscvFFI.a"

@@ -32,7 +32,8 @@ custom-setup
   setup-depends:
     base,
     Cabal,
-    directory
+    directory,
+    filepath
 
 common common-options
   default-extensions:
@@ -116,5 +117,4 @@ library
     string-interpolate,
     template-haskell,
     Glob,
-  extra-libraries: VexRiscvFFI, stdc++
   include-dirs: src/
