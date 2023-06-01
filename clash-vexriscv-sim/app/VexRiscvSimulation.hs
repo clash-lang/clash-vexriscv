@@ -5,16 +5,18 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE GADTs #-}
 
+{-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
+
 import Clash.Prelude
 
 import Protocols.Wishbone
-import VexRiscv (Output(iBusWbM2S, dBusWbM2S))
+import VexRiscv (CpuOut(iBusWbM2S, dBusWbM2S))
 
 import qualified Data.List as L
 
 import Control.Monad (forM_, when)
 import Data.Char (chr)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import System.Environment (getArgs)
 import System.IO (putChar, hFlush, stdout)
 import Text.Printf (printf)
@@ -22,6 +24,7 @@ import Text.Printf (printf)
 
 import Utils.ProgramLoad (loadProgram)
 import Utils.Cpu (cpu)
+import System.Exit (exitFailure)
 
 --------------------------------------
 --
@@ -59,9 +62,9 @@ debugConfig =
 --
 {-
   InspectBusses
-    50
     0
-    (Just 300)
+    0
+    (Just 100)
     True
     True
 -- -}
@@ -77,37 +80,58 @@ main = do
     withClockResetEnable @System clockGen resetGen enableGen $
       loadProgram @System elfFile
 
-  let cpuOut@(unbundle -> (_circuit, writes, iBus, dBus)) =
+  let cpuOut@(unbundle -> (_circuit, writes, _iBus, _dBus)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
-          bundle (cpu iMem dMem)
+          let (circ, writes1, iBus, dBus) = cpu (Just 7894) iMem dMem
+              dBus' = register Nothing dBus
+          in bundle (circ, writes1, iBus, dBus')
 
   case debugConfig of
     RunCharacterDevice ->
-      forM_ (sample_lazy @System (bundle (dBus, iBus, writes))) $ \(dS2M, iS2M, write) -> do
-        when (err dS2M) $
-          putStrLn "D-bus ERR reply"
+      forM_ (sample_lazy @System (bundle (register @System (unpack 0) cpuOut, cpuOut))) $
+        \((_out, write, dS2M0, iS2M0), (out1, _write, _dS2M, _iS2M)) -> do
+        let
+          iS2M = fromMaybe emptyWishboneS2M iS2M0
+          dS2M = fromMaybe emptyWishboneS2M dS2M0
 
-        when (err iS2M) $
-          putStrLn "I-bus ERR reply"
-        
+        when (err dS2M) $ do
+          let dBusM2S = dBusWbM2S out1
+          let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
+          -- printf "D-bus ERR reply % 8X (% 8X)\n" (toInteger $ dAddr `shiftL` 2) (toInteger dAddr)
+          -- exitFailure
+          pure ()
+
+        when (err iS2M) $ do
+          let iBusM2S = iBusWbM2S out1
+          let iAddr = toInteger (addr iBusM2S) -- `shiftL` 2
+          -- printf "I-bus ERR reply % 8X (% 8X)\n" (toInteger $ iAddr `shiftL` 2) (toInteger iAddr)
+          -- printf "%s\n" (showX iBusM2S)
+          -- exitFailure
+          pure ()
+
         case write of
           Just (address, value) | address == 0x0000_1000 -> do
             let (_ :: BitVector 24, b :: BitVector 8) = unpack value
             putChar $ chr (fromEnum b)
             hFlush stdout
+            pure ()
           _ -> pure ()
       -- performPrintsToStdout 0x0000_1000 (sample_lazy $ bitCoerce <$> writes)
     InspectBusses initCycles uninteresting interesting iEnabled dEnabled -> do
-      
+
       let skipTotal = initCycles + uninteresting
 
       let sampled = case interesting of
             Nothing -> L.zip [0 ..] $ sample_lazy @System cpuOut
             Just nInteresting ->
-              let total = initCycles + uninteresting + nInteresting in L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
+              let total = initCycles + uninteresting + nInteresting in
+              L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
 
-      forM_ sampled $ \(i, (out, _, iBusS2M, dBusS2M)) -> do
-        let doPrint = i >= skipTotal
+      forM_ sampled $ \(i, (out, _, iBusS2M0, dBusS2M0)) -> do
+        let
+          iBusS2M = fromMaybe emptyWishboneS2M iBusS2M0
+          dBusS2M = fromMaybe emptyWishboneS2M dBusS2M0
+          doPrint = i >= skipTotal
 
         -- I-bus interactions
 
@@ -142,6 +166,9 @@ main = do
               <> printf "%X" (iAddr `shiftL` 2)
               <> ")"
           putStrLn $ "            - iS2M: " <> iResp <> " - " <> iRespData
+
+        when (err iBusS2M)
+          exitFailure
 
         -- D-bus interactions
 
@@ -192,6 +219,9 @@ main = do
                 <> writeDat
                 <> "> - "
             putStrLn $ "dS2M: " <> dResp <> dRespData
+
+        when (err dBusS2M)
+          exitFailure
     InspectWrites ->
       forM_ (catMaybes $ sample_lazy @System writes) $ \(address, value) -> do
         printf "W: % 8X <- % 8X\n" (toInteger address) (toInteger value)
