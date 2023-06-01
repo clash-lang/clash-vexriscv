@@ -24,7 +24,8 @@ emptyInput =
       externalInterrupt = low,
       softwareInterrupt = low,
       iBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0},
-      dBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0}
+      dBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0},
+      jtagIn = JtagIn { testModeSelect = low, testDataIn = low, testClock = low }
     }
 
 
@@ -72,7 +73,12 @@ cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
               externalInterrupt = low,
               softwareInterrupt = low,
               iBusWbS2M = makeDefined iBus,
-              dBusWbS2M = makeDefined dBus
+              dBusWbS2M = makeDefined dBus,
+              jtagIn = JtagIn {
+                  testModeSelect = low,
+                  testDataIn = low,
+                  testClock = low
+                }
             }
       )
         <$> iS2M
