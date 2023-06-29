@@ -104,6 +104,7 @@ library
     VexRiscv
     VexRiscv.ClockTicks
     VexRiscv.FFI
+    VexRiscv.JtagTcpBridge
     VexRiscv.TH
   build-depends:
     base,
@@ -117,6 +118,7 @@ library
     string-interpolate,
     template-haskell,
     Glob,
+    network,
   extra-libraries: VexRiscvFFI, stdc++
   include-dirs: src/
 

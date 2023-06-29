@@ -22,6 +22,7 @@ import Foreign.Storable
 import GHC.IO (unsafePerformIO)
 import GHC.Stack (HasCallStack)
 import Language.Haskell.TH.Syntax
+import Protocols
 import Protocols.Wishbone
 import VexRiscv.FFI
 import VexRiscv.TH
@@ -53,6 +54,15 @@ data Output = Output
   , debugReset :: "DEBUG_RESET" ::: Bit
   }
   deriving (Generic, NFDataX, ShowX, Eq, BitPack)
+
+
+data Jtag (dom :: Domain)
+
+instance Protocol (Jtag dom) where
+  type Fwd (Jtag dom) = Signal dom JtagOut
+  type Bwd (Jtag dom) = Signal dom JtagIn
+
+
 
 inputToFFI :: Bool -> Input -> INPUT
 inputToFFI reset Input {..} =
@@ -399,7 +409,7 @@ vexRiscv# !_sourcePath !_clk rst0
       wire [2:0] ~GENSYM[dBus_CTI][#{dBus_CTI}];
       wire [1:0] ~GENSYM[dBus_BTE][#{dBus_BTE}];
 
-      wire ~GENSYM[debug_resetOUt][#{debug_resetOut}];
+      wire ~GENSYM[debug_resetOut][#{debug_resetOut}];
       wire ~GENSYM[jtag_TDO][#{jtag_TDO}];
 
       VexRiscv ~GENSYM[cpu][#{cpu}] (
