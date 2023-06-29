@@ -11,11 +11,13 @@ import Clash.Prelude
 
 import Protocols.Wishbone
 import VexRiscv
+import VexRiscv.JtagTcpBridge as JTag
 
 import GHC.Stack (HasCallStack)
 
 import Utils.ProgramLoad (Memory)
 import Utils.Interconnect (interconnectTwo)
+import System.IO.Unsafe (unsafePerformIO)
 
 emptyInput :: Input
 emptyInput =
@@ -38,6 +40,7 @@ Address space
 -}
 cpu ::
   (HasCallStack, HiddenClockResetEnable dom) =>
+  Maybe Integer ->
   Memory dom ->
   Memory dom ->
   ( Signal dom Output,
@@ -48,9 +51,16 @@ cpu ::
     -- dBus responses
     Signal dom (WishboneS2M (BitVector 32))
   )
-cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
+cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
     output = vexRiscv input
+
+
+    (jtagIn', _debugReset) = case jtagPort of
+      Just port -> unbundle $ unsafePerformIO $ jtagTcpBridge' (fromInteger port) hasReset (jtagOut <$> output)
+      Nothing -> (pure JTag.defaultIn, pure low)
+    -- (unbundle -> (jtagIn', _debugReset)) = unsafePerformIO $ jtagTcpBridge' 7894 hasReset (jtagOut <$> output) 
+
     dM2S = dBusWbM2S <$> output
 
     iM2S = unBusAddr . iBusWbM2S <$> output
@@ -63,26 +73,25 @@ cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
     bootDS2M = bootDMem bootDM2S
 
     (dS2M, unbundle -> (dummyM2S :> bootDM2S :> Nil)) = interconnectTwo
-      (unBusAddr <$> dM2S)
+      ((\x ->
+          -- trace (printf "DBUS %08X" (toInteger (addr x)))
+          x) <$> (unBusAddr <$> dM2S))
       ((0x0000_0000, dummyS2M) :> (0x4000_0000, bootDS2M) :> Nil)
 
     input =
-      ( \iBus dBus ->
+      ( \iBus dBus jtagIn ->
           Input
             { timerInterrupt = low,
               externalInterrupt = low,
               softwareInterrupt = low,
               iBusWbS2M = makeDefined iBus,
               dBusWbS2M = makeDefined dBus,
-              jtagIn = JtagIn {
-                  testModeSelect = low,
-                  testDataIn = low,
-                  testClock = low
-                }
+              jtagIn = jtagIn
             }
       )
         <$> iS2M
         <*> dS2M
+        <*> jtagIn'
 
     unBusAddr = mapAddr ((`shiftL` 2) . extend @_ @_ @2)
 
