@@ -30,6 +30,7 @@ object ExampleCpu extends App {
         // ),
 
         new DBusCachedPlugin(
+          /*
           config = new DataCacheConfig(
             cacheSize        = 2048,
             bytePerLine      = 32,
@@ -41,10 +42,22 @@ object ExampleCpu extends App {
             catchIllegal     = true,
             catchUnaligned   = true
           )
+          */
+          config = new DataCacheConfig(
+            cacheSize        = 8,
+            bytePerLine      = 8,
+            wayCount         = 1,
+            addressWidth     = 32,
+            cpuDataWidth     = 32,
+            memDataWidth     = 32,
+            catchAccessError = true,
+            catchIllegal     = true,
+            catchUnaligned   = true
+          )
         ),
 
         new StaticMemoryTranslatorPlugin(
-          ioRange = _(31 downto 29).orR
+          ioRange = _ => True
         ),
 
         new CsrPlugin(
