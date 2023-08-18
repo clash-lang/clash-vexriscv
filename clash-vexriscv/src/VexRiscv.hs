@@ -22,7 +22,6 @@ import GHC.Stack (HasCallStack)
 import Protocols.Wishbone
 import VexRiscv.FFI
 import VexRiscv.TH
-import qualified Data.List
 import Language.Haskell.TH.Syntax
 
 
