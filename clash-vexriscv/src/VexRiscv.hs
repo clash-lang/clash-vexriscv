@@ -198,7 +198,7 @@ vexRiscv#
     , Signal dom (BitVector 3)  -- ^ dBus_CTI
     , Signal dom (BitVector 2)  -- ^ dBus_BTE
     )
-vexRiscv# _sourcePath !_clk rst0
+vexRiscv# !_sourcePath !_clk rst0
   timerInterrupt
   externalInterrupt
   softwareInterrupt
