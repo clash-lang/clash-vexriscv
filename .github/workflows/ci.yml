@@ -120,7 +120,7 @@ jobs:
         with:
           path: |
             ~/.cabal/store
-          key: packages-cachebust-1-${{ hashFiles('cabal.project.freeze') }}
+          key: packages-cachebust-1-${{ hashFiles('cabal.project.freeze', 'cabal.project') }}
           restore-keys: packages-cachebust-1-
 
       - name: Install build deps
