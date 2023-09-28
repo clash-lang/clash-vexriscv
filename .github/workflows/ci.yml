@@ -112,6 +112,7 @@ jobs:
 
       - name: Update Cabal index info
         run: |
+          cp .github/cabal.project cabal.project.local
           cabal update
           cabal freeze
       - name: Cache
