@@ -340,7 +340,11 @@ vexRiscv# !_sourcePath !_clk rst0
 {-# ANN vexRiscv# (
     let
       primName = 'vexRiscv#
-      ( _
+
+      
+      (
+       -- ARGs
+       _
        :> srcPath
        :> clk
        :> rst
@@ -356,10 +360,9 @@ vexRiscv# !_sourcePath !_clk rst0
        :> jtag_TMS
        :> jtag_TDI
        :> jtag_TCK
-       :> Nil
-       ) = indicesI @16
 
-      (   iBus_CYC
+       -- GENSYMs
+       :> iBus_CYC
        :> iBus_STB
        :> iBus_WE
        :> iBus_ADR
@@ -377,10 +380,10 @@ vexRiscv# !_sourcePath !_clk rst0
        :> dBus_BTE
        :> debug_resetOut
        :> jtag_TDO
-       :> Nil
-       ) = (\x -> extend @_ @18 @16 x + 1) <$> indicesI @18
 
-      cpu = extend @_ @_ @1 dBus_BTE + 1
+       :> cpu
+       :> Nil
+       ) = indicesI @35
     in
       InlineYamlPrimitive [Verilog] [__i|
   BlackBox:
