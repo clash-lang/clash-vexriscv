@@ -26,8 +26,7 @@ emptyInput =
       externalInterrupt = low,
       softwareInterrupt = low,
       iBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0},
-      dBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0},
-      jtagIn = JtagIn { testModeSelect = low, testDataIn = low, testClock = low }
+      dBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0}
     }
 
 
@@ -53,12 +52,11 @@ cpu ::
   )
 cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
-    output = vexRiscv input
+    (output, jtagOut) = vexRiscv hasClock hasReset hasClock jtagEnable input jtagIn
 
-
-    (jtagIn', _debugReset) = case jtagPort of
-      Just port -> unbundle $ unsafePerformIO $ jtagTcpBridge' (fromInteger port) hasReset (jtagOut <$> output)
-      Nothing -> (pure JTag.defaultIn, pure low)
+    (jtagEnable, jtagIn) = case jtagPort of
+      Just port -> unsafePerformIO $ jtagTcpBridge' (fromInteger port) jtagOut
+      Nothing -> (toEnable (pure False), pure JTag.defaultIn)
     -- (unbundle -> (jtagIn', _debugReset)) = unsafePerformIO $ jtagTcpBridge' 7894 hasReset (jtagOut <$> output) 
 
     dM2S = dBusWbM2S <$> output
@@ -79,19 +77,17 @@ cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
       ((0x0000_0000, dummyS2M) :> (0x4000_0000, bootDS2M) :> Nil)
 
     input =
-      ( \iBus dBus jtagIn ->
+      ( \iBus dBus ->
           Input
             { timerInterrupt = low,
               externalInterrupt = low,
               softwareInterrupt = low,
               iBusWbS2M = makeDefined iBus,
-              dBusWbS2M = makeDefined dBus,
-              jtagIn = jtagIn
+              dBusWbS2M = makeDefined dBus
             }
       )
         <$> iS2M
         <*> dS2M
-        <*> jtagIn'
 
     unBusAddr = mapAddr ((`shiftL` 2) . extend @_ @_ @2)
 
