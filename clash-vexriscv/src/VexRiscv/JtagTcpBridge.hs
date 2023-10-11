@@ -1,6 +1,7 @@
 -- SPDX-FileCopyrightText: 2023 Google LLC
 --
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE CPP #-}
 
 module VexRiscv.JtagTcpBridge where
 
@@ -67,7 +68,11 @@ jtagTcpBridge' port rst jtagOut = do
   -- {-
   (n2m, m2n) <- server port
 
+#if MIN_VERSION_clash_prelude(1,7,0)
+  let resets = boolToBit <$> unsafeToActiveHigh rst
+#else
   let resets = boolToBit <$> unsafeToHighPolarity rst
+#endif
   
   jtagIn <- client n2m m2n MDisconnected jtagOut
 
