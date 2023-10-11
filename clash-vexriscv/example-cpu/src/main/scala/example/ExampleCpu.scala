@@ -105,7 +105,11 @@ object ExampleCpu extends App {
           earlyBranch = false,
           catchAddressMisaligned = true
         ),
-        new DebugPlugin(ClockDomain.current),
+        new DebugPlugin(
+          debugClockDomain = ClockDomain.current,
+          hardwareBreakpointCount = 5,
+          BreakpointReadback = true
+        ),
         new YamlPlugin("ExampleCpu.yaml")
       )
     )
