@@ -38,7 +38,7 @@ fn main() -> ! {
         }
 
         unsafe {
-            riscv::asm::ebreak();
+            //riscv::asm::ebreak();
         }
     }
 }
