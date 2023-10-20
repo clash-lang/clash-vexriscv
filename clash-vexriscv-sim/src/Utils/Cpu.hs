@@ -18,6 +18,8 @@ import GHC.Stack (HasCallStack)
 import Utils.ProgramLoad (Memory)
 import Utils.Interconnect (interconnectTwo)
 import System.IO.Unsafe (unsafePerformIO)
+import Text.Printf (printf)
+import Debug.Trace (trace)
 
 emptyInput :: Input
 emptyInput =
@@ -29,6 +31,8 @@ emptyInput =
       dBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0}
     }
 
+
+createDomain vXilinxSystem{vName="Basic50", vPeriod= hzToPeriod 50e6}
 
 {-
 Address space
@@ -52,7 +56,7 @@ cpu ::
   )
 cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
-    (output, jtagOut) = vexRiscv hasClock hasReset hasClock jtagEnable input jtagIn
+    (output, jtagOut) = vexRiscv hasClock hasReset (clockGen @Basic50) jtagEnable input jtagIn
 
     (jtagEnable, jtagIn) = case jtagPort of
       Just port -> unsafePerformIO $ jtagTcpBridge' (fromInteger port) jtagOut
@@ -63,7 +67,7 @@ cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
 
     iM2S = unBusAddr . iBusWbM2S <$> output
 
-    iS2M = bootIMem (mapAddr (\x -> x - 0x2000_0000) <$> iM2S)
+    iS2M = bootIMem (mapAddr (\x -> trace (printf "I-addr = % 8X\n" (toInteger $ x - 0x2000_0000)) x - 0x2000_0000) <$> iM2S)
 
     dummy = dummyWb
 

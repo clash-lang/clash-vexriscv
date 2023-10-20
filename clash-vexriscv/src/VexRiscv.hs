@@ -140,7 +140,7 @@ vexRiscv ::
   ( Signal domCpu Output
   , Signal domJtag JtagOut
   )
-vexRiscv clk rst jtagClk jtag_EN cpuInput jtagInput =
+vexRiscv clk rst jtagClk jtag_EN0 cpuInput jtagInput =
   ( Output <$>
     (WishboneM2S
       <$> iBus_ADR
@@ -165,10 +165,21 @@ vexRiscv clk rst jtagClk jtag_EN cpuInput jtagInput =
       <*> (unpack <$> dBus_CTI)
       <*> (unpack <$> dBus_BTE)
     )
-  , JtagOut <$> jtag_TDO <*> debug_resetOut
+  , JtagOut low low :-
+    (JtagOut <$> jtag_TDO1 <*> debug_resetOut)
   )
 
   where
+
+    jtag_TDO1 = unsafePerformIO $ printTrues jtag_TDO (fromEnable jtag_EN1)
+      where
+        {-# NOINLINE printTrues #-}
+        printTrues (tdo :- tdos) (en :- ens)
+          | tdo == high = do
+              -- putStrLn $ "TDO high - EN " <> show en
+              pure $ tdo :- unsafePerformIO (printTrues tdos ens)
+          | otherwise = pure $ tdo :- unsafePerformIO (printTrues tdos ens)
+
     (unbundle -> (timerInterrupt, externalInterrupt, softwareInterrupt, iBusS2M, dBusS2M))
       -- A hack that enables us to both generate synthesizable HDL and simulate vexRisc in Haskell/Clash
       = (<$> if clashSimulation then unpack 0 :- cpuInput else cpuInput)
@@ -188,7 +199,14 @@ vexRiscv clk rst jtagClk jtag_EN cpuInput jtagInput =
 
     (unbundle -> (jtag_TMS, jtag_TDI))
       -- A hack that enables us to both generate synthesizable HDL and simulate vexRisc in Haskell/Clash
-      = bitCoerce <$> (if clashSimulation then unpack 0 :- jtagInput else jtagInput)
+      = bitCoerce <$> -- jtagInput
+        (if clashSimulation then unpack 0 :- jtagInput else jtagInput)
+
+    jtag_EN1 =
+        -- if clashSimulation
+        -- then toEnable $ False :- fromEnable jtag_EN0
+        -- else 
+          jtag_EN0
 
     sourcePath = $(do
           cpuSrcPath <- runIO $ getPackageRelFilePath "example-cpu/VexRiscv.v"
@@ -227,7 +245,7 @@ vexRiscv clk rst jtagClk jtag_EN cpuInput jtagInput =
           dBus_DAT_MISO
 
           jtagClk
-          jtag_EN
+          jtag_EN1
           jtag_TMS
           jtag_TDI
           
@@ -329,9 +347,12 @@ vexRiscv# !_sourcePath clk rst0
         (cpuOut :- cpuSig, jtagSig)
       bothOutputs (ClockB:ticks) rsts cpuIn (en :- enables) (j :- jtagIn) =
         let (cpuSig, jtagSig) = bothOutputs ticks rsts cpuIn enables jtagIn
-            jtagOut = if en
-                then unsafePerformIO $ jtagStep j
-                else JtagOut { testDataOut = low, debugReset = low } 
+            jtagOut =
+              if en
+              then
+                  unsafePerformIO $ jtagStep j
+              else
+                  JtagOut { testDataOut = low, debugReset = low } 
         in
         (cpuSig, jtagOut :- jtagSig)
       bothOutputs (ClockAB:_ticks) _rsts _cpuIn _jtagEn _jtagIn = error "ClockAB should not happen"
@@ -560,10 +581,10 @@ vexCPU = do
       pure $ outputFromFFI outVal
 
     jtagStep JtagIn{..} = alloca $ \inputFFI -> alloca $ \outputFFI -> do
-      poke inputFFI (JTAG_INPUT { jtag_TMS = testModeSelect, jtag_TDI = testDataIn })
-      vexrJtagStep v inputFFI outputFFI
-      JTAG_OUTPUT{..} <- peek outputFFI
-      pure $ JtagOut { testDataOut = jtag_TDO, debugReset = debug_resetOut }
+          poke inputFFI (JTAG_INPUT { jtag_TMS = testModeSelect, jtag_TDI = testDataIn })
+          vexrJtagStep v inputFFI outputFFI
+          JTAG_OUTPUT{..} <- peek outputFFI
+          pure $ JtagOut { testDataOut = jtag_TDO, debugReset = debug_resetOut }
 
     shutDown = vexrShutdown v
   pure (cpuStep, jtagStep, shutDown)

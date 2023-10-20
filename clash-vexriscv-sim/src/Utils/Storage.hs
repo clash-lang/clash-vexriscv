@@ -13,6 +13,8 @@ import qualified Data.IntMap.Strict as I
 
 import Clash.Signal.Internal (Signal((:-)))
 import Protocols.Wishbone
+import Debug.Trace (trace)
+import Text.Printf (printf)
 
 storage ::
   forall dom.
@@ -35,6 +37,7 @@ storage contents = mealy' go (I.fromAscList $ L.zip [0..] contents)
   go mem WishboneM2S{..}
     | not (busCycle && strobe)        = (mem, emptyWishboneS2M)
     | addr >= fromIntegral size       =
+        trace (printf "ACCESS ERROR addr % 8X tried but size is % 8X\n" (toInteger addr) (toInteger $ fromIntegral size))
         (mem, emptyWishboneS2M { err = True })
     | not writeEnable      {- read -} =
         case readDataSel mem addr busSelect of
