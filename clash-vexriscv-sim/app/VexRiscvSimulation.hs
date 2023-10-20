@@ -5,6 +5,8 @@
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE GADTs #-}
 
+{-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
+
 import Clash.Prelude
 
 import Protocols.Wishbone
@@ -23,6 +25,7 @@ import Text.Printf (printf)
 import Utils.ProgramLoad (loadProgram)
 import Utils.Cpu (cpu)
 import System.Exit (exitFailure)
+import System.Directory.Internal.Prelude (exitFailure)
 
 --------------------------------------
 --
@@ -55,14 +58,13 @@ data DebugConfiguration where
 debugConfig :: DebugConfiguration
 debugConfig =
   -- InspectWrites
-  RunCharacterDevice
+  -- RunCharacterDevice
 
---
-{-
+-- {-
   InspectBusses
     50
     0
-    (Just 300)
+    Nothing
     True
     True
 -- -}
@@ -86,18 +88,21 @@ main = do
 
   case debugConfig of
     RunCharacterDevice ->
-      forM_ (sample_lazy @System cpuOut) $ \(out, write, dS2M, iS2M) -> do
+      forM_ (sample_lazy @System (bundle (register @System (unpack 0) cpuOut, cpuOut))) $
+        \((out, write, dS2M, iS2M), (out1, _write, _dS2M, _iS2M)) -> do
         when (err dS2M) $ do
-          let dBusM2S = dBusWbM2S out
+          let dBusM2S = dBusWbM2S out1
           let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
           printf "D-bus ERR reply % 8X (% 8X)\n" (toInteger $ dAddr `shiftL` 2) (toInteger dAddr)
           exitFailure
 
         when (err iS2M) $ do
-          let iBusM2S = iBusWbM2S out
+          let iBusM2S = iBusWbM2S out1
           let iAddr = toInteger (addr iBusM2S) -- `shiftL` 2
           printf "I-bus ERR reply % 8X (% 8X)\n" (toInteger $ iAddr `shiftL` 2) (toInteger iAddr)
-        
+          printf "%s" (showX iBusM2S)
+          exitFailure
+
         case write of
           Just (address, value) | address == 0x0000_1000 -> do
             let (_ :: BitVector 24, b :: BitVector 8) = unpack value

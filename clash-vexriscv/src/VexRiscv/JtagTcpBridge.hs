@@ -17,6 +17,7 @@ import Network.Socket.ByteString (sendAll, recv)
 
 import qualified Data.ByteString as BS
 import System.IO.Unsafe (unsafePerformIO)
+import Debug.Trace (trace)
 
 data NetworkThreadToMainMsg
   = Connected
@@ -116,7 +117,7 @@ defaultIn = JtagIn { testModeSelect = low, testDataIn = low }
 
 dbg :: Show a => a -> a
 dbg x = 
-  -- trace (show x)
+  trace (show x)
   x
 
 clientSleep :: BitVector 2
@@ -166,9 +167,17 @@ client n2m m2n (MProcessing 0 (x:xs)) (out :- outs) = do
       enable = bitToBool tck
   
   when sendTdo $ do
-    putMVar m2n $ Send $ boolToBV (bitToBool $ testDataOut out)
-  
+    let tdo = bitToBool $ testDataOut out
+    -- putStrLn $ "send TDO " <> show tdo
+    putMVar m2n $ Send $ boolToBV tdo
+
   let inDat = JtagIn { testModeSelect = tms, testDataIn = tdi }
+
+  when enable $ do
+    -- putStrLn "Enable"
+    -- putStrLn $ "IN " <> showX inDat
+    pure ()
+
   pure $ (enable, inDat) :- unsafePerformIO (client n2m m2n (MProcessing clientSleep xs) outs)
 client n2m m2n (MProcessing n xs) (out :- outs) = do
   pure $ out `deepseqX` (False, defaultIn) :- unsafePerformIO (client n2m m2n (MProcessing (n - 1) xs) outs)
