@@ -18,12 +18,16 @@ import Data.Word
 
 data VexRiscv
 
+data VexRiscvJtagBridge
+
 foreign import ccall unsafe "vexr_init" vexrInit :: IO (Ptr VexRiscv)
-
 foreign import ccall unsafe "vexr_shutdown" vexrShutdown :: Ptr VexRiscv -> IO ()
-
 foreign import ccall unsafe "vexr_cpu_step" vexrCpuStep :: Ptr VexRiscv -> Ptr INPUT -> Ptr OUTPUT -> IO ()
 foreign import ccall unsafe "vexr_jtag_step" vexrJtagStep :: Ptr VexRiscv -> Ptr JTAG_INPUT -> Ptr JTAG_OUTPUT -> IO ()
+
+foreign import ccall unsafe "vexr_jtag_bridge_init" vexrJtagBridgeInit :: Word16 -> IO (Ptr VexRiscvJtagBridge)
+foreign import ccall unsafe "vexr_jtag_bridge_step" vexrJtagBridgeStep :: Ptr VexRiscvJtagBridge -> Ptr JTAG_OUTPUT -> Ptr JTAG_INPUT -> Ptr Bit -> IO ()
+foreign import ccall unsafe "vexr_jtag_bridge_shutdown" vexrJtagBridgeShutdown :: Ptr VexRiscvJtagBridge -> IO ()
 
 data INPUT = INPUT
   { reset :: Bit
