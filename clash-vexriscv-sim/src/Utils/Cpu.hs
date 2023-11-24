@@ -9,6 +9,7 @@ module Utils.Cpu where
 
 import Clash.Prelude
 
+import Clash.Signal.Internal
 import Protocols.Wishbone
 import VexRiscv
 import VexRiscv.JtagTcpBridge as JTag
@@ -56,18 +57,19 @@ cpu ::
   )
 cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
-    (output, jtagOut) = vexRiscv hasClock hasReset (clockGen @Basic50) jtagEnable input jtagIn
+    (output, jtagOut) = vexRiscv hasClock hasReset (clockGen @Basic50) jtagEnable input (JTag.defaultIn :- jtagIn)
 
-    (jtagEnable, jtagIn) = case jtagPort of
-      Just port -> unsafePerformIO $ jtagTcpBridge' (fromInteger port) jtagOut
-      Nothing -> (toEnable (pure False), pure JTag.defaultIn)
+    (jtagIn, jtagEnable) = case jtagPort of
+      Just port -> vexrJtagBridge (fromInteger port) (jtagOut)
+      Nothing -> (pure JTag.defaultIn, toEnable (pure False))
     -- (unbundle -> (jtagIn', _debugReset)) = unsafePerformIO $ jtagTcpBridge' 7894 hasReset (jtagOut <$> output) 
 
     dM2S = dBusWbM2S <$> output
 
     iM2S = unBusAddr . iBusWbM2S <$> output
 
-    iS2M = bootIMem (mapAddr (\x -> trace (printf "I-addr = % 8X\n" (toInteger $ x - 0x2000_0000)) x - 0x2000_0000) <$> iM2S)
+    iS2M = bootIMem (mapAddr (\x -> --trace (printf "I-addr = % 8X\n" (toInteger $ x - 0x2000_0000))
+                      x - 0x2000_0000) <$> iM2S)
 
     dummy = dummyWb
 

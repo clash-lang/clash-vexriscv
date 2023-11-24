@@ -126,6 +126,12 @@ defaultX dflt val
   | hasUndefined val = dflt
   | otherwise = val
 
+simPrepend :: a -> Signal dom a -> Signal dom a
+simPrepend l sig =
+  if clashSimulation
+    then l :- sig
+    else sig
+
 vexRiscv ::
   forall domCpu domJtag .
   ( HasCallStack
@@ -165,24 +171,20 @@ vexRiscv clk rst jtagClk jtag_EN0 cpuInput jtagInput =
       <*> (unpack <$> dBus_CTI)
       <*> (unpack <$> dBus_BTE)
     )
-  , JtagOut low low :-
-    (JtagOut <$> jtag_TDO1 <*> debug_resetOut)
+  , JtagOut <$> jtag_TDO1 <*> debug_resetOut1
   )
 
   where
 
-    jtag_TDO1 = unsafePerformIO $ printTrues jtag_TDO (fromEnable jtag_EN1)
-      where
-        {-# NOINLINE printTrues #-}
-        printTrues (tdo :- tdos) (en :- ens)
-          | tdo == high = do
-              -- putStrLn $ "TDO high - EN " <> show en
-              pure $ tdo :- unsafePerformIO (printTrues tdos ens)
-          | otherwise = pure $ tdo :- unsafePerformIO (printTrues tdos ens)
+    jtag_TDO1 =
+          jtag_TDO
+    
+    debug_resetOut1 =
+          debug_resetOut
 
     (unbundle -> (timerInterrupt, externalInterrupt, softwareInterrupt, iBusS2M, dBusS2M))
       -- A hack that enables us to both generate synthesizable HDL and simulate vexRisc in Haskell/Clash
-      = (<$> if clashSimulation then unpack 0 :- cpuInput else cpuInput)
+      = (<$> simPrepend (unpack 0) cpuInput)
         $ \(Input a b c d e) -> (a, b, c, d, e)
 
     (unbundle -> (iBus_DAT_MISO, iBus_ACK, iBus_ERR))
@@ -199,14 +201,14 @@ vexRiscv clk rst jtagClk jtag_EN0 cpuInput jtagInput =
 
     (unbundle -> (jtag_TMS, jtag_TDI))
       -- A hack that enables us to both generate synthesizable HDL and simulate vexRisc in Haskell/Clash
-      = bitCoerce <$> -- jtagInput
-        (if clashSimulation then unpack 0 :- jtagInput else jtagInput)
+      = bitCoerce <$> jtagInput
+        -- simPrepend (unpack 0) jtagInput
 
     jtag_EN1 =
+      toEnable $ simPrepend False (fromEnable jtag_EN0)
         -- if clashSimulation
         -- then toEnable $ False :- fromEnable jtag_EN0
-        -- else 
-          jtag_EN0
+        -- else jtag_EN0
 
     sourcePath = $(do
           cpuSrcPath <- runIO $ getPackageRelFilePath "example-cpu/VexRiscv.v"
@@ -344,7 +346,7 @@ vexRiscv# !_sourcePath clk rst0
         let (cpuSig, jtagSig) = bothOutputs ticks rsts cpuIn jtagEn jtagIn
             cpuOut = unsafePerformIO $ cpuStep r c
         in
-        (cpuOut :- cpuSig, jtagSig)
+        (cpuOut :- (cpuOut `deepseqX` cpuSig), jtagSig)
       bothOutputs (ClockB:ticks) rsts cpuIn (en :- enables) (j :- jtagIn) =
         let (cpuSig, jtagSig) = bothOutputs ticks rsts cpuIn enables jtagIn
             jtagOut =
@@ -354,7 +356,7 @@ vexRiscv# !_sourcePath clk rst0
               else
                   JtagOut { testDataOut = low, debugReset = low } 
         in
-        (cpuSig, jtagOut :- jtagSig)
+        (cpuSig, jtagOut :- (jtagOut `deepseqX` jtagSig))
       bothOutputs (ClockAB:_ticks) _rsts _cpuIn _jtagEn _jtagIn = error "ClockAB should not happen"
       bothOutputs [] _ _ _ _ = error "Clock tick list should be infinite"
 

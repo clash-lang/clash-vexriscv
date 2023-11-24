@@ -58,9 +58,10 @@ data DebugConfiguration where
 debugConfig :: DebugConfiguration
 debugConfig =
   -- InspectWrites
-  -- RunCharacterDevice
+  RunCharacterDevice
 
--- {-
+--
+{-
   InspectBusses
     50
     0
