@@ -31,8 +31,11 @@ typedef struct {
 extern "C" {
 	VVexRiscv* vexr_init();
 	void vexr_shutdown(VVexRiscv *top);
-	void vexr_cpu_step(VVexRiscv *top, const INPUT *input, OUTPUT *output);
-	void vexr_jtag_step(VVexRiscv *top, const JTAG_INPUT *input, JTAG_OUTPUT *output);
+	void vexr_cpu_step_rising_edge(VVexRiscv *top, const INPUT *input);
+	void vexr_cpu_step_falling_edge(VVexRiscv *top, OUTPUT *output);
+	
+	void vexr_jtag_step_rising_edge(VVexRiscv *top, const JTAG_INPUT *input);
+	void vexr_jtag_step_falling_edge(VVexRiscv *top, JTAG_OUTPUT *output);
 
 	vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port);
 	void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input, bit *jtag_en);
@@ -52,7 +55,7 @@ void vexr_shutdown(VVexRiscv *top)
 	delete top;
 }
 
-void vexr_cpu_step(VVexRiscv *top, const INPUT *input, OUTPUT *output)
+void vexr_cpu_step_rising_edge(VVexRiscv *top, const INPUT *input)
 {
 	// set inputs
 	top->reset = input->reset;
@@ -69,6 +72,10 @@ void vexr_cpu_step(VVexRiscv *top, const INPUT *input, OUTPUT *output)
 	// run one cycle of the simulation
 	top->clk = true;
 	top->eval();
+}
+
+void vexr_cpu_step_falling_edge(VVexRiscv *top, OUTPUT *output)
+{
 	top->clk = false;
 	top->eval();
 
@@ -91,15 +98,18 @@ void vexr_cpu_step(VVexRiscv *top, const INPUT *input, OUTPUT *output)
 	output->dBusWishbone_BTE = top->dBusWishbone_BTE;
 }
 
-void vexr_jtag_step(VVexRiscv *top, const JTAG_INPUT *input, JTAG_OUTPUT *output)
+void vexr_jtag_step_rising_edge(VVexRiscv *top, const JTAG_INPUT *input)
 {
 	// set inputs
 	top->jtag_tms = input->jtag_TMS;
 	top->jtag_tdi = input->jtag_TDI;
 
-	// run one cycle
 	top->jtag_tck = true;
 	top->eval();
+}
+
+void vexr_jtag_step_falling_edge(VVexRiscv *top, JTAG_OUTPUT *output)
+{
 	top->jtag_tck = false;
 	top->eval();
 
@@ -151,6 +161,7 @@ vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 
 void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input, bit *jtag_en)
 {
+	const int WAIT_PERIOD = 83333;
 	// We set the input values to their default here
 	// so that only the "successful" path has to update them
 
@@ -217,7 +228,7 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 			}
 		}
 	}
-	d->timer = 3; // value used by VexRiscv regression test
+	d->timer = 0; // 3; value used by VexRiscv regression test
 }
 
 void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data)

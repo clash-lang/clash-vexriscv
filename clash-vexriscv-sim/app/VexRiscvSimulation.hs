@@ -63,9 +63,9 @@ debugConfig =
 --
 {-
   InspectBusses
-    50
     0
-    Nothing
+    0
+    (Just 100)
     True
     True
 -- -}
@@ -95,14 +95,14 @@ main = do
           let dBusM2S = dBusWbM2S out1
           let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
           printf "D-bus ERR reply % 8X (% 8X)\n" (toInteger $ dAddr `shiftL` 2) (toInteger dAddr)
-          exitFailure
+          -- exitFailure
 
         when (err iS2M) $ do
           let iBusM2S = iBusWbM2S out1
           let iAddr = toInteger (addr iBusM2S) -- `shiftL` 2
           printf "I-bus ERR reply % 8X (% 8X)\n" (toInteger $ iAddr `shiftL` 2) (toInteger iAddr)
           printf "%s" (showX iBusM2S)
-          exitFailure
+          -- exitFailure
 
         case write of
           Just (address, value) | address == 0x0000_1000 -> do
@@ -157,6 +157,9 @@ main = do
               <> ")"
           putStrLn $ "            - iS2M: " <> iResp <> " - " <> iRespData
 
+        when (err iBusS2M)
+          exitFailure
+
         -- D-bus interactions
 
         when (doPrint && dEnabled) $ do
@@ -206,6 +209,9 @@ main = do
                 <> writeDat
                 <> "> - "
             putStrLn $ "dS2M: " <> dResp <> dRespData
+
+        when (err dBusS2M)
+          exitFailure
     InspectWrites ->
       forM_ (catMaybes $ sample_lazy @System writes) $ \(address, value) -> do
         printf "W: % 8X <- % 8X\n" (toInteger address) (toInteger value)

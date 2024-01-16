@@ -31,11 +31,13 @@ fn main() -> ! {
     print("I am here to be debugged!\n");
 
     loop {
-        for i in 0..100 {
+        for i in 0..30 {
             let mut s = String::<16>::new();
             let _ = writeln!(s, "Hey! {i}");
             print(&s);
         }
+
+        print("wheeeey!\n");
 
         unsafe {
             //riscv::asm::ebreak();

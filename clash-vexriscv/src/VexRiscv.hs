@@ -31,6 +31,8 @@ import Protocols
 import Protocols.Wishbone
 import VexRiscv.FFI
 import VexRiscv.TH
+import Debug.Trace (trace)
+import Foreign (Ptr)
 
 data JtagIn = JtagIn
   { testModeSelect :: "TMS" ::: Bit
@@ -323,7 +325,7 @@ vexRiscv# !_sourcePath clk rst0
   
   =
     let
-      (cpuStep, jtagStep, _) = unsafePerformIO vexCPU
+      (v, cpuStepRising, cpuStepFalling, jtagStepRising, jtagStepFalling, _) = unsafePerformIO vexCPU
 
       iBusS2M = WishboneS2M <$> iBus_DAT_MISO <*> iBus_ACK <*> iBus_ERR <*> pure False <*> pure False
       dBusS2M = WishboneS2M <$> dBus_DAT_MISO <*> dBus_ACK <*> dBus_ERR <*> pure False <*> pure False
@@ -337,28 +339,43 @@ vexRiscv# !_sourcePath clk rst0
 
       bothOutputs ::
         [ClockAB] ->
+        Bool -> -- ^ CLK asserted
+        Bool -> -- ^ TCK asserted
         Signal domCpu Bool -> -- ^ reset
         Signal domCpu Input ->
         Signal domJtag Bool -> -- ^ enable
         Signal domJtag JtagIn ->
         (Signal domCpu Output, Signal domJtag JtagOut)
-      bothOutputs (ClockA:ticks) (r :- rsts) (c :- cpuIn) jtagEn jtagIn =
-        let (cpuSig, jtagSig) = bothOutputs ticks rsts cpuIn jtagEn jtagIn
-            cpuOut = unsafePerformIO $ cpuStep r c
-        in
-        (cpuOut :- (cpuOut `deepseqX` cpuSig), jtagSig)
-      bothOutputs (ClockB:ticks) rsts cpuIn (en :- enables) (j :- jtagIn) =
-        let (cpuSig, jtagSig) = bothOutputs ticks rsts cpuIn enables jtagIn
-            jtagOut =
-              if en
-              then
-                  unsafePerformIO $ jtagStep j
-              else
-                  JtagOut { testDataOut = low, debugReset = low } 
-        in
-        (cpuSig, jtagOut :- (jtagOut `deepseqX` jtagSig))
-      bothOutputs (ClockAB:_ticks) _rsts _cpuIn _jtagEn _jtagIn = error "ClockAB should not happen"
-      bothOutputs [] _ _ _ _ = error "Clock tick list should be infinite"
+      bothOutputs (ClockA:ticks) clkAsserted tckAsserted (r :- rsts) (c :- cpuIn) jtagEn jtagIn
+        | clkAsserted =
+            let (cpuSig, jtagSig) = bothOutputs ticks False tckAsserted rsts cpuIn jtagEn jtagIn
+                !cpuOut = unsafePerformIO $ cpuStepFalling v
+            in
+              cpuOut `deepseqX` (cpuOut :- (cpuOut `deepseqX` cpuSig), jtagSig)
+        | otherwise =
+            let (cpuSig, jtagSig) = bothOutputs ticks True tckAsserted (r :- rsts) (c :- cpuIn) jtagEn jtagIn in
+              unsafePerformIO (cpuStepRising v r c) `deepseqX`
+                (cpuSig, jtagSig)
+
+      bothOutputs (ClockB:ticks) clkAsserted tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
+        | tckAsserted =
+            let (cpuSig, jtagSig) = bothOutputs ticks clkAsserted False rsts cpuIn enables jtagIn in
+
+            let !jtagOut = if en
+                  then unsafePerformIO $ jtagStepFalling v
+                  else JtagOut { testDataOut = low, debugReset = low }
+
+            in 
+              (cpuSig, jtagOut :- (jtagOut `deepseqX` jtagSig))
+
+
+        | otherwise =
+            let (cpuSig, jtagSig) = bothOutputs ticks clkAsserted True  rsts cpuIn (en :- enables) (j :- jtagIn) in
+            
+            unsafePerformIO (jtagStepRising v j) `deepseqX` (cpuSig, jtagSig)
+
+      bothOutputs (ClockAB:_ticks) _ _ _rsts _cpuIn _jtagEn _jtagIn = error "ClockAB should not happen"
+      bothOutputs [] _ _ _ _ _ _ = error "Clock tick list should be infinite"
 
       
       cpuInput = Input <$> timerInterrupt <*> externalInterrupt <*> softwareInterrupt <*> iBusS2M <*> dBusS2M
@@ -368,6 +385,8 @@ vexRiscv# !_sourcePath clk rst0
       (cpuOutput, jtagOutput) =
         bothOutputs
           flattenedTicks
+          False
+          False
           (unsafeToActiveHigh rst0)
           cpuInput
           (fromEnable jtag_EN)
@@ -421,7 +440,6 @@ vexRiscv# !_sourcePath clk rst0
       , debug_resetOut
       , jtag_TDO
       )
-  where
 
 {-# NOINLINE vexRiscv# #-}
 {-# ANN vexRiscv# (
@@ -572,21 +590,44 @@ vexRiscv# !_sourcePath clk rst0
 
 -- | Return a function that performs an execution step and a function to free
 -- the internal CPU state
-vexCPU :: IO (Bool -> Input -> IO Output, JtagIn -> IO JtagOut, IO ())
+vexCPU :: IO
+  ( Ptr VexRiscv,
+    Ptr VexRiscv -> Bool -> Input -> IO (),
+    Ptr VexRiscv -> IO Output,
+    Ptr VexRiscv -> JtagIn -> IO (),
+    Ptr VexRiscv -> IO JtagOut,
+    Ptr VexRiscv -> IO ()
+  )
 vexCPU = do
   v <- vexrInit
   let
-    cpuStep reset input = alloca $ \inputFFI -> alloca $ \outputFFI -> do
+    {-# NOINLINE cpuStepRising #-}
+    cpuStepRising v reset input = alloca $ \inputFFI -> do
       poke inputFFI (inputToFFI reset input)
-      vexrCpuStep v inputFFI outputFFI
+      -- putStrLn "CPU rising edge"
+      vexrCpuStepRisingEdge v inputFFI
+      pure ()
+  
+    {-# NOINLINE cpuStepFalling #-}
+    cpuStepFalling v = alloca $ \outputFFI -> do
+      -- putStrLn "CPU falling edge"
+      vexrCpuStepFallingEdge v outputFFI
       outVal <- peek outputFFI
       pure $ outputFromFFI outVal
 
-    jtagStep JtagIn{..} = alloca $ \inputFFI -> alloca $ \outputFFI -> do
+    {-# NOINLINE jtagStepRising #-}
+    jtagStepRising v JtagIn{..} = alloca $ \inputFFI -> do
           poke inputFFI (JTAG_INPUT { jtag_TMS = testModeSelect, jtag_TDI = testDataIn })
-          vexrJtagStep v inputFFI outputFFI
+          -- putStrLn "JTAG rising edge"
+          vexrJtagStepRisingEdge v inputFFI
+          pure ()
+
+    {-# NOINLINE jtagStepFalling #-}
+    jtagStepFalling v = alloca $ \outputFFI -> do
+          -- putStrLn "JTAG falling edge"
+          vexrJtagStepFallingEdge v outputFFI
           JTAG_OUTPUT{..} <- peek outputFFI
           pure $ JtagOut { testDataOut = jtag_TDO, debugReset = debug_resetOut }
 
-    shutDown = vexrShutdown v
-  pure (cpuStep, jtagStep, shutDown)
+    shutDown = vexrShutdown
+  pure (v, cpuStepRising, cpuStepFalling, jtagStepRising, jtagStepFalling, shutDown)
