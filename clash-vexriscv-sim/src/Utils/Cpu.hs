@@ -33,7 +33,7 @@ emptyInput =
     }
 
 
-createDomain vXilinxSystem{vName="Basic50", vPeriod= hzToPeriod 50e6}
+createDomain vXilinxSystem{vName="Basic1", vPeriod= hzToPeriod 1e6}
 
 {-
 Address space
@@ -57,7 +57,7 @@ cpu ::
   )
 cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
-    (output, jtagOut) = vexRiscv hasClock hasReset (clockGen @Basic50) jtagEnable input (JTag.defaultIn :- jtagIn)
+    (output, jtagOut) = vexRiscv hasClock hasReset (clockGen @Basic1) jtagEnable input (JTag.defaultIn :- jtagIn)
 
     (jtagIn, jtagEnable) = case jtagPort of
       Just port -> vexrJtagBridge (fromInteger port) (jtagOut)
@@ -68,7 +68,7 @@ cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
 
     iM2S = unBusAddr . iBusWbM2S <$> output
 
-    iS2M = bootIMem (mapAddr (\x -> --trace (printf "I-addr = % 8X\n" (toInteger $ x - 0x2000_0000))
+    iS2M = bootIMem (mapAddr (\x -> -- trace (printf "I-addr = % 8X (% 8X)\n" (toInteger $ x - 0x2000_0000) (toInteger x))
                       x - 0x2000_0000) <$> iM2S)
 
     dummy = dummyWb

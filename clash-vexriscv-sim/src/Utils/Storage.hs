@@ -38,8 +38,8 @@ storage contents = mealy' go (I.fromAscList $ L.zip [0..] contents)
     | not (busCycle && strobe)        = (mem, emptyWishboneS2M)
     | addr >= fromIntegral size       =
         trace (printf "ACCESS ERROR addr % 8X tried but size is % 8X\n" (toInteger addr) (toInteger $ fromIntegral size))
-        -- (mem, emptyWishboneS2M { err = True })
-        (mem, (emptyWishboneS2M @(BitVector 32)) { acknowledge = True, readData = 0 })
+        (mem, emptyWishboneS2M { err = True })
+        -- (mem, (emptyWishboneS2M @(BitVector 32)) { acknowledge = True, readData = 0 })
     | not writeEnable      {- read -} =
         case readDataSel mem addr busSelect of
           Nothing -> (mem, emptyWishboneS2M { err = True })
