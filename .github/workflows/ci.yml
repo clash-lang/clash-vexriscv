@@ -163,6 +163,11 @@ jobs:
       - name: Extract VexRiscv Integration Tests
         run: |
           tar -x -f vexriscv-test-binaries.tar
-      - name: Run unittests
+
+      - name: Run `clash-vexriscv` unittests
+        run: |
+          cabal run clash-vexriscv:unittests
+
+      - name: Run `clash-vexriscv-sim` unittests
         run: |
           cabal run clash-vexriscv-sim:unittests
