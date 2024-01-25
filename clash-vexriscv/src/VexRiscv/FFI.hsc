@@ -27,6 +27,7 @@ foreign import ccall unsafe "vexr_cpu_step_falling_edge" vexrCpuStepFallingEdge 
 foreign import ccall unsafe "vexr_jtag_step_rising_edge" vexrJtagStepRisingEdge :: Ptr VexRiscv -> Ptr JTAG_INPUT -> IO ()
 foreign import ccall unsafe "vexr_jtag_step_falling_edge" vexrJtagStepFallingEdge :: Ptr VexRiscv -> Ptr JTAG_OUTPUT -> IO ()
 
+foreign import ccall unsafe "vexr_sim_time_step" vexrSimTimeStep :: Word64 -> IO ()
 
 foreign import ccall unsafe "vexr_jtag_bridge_init" vexrJtagBridgeInit :: Word16 -> IO (Ptr VexRiscvJtagBridge)
 foreign import ccall unsafe "vexr_jtag_bridge_step" vexrJtagBridgeStep :: Ptr VexRiscvJtagBridge -> Ptr JTAG_OUTPUT -> Ptr JTAG_INPUT -> Ptr Bit -> IO ()

@@ -33,7 +33,7 @@ emptyInput =
     }
 
 
-createDomain vXilinxSystem{vName="Basic1", vPeriod= hzToPeriod 1e6}
+createDomain vXilinxSystem{vName="Basic1", vPeriod= hzToPeriod 50_000}
 
 {-
 Address space
