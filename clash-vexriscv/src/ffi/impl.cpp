@@ -33,6 +33,8 @@ extern "C" {
 	void vexr_shutdown(VVexRiscv *top);
 	void vexr_cpu_step_rising_edge(VVexRiscv *top, const INPUT *input);
 	void vexr_cpu_step_falling_edge(VVexRiscv *top, OUTPUT *output);
+
+	void vexr_sim_time_step(VVexRiscv *top, uint64_t add);
 	
 	void vexr_jtag_step_rising_edge(VVexRiscv *top, const JTAG_INPUT *input);
 	void vexr_jtag_step_falling_edge(VVexRiscv *top, JTAG_OUTPUT *output);
@@ -45,14 +47,27 @@ extern "C" {
 static bool set_socket_blocking_enabled(int fd, bool blocking);
 static void connection_reset(vexr_jtag_bridge_data *bridge_data);
 
+static VerilatedContext* contextp = 0;
+
 VVexRiscv* vexr_init()
 {
-	return new VVexRiscv();
+	contextp = new VerilatedContext;
+	VVexRiscv *v = new VVexRiscv(contextp);
+	Verilated::traceEverOn(true);
+	return v;
 }
 
 void vexr_shutdown(VVexRiscv *top)
 {
 	delete top;
+	delete contextp;
+	contextp = 0;
+}
+
+void vexr_sim_time_step(VVexRiscv *top, uint64_t add)
+{
+	contextp->timeInc(add);
+	top->eval_end_step();
 }
 
 void vexr_cpu_step_rising_edge(VVexRiscv *top, const INPUT *input)
@@ -71,13 +86,14 @@ void vexr_cpu_step_rising_edge(VVexRiscv *top, const INPUT *input)
 
 	// run one cycle of the simulation
 	top->clk = true;
-	top->eval();
+	top->eval_step();
+	
 }
 
 void vexr_cpu_step_falling_edge(VVexRiscv *top, OUTPUT *output)
 {
 	top->clk = false;
-	top->eval();
+	top->eval_step();
 
 	// update outputs
 	output->iBusWishbone_CYC = top->iBusWishbone_CYC;
@@ -105,13 +121,13 @@ void vexr_jtag_step_rising_edge(VVexRiscv *top, const JTAG_INPUT *input)
 	top->jtag_tdi = input->jtag_TDI;
 
 	top->jtag_tck = true;
-	top->eval();
+	top->eval_step();
 }
 
 void vexr_jtag_step_falling_edge(VVexRiscv *top, JTAG_OUTPUT *output)
 {
 	top->jtag_tck = false;
-	top->eval();
+	top->eval_step();
 
 	// update outputs
 	output->debug_resetOut = top->debug_resetOut;
@@ -174,7 +190,7 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 		return;
 	}
 	d->check_new_connections_timer++;
-	if (d->check_new_connections_timer == 5000) {
+	if (d->check_new_connections_timer == 200) {
 		d->check_new_connections_timer = 0;
 		int new_client_handle = accept(
 			d->server_socket,
@@ -186,9 +202,10 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 				connection_reset(d);
 			}
 			d->client_handle = new_client_handle;
+			printf("[JTAG BRIDGE] got new connection\n");
 		} else {
 			if(d->client_handle == -1)
-				d->self_sleep = 1000;
+				d->self_sleep = 200;
 		}
 	}
 	if (d->self_sleep) {
@@ -261,6 +278,7 @@ static bool set_socket_blocking_enabled(int fd, bool blocking)
 }
 
 static void connection_reset(vexr_jtag_bridge_data *bridge_data) {
+	printf("[JTAG BRIDGE] closed connection\n");
 	shutdown(bridge_data->client_handle, SHUT_RDWR);
 	bridge_data->client_handle = -1;
 }

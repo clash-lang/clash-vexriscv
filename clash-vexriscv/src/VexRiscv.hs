@@ -21,7 +21,10 @@ import Clash.Prelude
 
 import Clash.Annotations.Primitive
 import Clash.Signal.Internal
+import Clash.Signal (ActiveEdge(..))
+import Control.Monad (when)
 import Data.String.Interpolate (__i)
+import Data.Word
 import Foreign.Marshal (alloca)
 import Foreign.Storable
 import GHC.IO (unsafePerformIO)
@@ -29,6 +32,7 @@ import GHC.Stack (HasCallStack)
 import Language.Haskell.TH.Syntax
 import Protocols
 import Protocols.Wishbone
+import VexRiscv.ClockTicks
 import VexRiscv.FFI
 import VexRiscv.TH
 import Debug.Trace (trace)
@@ -330,52 +334,98 @@ vexRiscv# !_sourcePath clk rst0
       iBusS2M = WishboneS2M <$> iBus_DAT_MISO <*> iBus_ACK <*> iBus_ERR <*> pure False <*> pure False
       dBusS2M = WishboneS2M <$> dBus_DAT_MISO <*> dBus_ACK <*> dBus_ERR <*> pure False <*> pure False
 
-      flattenedTicks = go (clockTicks clk jtag_TCK)
+      ticks = go $ clockEdgesRelative clk jtag_TCK
         where
           go [] = error "Clock tick list should be infinite"
-          go (ClockA : rest) = ClockA : go rest
-          go (ClockB : rest) = ClockB : go rest
-          go (ClockAB : rest) = ClockA : ClockB : go rest
+          go ((wordCast -> t, ClockEdgeA edge) : rest) = AdvanceTime t : cpuEdge edge : go rest
+          go ((wordCast -> t, ClockEdgeB edge) : rest) = AdvanceTime t : jtagEdge edge : go rest
+          go ((wordCast -> t, ClockEdgeAB edgeA edgeB) : rest) = AdvanceTime t : cpuEdge edgeA : jtagEdge edgeB : go rest
 
+      wordCast x = fromInteger $ toInteger x
+
+      cpuEdge Rising = CpuRising
+      cpuEdge Falling = CpuFalling
+
+      jtagEdge Rising = JtagRising
+      jtagEdge Falling = JtagFalling
+
+      -- The `[ClockSimOrder]` gets consumed twice as fast as the signals produce
+      -- and consume values.
+      --
+      -- That means that values in the output signal will be produced in the
+      -- "falling" cases. Values in the input signals will also be consued in the
+      -- "falling" cases.
       bothOutputs ::
-        [ClockAB] ->
-        Bool -> -- ^ CLK asserted
-        Bool -> -- ^ TCK asserted
+        [ClockSimOrder] ->
+        Bool -> -- ^ JTAG_ENABLED asserted
         Signal domCpu Bool -> -- ^ reset
         Signal domCpu Input ->
         Signal domJtag Bool -> -- ^ enable
         Signal domJtag JtagIn ->
         (Signal domCpu Output, Signal domJtag JtagOut)
-      bothOutputs (ClockA:ticks) clkAsserted tckAsserted (r :- rsts) (c :- cpuIn) jtagEn jtagIn
-        | clkAsserted =
-            let (cpuSig, jtagSig) = bothOutputs ticks False tckAsserted rsts cpuIn jtagEn jtagIn
-                !cpuOut = unsafePerformIO $ cpuStepFalling v
-            in
-              cpuOut `deepseqX` (cpuOut :- (cpuOut `deepseqX` cpuSig), jtagSig)
-        | otherwise =
-            let (cpuSig, jtagSig) = bothOutputs ticks True tckAsserted (r :- rsts) (c :- cpuIn) jtagEn jtagIn in
-              unsafePerformIO (cpuStepRising v r c) `deepseqX`
-                (cpuSig, jtagSig)
+      bothOutputs (CpuRising:ticks) tckAsserted (r :- rsts) (c :- cpuIn) jtagEn jtagIn =
+        let (cpuSig, jtagSig) = bothOutputs ticks tckAsserted (r :- rsts) (c :- cpuIn) jtagEn jtagIn in
+          unsafePerformIO (cpuStepRising v r c) `deepseqX`
+            (cpuSig, jtagSig)
 
-      bothOutputs (ClockB:ticks) clkAsserted tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
-        | tckAsserted =
-            let (cpuSig, jtagSig) = bothOutputs ticks clkAsserted False rsts cpuIn enables jtagIn in
-
-            let !jtagOut = if en
-                  then unsafePerformIO $ jtagStepFalling v
-                  else JtagOut { testDataOut = low, debugReset = low }
-
-            in 
-              (cpuSig, jtagOut :- (jtagOut `deepseqX` jtagSig))
-
-
-        | otherwise =
-            let (cpuSig, jtagSig) = bothOutputs ticks clkAsserted True  rsts cpuIn (en :- enables) (j :- jtagIn) in
+      bothOutputs (CpuFalling:ticks) tckAsserted (r :- rsts) (c :- cpuIn) jtagEn jtagIn =
+        let (cpuSig, jtagSig) = bothOutputs ticks tckAsserted rsts cpuIn jtagEn jtagIn
+            !cpuOut = unsafePerformIO $ cpuStepFalling v
+        in
+          cpuOut `deepseqX` (cpuOut :- (cpuOut `deepseqX` cpuSig), jtagSig)
+   
+      bothOutputs (JtagRising:ticks) tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
+        | tckAsserted && en =
+            -- do nothing
+            bothOutputs ticks tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
+        | tckAsserted && not en =
+            -- do nothing, pass to falling edge
+            -- bothOutputs ticks tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
             
+            -- actually do falling edge
+            let (cpuSig, jtagSig) = bothOutputs ticks False rsts cpuIn (en :- enables) (j :- jtagIn)
+                !jtagOut = unsafePerformIO $ jtagStepFalling v
+            in 
+              -- trace " TCK" $
+              (cpuSig, jtagOut :- (jtagOut `deepseqX` jtagSig))
+        | not tckAsserted && en =
+            -- do rising edge
+            let (cpuSig, jtagSig) = bothOutputs ticks True rsts cpuIn (en :- enables) (j :- jtagIn) in
+              
+            -- trace "!TCK" $
             unsafePerformIO (jtagStepRising v j) `deepseqX` (cpuSig, jtagSig)
 
-      bothOutputs (ClockAB:_ticks) _ _ _rsts _cpuIn _jtagEn _jtagIn = error "ClockAB should not happen"
-      bothOutputs [] _ _ _ _ _ _ = error "Clock tick list should be infinite"
+        | not tckAsserted && not en =
+            -- do nothing
+            bothOutputs ticks tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
+      bothOutputs (JtagFalling:ticks) tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
+        {-
+        | not tckAsserted && en =
+            -- shouldn't happen, if en then there should be a rising edge => TCK
+            error "!TCK && EN shouldn't happen at a falling edge"
+        | not tckAsserted && not en =
+            -- don't need to do anything
+            let (cpuSig, jtagSig) = bothOutputs ticks tckAsserted rsts cpuIn enables jtagIn
+            in (cpuSig, JtagOut low low :- jtagSig)
+        | tckAsserted && en =
+            -- don't need to do anything
+            let (cpuSig, jtagSig) = bothOutputs ticks tckAsserted rsts cpuIn enables jtagIn
+            in (cpuSig, JtagOut low low :- jtagSig)
+        -- | tckAsserted && not en =
+        -}
+        | otherwise =
+            -- actually do falling edge
+            let (cpuSig, jtagSig) = bothOutputs ticks False rsts cpuIn enables jtagIn
+                !jtagOut = unsafePerformIO $ jtagStepFalling v
+            in 
+              -- trace " TCK" $
+              (cpuSig, jtagOut :- (jtagOut `deepseqX` jtagSig))
+
+      bothOutputs (AdvanceTime t:ticks) tckAsserted rsts cpuIn jtagEn jtagIn =
+        unsafePerformIO (vexrSimTimeStep v t) `deepseqX`
+          bothOutputs ticks tckAsserted rsts cpuIn jtagEn jtagIn
+
+      bothOutputs [] _ _ _ _ _ = error "Clock tick list should be infinite"
 
       
       cpuInput = Input <$> timerInterrupt <*> externalInterrupt <*> softwareInterrupt <*> iBusS2M <*> dBusS2M
@@ -384,8 +434,7 @@ vexRiscv# !_sourcePath clk rst0
 
       (cpuOutput, jtagOutput) =
         bothOutputs
-          flattenedTicks
-          False
+          ticks
           False
           (unsafeToActiveHigh rst0)
           cpuInput
@@ -587,6 +636,12 @@ vexRiscv# !_sourcePath clk rst0
 
     |] ) #-}
 
+
+data ClockSimOrder = CpuRising
+                   | CpuFalling
+                   | JtagRising
+                   | JtagFalling
+                   | AdvanceTime Word64
 
 -- | Return a function that performs an execution step and a function to free
 -- the internal CPU state

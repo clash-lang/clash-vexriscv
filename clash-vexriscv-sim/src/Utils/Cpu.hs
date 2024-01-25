@@ -33,7 +33,7 @@ emptyInput =
     }
 
 
-createDomain vXilinxSystem{vName="Basic1", vPeriod= hzToPeriod 1e6}
+createDomain vXilinxSystem{vName="Basic50", vPeriod= hzToPeriod 50_000_000}
 
 {-
 Address space
@@ -57,10 +57,10 @@ cpu ::
   )
 cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
-    (output, jtagOut) = vexRiscv hasClock hasReset (clockGen @Basic1) jtagEnable input (JTag.defaultIn :- jtagIn)
+    (output, jtagOut) = vexRiscv hasClock hasReset (clockGen @Basic50) jtagEnable input (JTag.defaultIn :- jtagIn)
 
     (jtagIn, jtagEnable) = case jtagPort of
-      Just port -> vexrJtagBridge (fromInteger port) (jtagOut)
+      Just port -> vexrJtagBridge (fromInteger port) jtagOut
       Nothing -> (pure JTag.defaultIn, toEnable (pure False))
     -- (unbundle -> (jtagIn', _debugReset)) = unsafePerformIO $ jtagTcpBridge' 7894 hasReset (jtagOut <$> output) 
 
