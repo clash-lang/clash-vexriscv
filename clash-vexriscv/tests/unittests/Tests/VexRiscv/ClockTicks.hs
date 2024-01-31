@@ -3,6 +3,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoMonoLocalBinds #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 -- Suppress Clash domain warnings
@@ -22,6 +23,7 @@ import VexRiscv.ClockTicks
   )
 import Clash.Signal.Internal (ClockAB(..), Femtoseconds(..), clockTicks, dynamicClockGen)
 
+import Data.Bifunctor (second)
 import qualified Data.List as L
 import Data.Maybe (catMaybes)
 import Data.Int (Int64)
@@ -51,6 +53,11 @@ r122 = clockGen @R122
 f61  = clockGen @F61
 f107 = clockGen @F107
 f122 = clockGen @F122
+
+-- | Used in production code. We're seeing strange things there, so we add some
+-- tests here making sure that it's not this module messing up.
+createDomain vXilinxSystem{vName="CPU"}
+createDomain vXilinxSystem{vName="JTAG", vPeriod=hzToPeriod 50_000}
 
 -- | Clock whose clock period differs slightly from 61 ps every tick
 d61 :: Clock D61
@@ -244,6 +251,76 @@ case_sanityClockEdgesRelativeDouble = do
                , ClockEdgeAB Rising Falling
                , ClockEdgeA  Falling
                ])
+
+-- | Make sure that swapping the arguments makes no difference for timing calculations
+case_flipped :: Assertion
+case_flipped =
+  $(carthesianProductTests ["r61", "r107", "r122", "d61", "d107", "d122", "f61", "f107", "f122"])
+ where
+  test a b = do
+    clockEdgesAbsolute a b `infEq` P.map (second flipClockEdge) (clockEdgesAbsolute b a)
+    clockEdgesRelative a b `infEq` P.map (second flipClockEdge) (clockEdgesRelative b a)
+    clockTicksAbsolute a b `infEq` P.map (second flipClock)     (clockTicksAbsolute b a)
+    clockTicksRelative a b `infEq` P.map (second flipClock)     (clockTicksRelative b a)
+
+  flipClockEdge :: ClockEdgeAB -> ClockEdgeAB
+  flipClockEdge (ClockEdgeA edge) = ClockEdgeB edge
+  flipClockEdge (ClockEdgeB edge) = ClockEdgeA edge
+  flipClockEdge (ClockEdgeAB edgeA edgeB) = ClockEdgeAB edgeB edgeA
+
+  flipClock :: ClockAB -> ClockAB
+  flipClock ClockA = ClockB
+  flipClock ClockB = ClockA
+  flipClock ClockAB = ClockAB
+
+-- | Check results produced by 'clockTicksAbsolute' and 'clockEdgesAbsolute' manually
+-- to rule out functions in "ClockTicks" causing the strange behavior we're seeing
+-- in production.
+case_sanityJtagCpu :: Assertion
+case_sanityJtagCpu = do
+  expectedAbsJtagEdges `infEq` P.map fst absJtagEdges
+  expectedAbsJtagTicks `infEq` P.map fst absJtagTicks
+  expectedAbsCpuEdges `infEq` P.map fst absCpuEdges
+  expectedAbsCpuTicks `infEq` P.map fst absCpuTicks
+ where
+  -- JTAG
+  expectedAbsJtagEdges = [0, halfJtagPeriodFs ..]
+  expectedAbsJtagTicks = [0, jtagPeriodFs ..]
+
+  halfJtagPeriodFs = jtagPeriodFs `div` 2
+  jtagPeriodFs = 1000 * clockToPeriod jtagClk :: Int64
+
+  isJtagEdge (ClockEdgeA _) = False
+  isJtagEdge _ = True
+
+  isJtagTick ClockA = False
+  isJtagTick _ = True
+
+  absJtagEdges = filter (isJtagEdge . snd) absEdges
+  absJtagTicks = filter (isJtagTick . snd) absTicks
+
+  -- CPU
+  expectedAbsCpuEdges = [0, halfCpuPeriodFs ..]
+  expectedAbsCpuTicks = [0, cpuPeriodFs ..]
+
+  halfCpuPeriodFs = cpuPeriodFs `div` 2
+  cpuPeriodFs = 1000 * clockToPeriod cpuClk :: Int64
+
+  isCpuEdge (ClockEdgeB _) = False
+  isCpuEdge _ = True
+
+  isCpuTick ClockB = False
+  isCpuTick _ = True
+
+  absCpuEdges = filter (isCpuEdge . snd) absEdges
+  absCpuTicks = filter (isCpuTick . snd) absTicks
+
+  -- BOTH
+  absTicks = clockTicksAbsolute cpuClk jtagClk
+  absEdges = clockEdgesAbsolute cpuClk jtagClk
+
+  cpuClk = clockGen @CPU
+  jtagClk = clockGen @JTAG
 
 tests :: TestTree
 tests = $(testGroupGenerator)
