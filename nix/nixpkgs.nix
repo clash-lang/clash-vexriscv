@@ -9,6 +9,7 @@ let
     # Nix tooling
     niv = (import sources.niv {}).niv;
     gitignore = import sources.gitignore { inherit (nixpkgs) lib; };
+    openocd-vexriscv = import ./openocd-vexriscv.nix { inherit (nixpkgs) pkgs; };
 
     # Haskell overrides
     haskellPackages = nixpkgs.haskellPackages.override {
