@@ -17,6 +17,9 @@ pkgs.mkShell {
 
       (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
 
+      # VexRiscV needs a special openocd
+      pkgs.openocd-vexriscv
+
       # For Cabal to clone git repos
       pkgs.buildPackages.git
     ]
