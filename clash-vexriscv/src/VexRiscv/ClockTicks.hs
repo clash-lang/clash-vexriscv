@@ -4,7 +4,16 @@
 
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | Utilities dealing with clock ticks and edges in Clash.
+-- | Utilities dealing with clock ticks and edges (and absolute+relative
+--   event timings) in Clash.
+--
+-- This file was added when we were working on adding JTAG support on a
+-- separate domain. For that, handling two different clocks and their edges
+-- (and timing for simulation) was important.
+--
+-- We decided to keep JTAG on the CPU domain, so all functions except
+-- 'singleClockEdgesRelative' and 'singleClockEdgesAbsolute' are unused.
+--
 --
 -- TODO: Figure out whether we want to upstream as is, or whether we want to
 --       generalize to /N/ clocks first.
@@ -14,6 +23,8 @@ module VexRiscv.ClockTicks
   , clockTicksRelative
   , clockEdgesAbsolute
   , clockEdgesRelative
+  , singleClockEdgesAbsolute
+  , singleClockEdgesRelative
   ) where
 
 import Prelude
@@ -102,6 +113,41 @@ clockEdgesRelative clkA clkB =
   clockEdgesEitherRelative
     (toActiveEdge (activeEdge @domA)) (toActiveEdge (activeEdge @domB))
     (toEither clkA) (toEither clkB)
+
+-- | Given a clock, produce a list of clock edges and the time at which the
+-- edge occurs.
+--
+-- This can be used for simulating designs that need to advance time to get
+-- accurate traces.
+--
+-- Returned time is in /femotseconds/.
+singleClockEdgesAbsolute
+  :: forall dom .
+  (KnownDomain dom) =>
+  Clock dom ->
+  [(Int64, ActiveEdge)]
+singleClockEdgesAbsolute clk =
+  singleClockEdgesEitherAbsolute
+    (toActiveEdge (activeEdge @dom))
+    (toEither clk)
+
+-- | Given a clock, produce a list of clock edges and the time since the last
+-- edge.
+--
+-- This can be used for simulating designs that need to advance time to get
+-- accurate traces.
+--
+-- Returned time is in /femotseconds/.
+singleClockEdgesRelative
+  :: forall dom .
+  (KnownDomain dom) =>
+  Clock dom ->
+  [(Int64, ActiveEdge)]
+singleClockEdgesRelative clk =
+  singleClockEdgesEitherRelative
+    (toActiveEdge (activeEdge @dom))
+    (toEither clk)
+
 
 -- | GADT version of 'ActiveEdge' to 'ActiveEdge' conversion
 toActiveEdge :: SActiveEdge edge -> ActiveEdge
@@ -281,3 +327,59 @@ clockEdgesEitherRelative firstEdgeA firstEdgeB clkA clkB = zip relativeTimestamp
  where
   relativeTimestamps = 0 : zipWith (-) (tail timestamps) timestamps
   (timestamps, ticks) = unzip (clockEdgesEitherAbsolute firstEdgeA firstEdgeB clkA clkB)
+
+
+
+-- | Given the clock periods of a single clock, produce a list of clock edges
+-- and the (absolute) times when these edges are occuring.
+--
+-- Same as 'singleClockEdgesEitherRelative', but produces absolute times
+-- (in /femotseconds/).
+singleClockEdgesEitherAbsolute ::
+  ActiveEdge ->
+  Either Int64 (Signal dom Int64) ->
+  [(Int64, ActiveEdge)]
+singleClockEdgesEitherAbsolute firstEdge clk =
+  case clk of
+    Left t -> goStatic 0 firstEdge (halve t)
+    Right t -> goDynamic 0 firstEdge (halves t)
+
+  where
+    halves = go . fmap halve
+      where
+        go ((t0, t1) :- ts) = t0 :- t1 :- go ts
+
+    halve t =
+      ( t `div` 2
+      , t - (t `div` 2)
+      )
+
+    goStatic ::
+      Int64 ->
+      ActiveEdge ->
+      (Int64, Int64) ->
+      [(Int64, ActiveEdge)]
+    goStatic absTime !currentEdge (t0, t1) =
+      (absTime, currentEdge) : goStatic (absTime + t0) (oppositeEdge currentEdge) (t1, t0)
+
+    goDynamic ::
+      Int64 ->
+      ActiveEdge ->
+      Signal domA Int64 ->
+      [(Int64, ActiveEdge)]
+    goDynamic absTime !currentEdge ~(t :- ts1) =
+      (absTime, currentEdge) : goDynamic (absTime + t) (oppositeEdge currentEdge) ts1
+
+-- | Given the clock periods of a single clock, produce a list of clock edges
+-- and the (relative) times since the last edge occured.
+--
+-- Same as 'singleClockEdgesEitherAbsolute', but produces relative times
+-- (in /femotseconds/).
+singleClockEdgesEitherRelative ::
+  ActiveEdge ->
+  Either Int64 (Signal dom Int64) ->
+  [(Int64, ActiveEdge)]
+singleClockEdgesEitherRelative firstEdge clk = zip relativeTimestamps edges
+  where
+    relativeTimestamps = 0 : zipWith (-) (tail timestamps) timestamps
+    (timestamps, edges) = unzip (singleClockEdgesEitherAbsolute firstEdge clk)
