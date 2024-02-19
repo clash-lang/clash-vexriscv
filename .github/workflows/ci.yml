@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2022 Google LLC
-# 
+#
 # SPDX-License-Identifier: Apache-2.0
 
 name: CI
@@ -54,7 +54,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --target riscv32imc-unknown-none-elf --all-features
-  
+
   rust-build-programs:
     name: Build Programs
     runs-on: ubuntu-22.04
@@ -69,6 +69,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y curl build-essential
+
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: 1.67.1 # See Note [Updating Rust versions]
@@ -76,21 +77,24 @@ jobs:
           target: riscv32imc-unknown-none-elf
           components: clippy, rustfmt
 
+      - name: Caching
+        uses: Swatinem/rust-cache@v2
+
       - name: Build release binaries
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release
-      
+
       - name: Build debug binaries
         uses: actions-rs/cargo@v1
         with:
           command: build
-      
+
       - name: Archive Integration Test Binaries
         run: |
           cd clash-vexriscv-sim; sh bundle_test_binaries.sh
-      
+
       - name: Upload Integration Test Binaries
         uses: actions/upload-artifact@v3
         with:
