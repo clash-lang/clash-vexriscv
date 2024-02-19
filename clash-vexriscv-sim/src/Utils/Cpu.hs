@@ -57,12 +57,12 @@ cpu ::
   )
 cpu jtagPort bootIMem bootDMem = (output, writes, iS2M, dS2M)
   where
-    (output, jtagOut) = vexRiscv hasClock hasReset (clockGen @Basic50) jtagEnable input (JTag.defaultIn :- jtagIn)
+    (output, jtagOut) = vexRiscv hasClock hasReset input (JTag.defaultIn :- jtagIn)
 
-    (jtagIn, jtagEnable) = case jtagPort of
+    jtagIn = case jtagPort of
       Just port -> vexrJtagBridge (fromInteger port) jtagOut
-      Nothing -> (pure JTag.defaultIn, toEnable (pure False))
-    -- (unbundle -> (jtagIn', _debugReset)) = unsafePerformIO $ jtagTcpBridge' 7894 hasReset (jtagOut <$> output) 
+      Nothing -> pure JTag.defaultIn
+    -- (unbundle -> (jtagIn', _debugReset)) = unsafePerformIO $ jtagTcpBridge' 7894 hasReset (jtagOut <$> output)
 
     dM2S = dBusWbM2S <$> output
 

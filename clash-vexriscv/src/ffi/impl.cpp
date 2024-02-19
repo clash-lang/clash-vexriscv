@@ -26,21 +26,19 @@ typedef struct {
 	uint8_t rx_buffer[100];
 	int32_t rx_buffer_size;
 	int32_t rx_buffer_remaining;
+	JTAG_INPUT prev_input;
+
+	uint64_t tck_change_counter;
 } vexr_jtag_bridge_data;
 
 extern "C" {
 	VVexRiscv* vexr_init();
 	void vexr_shutdown(VVexRiscv *top);
-	void vexr_cpu_step_rising_edge(VVexRiscv *top, const INPUT *input);
-	void vexr_cpu_step_falling_edge(VVexRiscv *top, OUTPUT *output);
-
-	void vexr_sim_time_step(VVexRiscv *top, uint64_t add);
-	
-	void vexr_jtag_step_rising_edge(VVexRiscv *top, const JTAG_INPUT *input);
-	void vexr_jtag_step_falling_edge(VVexRiscv *top, JTAG_OUTPUT *output);
+	void vexr_step_rising_edge(VVexRiscv *top, uint64_t time_add, const INPUT *input, const JTAG_INPUT *jtag_input);
+	void vexr_step_falling_edge(VVexRiscv *top, uint64_t time_add, OUTPUT *output, JTAG_OUTPUT *jtag_output);
 
 	vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port);
-	void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input, bit *jtag_en);
+	void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input);
 	void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data);
 }
 
@@ -64,14 +62,12 @@ void vexr_shutdown(VVexRiscv *top)
 	contextp = 0;
 }
 
-void vexr_sim_time_step(VVexRiscv *top, uint64_t add)
-{
-	contextp->timeInc(add);
-	top->eval_end_step();
-}
 
-void vexr_cpu_step_rising_edge(VVexRiscv *top, const INPUT *input)
+void vexr_step_rising_edge(VVexRiscv *top, uint64_t time_add, const INPUT *input, const JTAG_INPUT *jtag_input)
 {
+	// advance time since last event
+	contextp->timeInc(time_add); // time_add is in femtoseconds, timeinc expects picoseconds
+
 	// set inputs
 	top->reset = input->reset;
 	top->timerInterrupt = input->timerInterrupt;
@@ -84,16 +80,23 @@ void vexr_cpu_step_rising_edge(VVexRiscv *top, const INPUT *input)
 	top->dBusWishbone_DAT_MISO = input->dBusWishbone_DAT_MISO;
 	top->dBusWishbone_ERR = input->dBusWishbone_ERR;
 
+
+	top->jtag_tck = jtag_input->jtag_TCK;
+	top->jtag_tms = jtag_input->jtag_TMS;
+	top->jtag_tdi = jtag_input->jtag_TDI;
+
 	// run one cycle of the simulation
 	top->clk = true;
-	top->eval_step();
-	
+	top->eval();
 }
 
-void vexr_cpu_step_falling_edge(VVexRiscv *top, OUTPUT *output)
+void vexr_step_falling_edge(VVexRiscv *top, uint64_t time_add, OUTPUT *output, JTAG_OUTPUT *jtag_output)
 {
+	// advance time since last event
+	contextp->timeInc(time_add); // time_add is in femtoseconds, timeinc expects picoseconds
+
 	top->clk = false;
-	top->eval_step();
+	top->eval();
 
 	// update outputs
 	output->iBusWishbone_CYC = top->iBusWishbone_CYC;
@@ -112,31 +115,19 @@ void vexr_cpu_step_falling_edge(VVexRiscv *top, OUTPUT *output)
 	output->dBusWishbone_SEL = top->dBusWishbone_SEL;
 	output->dBusWishbone_CTI = top->dBusWishbone_CTI;
 	output->dBusWishbone_BTE = top->dBusWishbone_BTE;
-}
 
-void vexr_jtag_step_rising_edge(VVexRiscv *top, const JTAG_INPUT *input)
-{
-	// set inputs
-	top->jtag_tms = input->jtag_TMS;
-	top->jtag_tdi = input->jtag_TDI;
-
-	top->jtag_tck = true;
-	top->eval_step();
-}
-
-void vexr_jtag_step_falling_edge(VVexRiscv *top, JTAG_OUTPUT *output)
-{
-	top->jtag_tck = false;
-	top->eval_step();
-
-	// update outputs
-	output->debug_resetOut = top->debug_resetOut;
-	output->jtag_TDO = top->jtag_tdo;
+	jtag_output->debug_resetOut = top->debug_resetOut;
+	jtag_output->jtag_TDO = top->jtag_tdo;
 }
 
 vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 {
 	vexr_jtag_bridge_data *d = new vexr_jtag_bridge_data;
+
+	d->prev_input = { 0, 0, 0 };
+
+	d->tck_change_counter = 0;
+
 	d->timer = 0;
 	d->self_sleep = 0;
 	d->check_new_connections_timer = 0;
@@ -155,7 +146,7 @@ vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 	);
 
 	set_socket_blocking_enabled(d->server_socket, 0);
-	
+
 	d->server_addr.sin_family = AF_INET;
 	d->server_addr.sin_port = htons(port);
 	d->server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
@@ -175,15 +166,13 @@ vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 	return d;
 }
 
-void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input, bit *jtag_en)
+void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input)
 {
 	const int WAIT_PERIOD = 83333;
-	// We set the input values to their default here
+	// We set the input values to their last here
 	// so that only the "successful" path has to update them
 
-	input->jtag_TMS = 0;
-	input->jtag_TDI = 0;
-	*jtag_en = 0;
+	*input = d->prev_input;
 
 	if(d->timer != 0) {
 		d->timer -= 1;
@@ -202,7 +191,7 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 				connection_reset(d);
 			}
 			d->client_handle = new_client_handle;
-			printf("[JTAG BRIDGE] got new connection\n");
+			printf("\n[JTAG BRIDGE] got new connection\n");
 		} else {
 			if(d->client_handle == -1)
 				d->self_sleep = 200;
@@ -236,16 +225,33 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 			uint8_t buffer = d->rx_buffer[d->rx_buffer_size - (d->rx_buffer_remaining--)];
 			input->jtag_TMS = (buffer & 1) != 0;
 			input->jtag_TDI = (buffer & 2) != 0;
-			*jtag_en = (buffer & 8) != 0;
+			input->jtag_TCK = (buffer & 8) != 0;
+
+			printf("\n[JTAG_BRIDGE] ");
+			printf("%d %d %d %d\n",
+				d->tck_change_counter,
+				input->jtag_TCK,
+				input->jtag_TMS,
+				input->jtag_TDI
+			);
+
+			if (input->jtag_TCK != d->prev_input.jtag_TCK) {
+				d->tck_change_counter++;
+			}
+
+
+
+			d->prev_input = *input;
 			if(buffer & 4){
 				buffer = (output->jtag_TDO != 0);
+				printf("\n[JTAG_BRIDGE] [TDO] %d\n", buffer);
 				if (-1 == send(d->client_handle, &buffer, 1, 0)) {
 					connection_reset(d);
 				}
 			}
 		}
 	}
-	d->timer = 0; // 3; value used by VexRiscv regression test
+	d->timer = 27; // 3; value used by VexRiscv regression test
 }
 
 void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data)

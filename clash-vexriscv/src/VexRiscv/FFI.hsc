@@ -22,15 +22,11 @@ data VexRiscvJtagBridge
 
 foreign import ccall unsafe "vexr_init" vexrInit :: IO (Ptr VexRiscv)
 foreign import ccall unsafe "vexr_shutdown" vexrShutdown :: Ptr VexRiscv -> IO ()
-foreign import ccall unsafe "vexr_cpu_step_rising_edge" vexrCpuStepRisingEdge :: Ptr VexRiscv -> Ptr INPUT -> IO ()
-foreign import ccall unsafe "vexr_cpu_step_falling_edge" vexrCpuStepFallingEdge :: Ptr VexRiscv -> Ptr OUTPUT -> IO ()
-foreign import ccall unsafe "vexr_jtag_step_rising_edge" vexrJtagStepRisingEdge :: Ptr VexRiscv -> Ptr JTAG_INPUT -> IO ()
-foreign import ccall unsafe "vexr_jtag_step_falling_edge" vexrJtagStepFallingEdge :: Ptr VexRiscv -> Ptr JTAG_OUTPUT -> IO ()
-
-foreign import ccall unsafe "vexr_sim_time_step" vexrSimTimeStep :: Ptr VexRiscv -> Word64 -> IO ()
+foreign import ccall unsafe "vexr_step_rising_edge" vexrStepRisingEdge :: Ptr VexRiscv -> Word64 -> Ptr INPUT -> Ptr JTAG_INPUT -> IO ()
+foreign import ccall unsafe "vexr_step_falling_edge" vexrStepFallingEdge :: Ptr VexRiscv -> Word64 -> Ptr OUTPUT -> Ptr JTAG_OUTPUT -> IO ()
 
 foreign import ccall unsafe "vexr_jtag_bridge_init" vexrJtagBridgeInit :: Word16 -> IO (Ptr VexRiscvJtagBridge)
-foreign import ccall unsafe "vexr_jtag_bridge_step" vexrJtagBridgeStep :: Ptr VexRiscvJtagBridge -> Ptr JTAG_OUTPUT -> Ptr JTAG_INPUT -> Ptr Bit -> IO ()
+foreign import ccall unsafe "vexr_jtag_bridge_step" vexrJtagBridgeStep :: Ptr VexRiscvJtagBridge -> Ptr JTAG_OUTPUT -> Ptr JTAG_INPUT -> IO ()
 foreign import ccall unsafe "vexr_jtag_bridge_shutdown" vexrJtagBridgeShutdown :: Ptr VexRiscvJtagBridge -> IO ()
 
 data INPUT = INPUT
@@ -50,7 +46,8 @@ data INPUT = INPUT
   deriving (Show)
 
 data JTAG_INPUT = JTAG_INPUT
-  { jtag_TMS :: Bit
+  { jtag_TCK :: Bit
+  , jtag_TMS :: Bit
   , jtag_TDI :: Bit
   }
   deriving (Show)
@@ -125,11 +122,13 @@ instance Storable JTAG_INPUT where
     sizeOf _ = #size JTAG_INPUT
     {-# INLINE peek #-}
     peek ptr = const JTAG_INPUT <$> pure ()
+      <*> (#peek JTAG_INPUT, jtag_TCK) ptr
       <*> (#peek JTAG_INPUT, jtag_TMS) ptr
       <*> (#peek JTAG_INPUT, jtag_TDI) ptr
 
     {-# INLINE poke #-}
     poke ptr this = do
+      (#poke JTAG_INPUT, jtag_TCK) ptr (jtag_TCK this)
       (#poke JTAG_INPUT, jtag_TMS) ptr (jtag_TMS this)
       (#poke JTAG_INPUT, jtag_TDI) ptr (jtag_TDI this)
       return ()

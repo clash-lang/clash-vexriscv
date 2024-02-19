@@ -25,6 +25,7 @@ typedef struct {
 } INPUT;
 
 typedef struct {
+  bit      jtag_TCK;
   bit      jtag_TMS;
   bit      jtag_TDI;
 } JTAG_INPUT;

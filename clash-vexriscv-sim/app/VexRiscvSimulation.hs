@@ -107,12 +107,13 @@ main = do
         case write of
           Just (address, value) | address == 0x0000_1000 -> do
             let (_ :: BitVector 24, b :: BitVector 8) = unpack value
-            putChar $ chr (fromEnum b)
-            hFlush stdout
+            -- putChar $ chr (fromEnum b)
+            -- hFlush stdout
+            pure ()
           _ -> pure ()
       -- performPrintsToStdout 0x0000_1000 (sample_lazy $ bitCoerce <$> writes)
     InspectBusses initCycles uninteresting interesting iEnabled dEnabled -> do
-      
+
       let skipTotal = initCycles + uninteresting
 
       let sampled = case interesting of

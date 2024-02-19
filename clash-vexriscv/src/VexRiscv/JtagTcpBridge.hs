@@ -17,36 +17,33 @@ import System.IO.Unsafe (unsafePerformIO)
 import Network.Socket (PortNumber)
 
 defaultIn :: JtagIn
-defaultIn = JtagIn { testModeSelect = low, testDataIn = low }
+defaultIn = JtagIn { testClock = low, testModeSelect = low, testDataIn = low }
 
-vexrJtagBridge :: PortNumber -> Signal dom JtagOut -> (Signal dom JtagIn, Enable dom)
+vexrJtagBridge :: PortNumber -> Signal dom JtagOut -> Signal dom JtagIn
 vexrJtagBridge port out =
     let (_, jtagBridgeStep) = unsafePerformIO $ vexrJtagBridge' port
 
         {-# NOINLINE inner #-}
         inner (o :- outs) = unsafePerformIO $ do
-            (in', en) <- jtagBridgeStep o
-            let (ins', ens') = inner outs
-            pure $ (in' :- (in' `deepseqX` ins'), en :- (en `deepseqX` ens'))
-    
-        (ins, ens) = inner out
-    in (ins, toEnable ens)
+            in' <- jtagBridgeStep o
+            let ins' = inner outs
+            pure $ in' :- (in' `deepseqX` ins')
+    in inner out
 
 vexrJtagBridge' ::
     PortNumber ->
     IO ( IO () -- ^ delete function
-       , JtagOut -> IO (JtagIn, Bool) -- ^ step, last value is enable
+       , JtagOut -> IO JtagIn -- ^ step function
        )
 vexrJtagBridge' port = do
     bridge <- vexrJtagBridgeInit (fromIntegral port)
     let
         shutDown = vexrJtagBridgeShutdown bridge
 
-        step JtagOut{..} = alloca $ \outFFI -> alloca $ \inFFI -> alloca $ \enFFI -> do
-            poke outFFI (JTAG_OUTPUT testDataOut debugReset)
-            vexrJtagBridgeStep bridge outFFI inFFI enFFI
+        step JtagOut{..} = alloca $ \outFFI -> alloca $ \inFFI -> do
+            poke outFFI (JTAG_OUTPUT debugReset testDataOut)
+            vexrJtagBridgeStep bridge outFFI inFFI
             JTAG_INPUT{..} <- peek inFFI
-            en <- peek enFFI
-            let input = JtagIn { testModeSelect = jtag_TMS, testDataIn = jtag_TDI }
-            pure (input, bitToBool en)
+            let input = JtagIn { testClock = jtag_TCK, testModeSelect = jtag_TMS, testDataIn = jtag_TDI }
+            pure input
     pure (shutDown, step)
