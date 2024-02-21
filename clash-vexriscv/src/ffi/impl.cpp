@@ -227,13 +227,13 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 			input->jtag_TDI = (buffer & 2) != 0;
 			input->jtag_TCK = (buffer & 8) != 0;
 
-			printf("\n[JTAG_BRIDGE] ");
-			printf("%d %d %d %d\n",
-				d->tck_change_counter,
-				input->jtag_TCK,
-				input->jtag_TMS,
-				input->jtag_TDI
-			);
+			// printf("\n[JTAG_BRIDGE] ");
+			// printf("%d %d %d %d\n",
+			// 	d->tck_change_counter,
+			// 	input->jtag_TCK,
+			// 	input->jtag_TMS,
+			// 	input->jtag_TDI
+			// );
 
 			if (input->jtag_TCK != d->prev_input.jtag_TCK) {
 				d->tck_change_counter++;
@@ -244,7 +244,7 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 			d->prev_input = *input;
 			if(buffer & 4){
 				buffer = (output->jtag_TDO != 0);
-				printf("\n[JTAG_BRIDGE] [TDO] %d\n", buffer);
+				// printf("\n[JTAG_BRIDGE] [TDO] %d\n", buffer);
 				if (-1 == send(d->client_handle, &buffer, 1, 0)) {
 					connection_reset(d);
 				}

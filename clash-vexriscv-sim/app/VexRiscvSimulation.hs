@@ -101,14 +101,14 @@ main = do
           let iBusM2S = iBusWbM2S out1
           let iAddr = toInteger (addr iBusM2S) -- `shiftL` 2
           printf "I-bus ERR reply % 8X (% 8X)\n" (toInteger $ iAddr `shiftL` 2) (toInteger iAddr)
-          printf "%s" (showX iBusM2S)
+          printf "%s\n" (showX iBusM2S)
           -- exitFailure
 
         case write of
           Just (address, value) | address == 0x0000_1000 -> do
             let (_ :: BitVector 24, b :: BitVector 8) = unpack value
-            -- putChar $ chr (fromEnum b)
-            -- hFlush stdout
+            putChar $ chr (fromEnum b)
+            hFlush stdout
             pure ()
           _ -> pure ()
       -- performPrintsToStdout 0x0000_1000 (sample_lazy $ bitCoerce <$> writes)

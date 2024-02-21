@@ -19,6 +19,7 @@ pkgs.mkShell {
 
       # VexRiscV needs a special openocd
       pkgs.openocd-vexriscv
+      pkgs.gdb
 
       # For Cabal to clone git repos
       pkgs.buildPackages.git
