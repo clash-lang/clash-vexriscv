@@ -107,8 +107,14 @@ jobs:
     runs-on: ubuntu-22.04
     needs: [rust-build-programs]
 
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc:
+          - "9.0.2"
+
     container:
-      image: ghcr.io/clash-lang/clash-ci-9.0.2:2022-12-13
+      image: ghcr.io/clash-lang/clash-ci:${{ matrix.ghc }}-20240221
 
     steps:
       - name: Checkout
@@ -124,8 +130,8 @@ jobs:
         with:
           path: |
             ~/.cabal/store
-          key: packages-cachebust-1-${{ hashFiles('cabal.project.freeze', 'cabal.project') }}
-          restore-keys: packages-cachebust-1-
+          key: packages-cachebust-2-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze', 'cabal.project') }}
+          restore-keys: packages-cachebust-2-${{ matrix.ghc }}
 
       - name: Install build deps
         run: |
