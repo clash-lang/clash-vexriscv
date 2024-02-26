@@ -7,14 +7,18 @@ pkgs.mkShell {
   name = "shell";
   buildInputs =
     [
-      pkgs.cabal-install
       pkgs.gcc
-      pkgs.haskell.compiler.ghc90
       pkgs.pkg-config
       pkgs.sbt
       pkgs.scala
       pkgs.verilator
 
+      # Haskell toolchain
+      pkgs.cabal-install
+      # pkgs.haskell.compiler.ghc90
+      # pkgs.haskell.compiler.ghc92
+      pkgs.haskell.compiler.ghc94
+      # pkgs.haskell.compiler.ghc96
 
       (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
 
