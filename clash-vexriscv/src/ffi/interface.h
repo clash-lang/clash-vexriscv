@@ -14,7 +14,9 @@ typedef struct {
   bit      timerInterrupt;
   bit      externalInterrupt;
   bit      softwareInterrupt;
+} CPU_NON_COMB_INPUT;
 
+typedef struct {
   bit      iBusWishbone_ACK;
   uint32_t iBusWishbone_DAT_MISO;
   bit      iBusWishbone_ERR;
@@ -22,13 +24,13 @@ typedef struct {
   bit      dBusWishbone_ACK;
   uint32_t dBusWishbone_DAT_MISO;
   bit      dBusWishbone_ERR;
-} INPUT;
+} CPU_COMB_INPUT;
 
 typedef struct {
   bit      jtag_TCK;
   bit      jtag_TMS;
   bit      jtag_TDI;
-} JTAG_INPUT;
+} JTAG_COMB_INPUT;
 
 typedef struct {
   bit      iBusWishbone_CYC;
@@ -48,7 +50,7 @@ typedef struct {
   uint8_t  dBusWishbone_SEL;
   uint8_t  dBusWishbone_CTI;
   uint8_t  dBusWishbone_BTE;
-} OUTPUT;
+} CPU_OUTPUT;
 
 typedef struct {
   bit      debug_resetOut;

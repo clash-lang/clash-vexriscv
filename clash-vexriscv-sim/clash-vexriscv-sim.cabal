@@ -100,6 +100,19 @@ executable hdl-test
     clash-vexriscv,
     clash-vexriscv-sim,
 
+executable elf-to-hex
+  import: common-options
+  main-is: ElfToHex.hs
+  hs-source-dirs: app
+  default-language: Haskell2010
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+    async,
+    base,
+    bytestring,
+    clash-vexriscv-sim,
+    extra,
+
 executable clash-vexriscv-bin
   import: common-options
   main-is: VexRiscvSimulation.hs

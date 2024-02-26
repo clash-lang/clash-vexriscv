@@ -26,7 +26,7 @@ typedef struct {
 	uint8_t rx_buffer[100];
 	int32_t rx_buffer_size;
 	int32_t rx_buffer_remaining;
-	JTAG_INPUT prev_input;
+	JTAG_COMB_INPUT prev_input;
 
 	uint64_t tck_change_counter;
 } vexr_jtag_bridge_data;
@@ -34,11 +34,14 @@ typedef struct {
 extern "C" {
 	VVexRiscv* vexr_init();
 	void vexr_shutdown(VVexRiscv *top);
-	void vexr_step_rising_edge(VVexRiscv *top, uint64_t time_add, const INPUT *input, const JTAG_INPUT *jtag_input);
-	void vexr_step_falling_edge(VVexRiscv *top, uint64_t time_add, OUTPUT *output, JTAG_OUTPUT *jtag_output);
+
+	void vexr_init_stage1(VVexRiscv *top, const CPU_NON_COMB_INPUT *input, CPU_OUTPUT *output, JTAG_OUTPUT *jtag_output);
+	void vexr_init_stage2(VVexRiscv *top, const CPU_COMB_INPUT *input, const JTAG_COMB_INPUT *jtag_input);
+	void vexr_step_rising_edge(VVexRiscv *top, uint64_t time_add, const CPU_NON_COMB_INPUT *input, CPU_OUTPUT *output, JTAG_OUTPUT *jtag_output);
+	void vexr_step_falling_edge(VVexRiscv *top, uint64_t time_add, const CPU_COMB_INPUT *input, const JTAG_COMB_INPUT *jtag_input);
 
 	vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port);
-	void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input);
+	void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_COMB_INPUT *input);
 	void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data);
 }
 
@@ -52,27 +55,24 @@ VVexRiscv* vexr_init()
 	contextp = new VerilatedContext;
 	VVexRiscv *v = new VVexRiscv(contextp);
 	Verilated::traceEverOn(true);
+	v->clk = false;
 	return v;
 }
 
-void vexr_shutdown(VVexRiscv *top)
+// Set all inputs that cannot combinationaly depend on outputs. I.e., all inputs
+// except the Wishbone buses and JTAG signals.
+void set_non_comb_inputs(VVexRiscv *top, const CPU_NON_COMB_INPUT *input)
 {
-	delete top;
-	delete contextp;
-	contextp = 0;
-}
-
-
-void vexr_step_rising_edge(VVexRiscv *top, uint64_t time_add, const INPUT *input, const JTAG_INPUT *jtag_input)
-{
-	// advance time since last event
-	contextp->timeInc(time_add); // time_add is in femtoseconds, timeinc expects picoseconds
-
-	// set inputs
 	top->reset = input->reset;
 	top->timerInterrupt = input->timerInterrupt;
 	top->externalInterrupt = input->externalInterrupt;
 	top->softwareInterrupt = input->softwareInterrupt;
+}
+
+// Set all inputs that can combinationaly depend on outputs. I.e., the Wishbone
+// buses and JTAG signals.
+void set_comb_inputs(VVexRiscv *top, const CPU_COMB_INPUT *input, const JTAG_COMB_INPUT *jtag_input)
+{
 	top->iBusWishbone_ACK = input->iBusWishbone_ACK;
 	top->iBusWishbone_DAT_MISO = input->iBusWishbone_DAT_MISO;
 	top->iBusWishbone_ERR = input->iBusWishbone_ERR;
@@ -80,25 +80,14 @@ void vexr_step_rising_edge(VVexRiscv *top, uint64_t time_add, const INPUT *input
 	top->dBusWishbone_DAT_MISO = input->dBusWishbone_DAT_MISO;
 	top->dBusWishbone_ERR = input->dBusWishbone_ERR;
 
-
 	top->jtag_tck = jtag_input->jtag_TCK;
 	top->jtag_tms = jtag_input->jtag_TMS;
 	top->jtag_tdi = jtag_input->jtag_TDI;
-
-	// run one cycle of the simulation
-	top->clk = true;
-	top->eval();
 }
 
-void vexr_step_falling_edge(VVexRiscv *top, uint64_t time_add, OUTPUT *output, JTAG_OUTPUT *jtag_output)
+// Set all outputs
+void set_ouputs(VVexRiscv *top, CPU_OUTPUT *output, JTAG_OUTPUT *jtag_output)
 {
-	// advance time since last event
-	contextp->timeInc(time_add); // time_add is in femtoseconds, timeinc expects picoseconds
-
-	top->clk = false;
-	top->eval();
-
-	// update outputs
 	output->iBusWishbone_CYC = top->iBusWishbone_CYC;
 	output->iBusWishbone_STB = top->iBusWishbone_STB;
 	output->iBusWishbone_WE = top->iBusWishbone_WE;
@@ -115,9 +104,66 @@ void vexr_step_falling_edge(VVexRiscv *top, uint64_t time_add, OUTPUT *output, J
 	output->dBusWishbone_SEL = top->dBusWishbone_SEL;
 	output->dBusWishbone_CTI = top->dBusWishbone_CTI;
 	output->dBusWishbone_BTE = top->dBusWishbone_BTE;
-
 	jtag_output->debug_resetOut = top->debug_resetOut;
 	jtag_output->jtag_TDO = top->jtag_tdo;
+}
+
+void vexr_init_stage1(VVexRiscv *top, const CPU_NON_COMB_INPUT *input, CPU_OUTPUT *output, JTAG_OUTPUT *jtag_output)
+{
+	// Set all inputs that cannot combinationaly depend on outputs. I.e., all inputs
+	// except the Wishbone buses.
+	set_non_comb_inputs(top, input);
+
+	// Combinatorially respond to the inputs
+	top->eval();
+	set_ouputs(top, output, jtag_output);
+
+	// Advance time by 50 nanoseconds. This is an arbitrary value. Ideally, we would
+	// do something similar to Clash's template tag "~LONGESTPERIOD".
+	contextp->timeInc(50000);
+}
+
+void vexr_init_stage2(VVexRiscv *top, const CPU_COMB_INPUT *input, const JTAG_COMB_INPUT *jtag_input)
+{
+	set_comb_inputs(top, input, jtag_input);
+}
+
+void vexr_shutdown(VVexRiscv *top)
+{
+	delete top;
+	delete contextp;
+	contextp = 0;
+}
+
+
+void vexr_step_rising_edge(VVexRiscv *top, uint64_t time_add, const CPU_NON_COMB_INPUT *input, CPU_OUTPUT *output, JTAG_OUTPUT *jtag_output)
+{
+	// Advance time since last event. Note that this is 0 for the first call to
+	// this function. To get a sensisble waveform, vexr_init has already advanced
+	// time.
+	contextp->timeInc(time_add); // XXX: time_add is in femtoseconds, timeinc expects picoseconds
+
+	// docssss
+	set_non_comb_inputs(top, input);
+
+	top->clk = true;
+	top->eval();
+
+	// Set all outputs
+	set_ouputs(top, output, jtag_output);
+}
+
+void vexr_step_falling_edge(VVexRiscv *top, uint64_t time_add, const CPU_COMB_INPUT *input, const JTAG_COMB_INPUT *jtag_input)
+{
+	// advance time since last event
+	contextp->timeInc(time_add); // time_add is in femtoseconds, timeinc expects picoseconds
+
+	// Update inputs
+	top->clk = false;
+	set_comb_inputs(top, input, jtag_input);
+
+	// Evaluate the simulation
+	top->eval();
 }
 
 vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
@@ -166,7 +212,7 @@ vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 	return d;
 }
 
-void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input)
+void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_COMB_INPUT *input)
 {
 	const int WAIT_PERIOD = 83333;
 	// We set the input values to their last here

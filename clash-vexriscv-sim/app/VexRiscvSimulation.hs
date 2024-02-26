@@ -10,13 +10,13 @@
 import Clash.Prelude
 
 import Protocols.Wishbone
-import VexRiscv (Output(iBusWbM2S, dBusWbM2S))
+import VexRiscv (CpuOut(iBusWbM2S, dBusWbM2S))
 
 import qualified Data.List as L
 
 import Control.Monad (forM_, when)
 import Data.Char (chr)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import System.Environment (getArgs)
 import System.IO (putChar, hFlush, stdout)
 import Text.Printf (printf)
@@ -25,7 +25,6 @@ import Text.Printf (printf)
 import Utils.ProgramLoad (loadProgram)
 import Utils.Cpu (cpu)
 import System.Exit (exitFailure)
-import System.Directory.Internal.Prelude (exitFailure)
 
 --------------------------------------
 --
@@ -84,25 +83,29 @@ main = do
   let cpuOut@(unbundle -> (_circuit, writes, _iBus, _dBus)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
           let (circ, writes1, iBus, dBus) = cpu (Just 7894) iMem dMem
-              dBus' = register emptyWishboneS2M dBus
+              dBus' = register Nothing dBus
           in bundle (circ, writes1, iBus, dBus')
 
   case debugConfig of
     RunCharacterDevice ->
       forM_ (sample_lazy @System (bundle (register @System (unpack 0) cpuOut, cpuOut))) $
-        \((out, write, dS2M, iS2M), (out1, _write, _dS2M, _iS2M)) -> do
+        \((_out, write, dS2M0, iS2M0), (out1, _write, _dS2M, _iS2M)) -> do
+        let
+          iS2M = fromMaybe emptyWishboneS2M iS2M0
+          dS2M = fromMaybe emptyWishboneS2M dS2M0
+
         when (err dS2M) $ do
           let dBusM2S = dBusWbM2S out1
           let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
           printf "D-bus ERR reply % 8X (% 8X)\n" (toInteger $ dAddr `shiftL` 2) (toInteger dAddr)
-          -- exitFailure
+          exitFailure
 
         when (err iS2M) $ do
           let iBusM2S = iBusWbM2S out1
           let iAddr = toInteger (addr iBusM2S) -- `shiftL` 2
           printf "I-bus ERR reply % 8X (% 8X)\n" (toInteger $ iAddr `shiftL` 2) (toInteger iAddr)
           printf "%s\n" (showX iBusM2S)
-          -- exitFailure
+          exitFailure
 
         case write of
           Just (address, value) | address == 0x0000_1000 -> do
@@ -119,10 +122,14 @@ main = do
       let sampled = case interesting of
             Nothing -> L.zip [0 ..] $ sample_lazy @System cpuOut
             Just nInteresting ->
-              let total = initCycles + uninteresting + nInteresting in L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
+              let total = initCycles + uninteresting + nInteresting in
+              L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
 
-      forM_ sampled $ \(i, (out, _, iBusS2M, dBusS2M)) -> do
-        let doPrint = i >= skipTotal
+      forM_ sampled $ \(i, (out, _, iBusS2M0, dBusS2M0)) -> do
+        let
+          iBusS2M = fromMaybe emptyWishboneS2M iBusS2M0
+          dBusS2M = fromMaybe emptyWishboneS2M dBusS2M0
+          doPrint = i >= skipTotal
 
         -- I-bus interactions
 

@@ -7,11 +7,7 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE TemplateHaskellQuotes #-}
 {-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
-
-
-{-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
-
+-- {-# LANGUAGE AllowAmbiguousTypes #-}
 
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 
@@ -21,11 +17,9 @@ import Clash.Prelude
 
 import Clash.Annotations.Primitive
 import Clash.Signal.Internal
-import Clash.Signal (ActiveEdge(..))
-import Control.Monad (when)
+import Data.Bifunctor (first)
 import Data.String.Interpolate (__i)
 import Data.Word
-import Data.Int
 import Foreign.Marshal (alloca)
 import Foreign.Storable
 import GHC.IO (unsafePerformIO)
@@ -36,8 +30,9 @@ import Protocols.Wishbone
 import VexRiscv.ClockTicks
 import VexRiscv.FFI
 import VexRiscv.TH
-import Debug.Trace (trace)
 import Foreign (Ptr)
+
+import qualified VexRiscv.FFI as FFI
 
 data JtagIn = JtagIn
   { testClock :: "TCK" ::: Bit
@@ -52,7 +47,7 @@ data JtagOut = JtagOut
   }
   deriving (Generic, NFDataX, ShowX, Eq, BitPack)
 
-data Input = Input
+data CpuIn = CpuIn
   { timerInterrupt :: "TIMER_INTERRUPT" ::: Bit
   , externalInterrupt :: "EXTERNAL_INTERRUPT" ::: Bit
   , softwareInterrupt :: "SOFTWARE_INTERRUPT" ::: Bit
@@ -61,7 +56,7 @@ data Input = Input
   }
   deriving (Generic, NFDataX, ShowX, Eq, BitPack)
 
-data Output = Output
+data CpuOut = CpuOut
   { iBusWbM2S :: "IBUS_OUT_" ::: WishboneM2S 30 4 (BitVector 32)
   , dBusWbM2S :: "DBUS_OUT_" ::: WishboneM2S 30 4 (BitVector 32)
   }
@@ -73,53 +68,6 @@ data Jtag (dom :: Domain)
 instance Protocol (Jtag dom) where
   type Fwd (Jtag dom) = Signal dom JtagOut
   type Bwd (Jtag dom) = Signal dom JtagIn
-
-
-
-inputToFFI :: Bool -> Input -> INPUT
-inputToFFI reset Input {..} =
-  INPUT
-    { reset = boolToBit reset
-    , timerInterrupt
-    , externalInterrupt
-    , softwareInterrupt
-
-    , iBusWishbone_ACK = boolToBit $ acknowledge iBusWbS2M
-    , iBusWishbone_DAT_MISO = unpack $ readData iBusWbS2M
-    , iBusWishbone_ERR = boolToBit $ err iBusWbS2M
-
-    , dBusWishbone_ACK = boolToBit $ acknowledge dBusWbS2M
-    , dBusWishbone_DAT_MISO = unpack $ readData dBusWbS2M
-    , dBusWishbone_ERR = boolToBit $ err dBusWbS2M
-    }
-
-outputFromFFI :: OUTPUT -> Output
-outputFromFFI OUTPUT {..} = output
-  where
-    output = Output
-      { iBusWbM2S =
-          (emptyWishboneM2S @30 @(BitVector 32))
-            { busCycle = bitToBool iBusWishbone_CYC,
-              strobe = bitToBool iBusWishbone_STB,
-              writeEnable = bitToBool iBusWishbone_WE,
-              addr = truncateB $ pack iBusWishbone_ADR,
-              writeData = pack iBusWishbone_DAT_MOSI,
-              busSelect = resize $ pack iBusWishbone_SEL,
-              cycleTypeIdentifier = unpack $ resize $ pack iBusWishbone_CTI,
-              burstTypeExtension = unpack $ resize $ pack iBusWishbone_BTE
-            },
-        dBusWbM2S =
-          (emptyWishboneM2S @30 @(BitVector 32))
-            { busCycle = bitToBool dBusWishbone_CYC,
-              strobe = bitToBool dBusWishbone_STB,
-              writeEnable = bitToBool dBusWishbone_WE,
-              addr = truncateB $ pack dBusWishbone_ADR,
-              writeData = pack dBusWishbone_DAT_MOSI,
-              busSelect = resize $ pack dBusWishbone_SEL,
-              cycleTypeIdentifier = unpack $ resize $ pack dBusWishbone_CTI,
-              burstTypeExtension = unpack $ resize $ pack dBusWishbone_BTE
-            }
-      }
 
 -- When passing S2M values from Haskell to VexRiscv over the FFI, undefined
 -- bits/values cause errors when forcing their evaluation to something that can
@@ -134,25 +82,19 @@ defaultX dflt val
   | hasUndefined val = dflt
   | otherwise = val
 
-simPrepend :: a -> Signal dom a -> Signal dom a
-simPrepend l sig =
-  if clashSimulation
-    then l :- sig
-    else sig
-
 vexRiscv ::
   forall dom .
   ( HasCallStack
   , KnownDomain dom) =>
   Clock dom ->
   Reset dom ->
-  Signal dom Input ->
+  Signal dom CpuIn ->
   Signal dom JtagIn ->
-  ( Signal dom Output
+  ( Signal dom CpuOut
   , Signal dom JtagOut
   )
 vexRiscv clk rst cpuInput jtagInput =
-  ( Output <$>
+  ( CpuOut <$>
     (WishboneM2S
       <$> iBus_ADR
       <*> iBus_DAT_MOSI
@@ -183,14 +125,12 @@ vexRiscv clk rst cpuInput jtagInput =
 
     jtag_TDO1 =
           jtag_TDO
-    
+
     debug_resetOut1 =
           debug_resetOut
 
     (unbundle -> (timerInterrupt, externalInterrupt, softwareInterrupt, iBusS2M, dBusS2M))
-      -- A hack that enables us to both generate synthesizable HDL and simulate vexRisc in Haskell/Clash
-      = (<$> simPrepend (unpack 0) cpuInput)
-        $ \(Input a b c d e) -> (a, b, c, d, e)
+      = (\(CpuIn a b c d e) -> (a, b, c, d, e)) <$> cpuInput
 
     (unbundle -> (iBus_DAT_MISO, iBus_ACK, iBus_ERR))
       = (\(WishboneS2M a b c _ _) -> (a, b, c))
@@ -205,15 +145,15 @@ vexRiscv clk rst cpuInput jtagInput =
       <$> dBusS2M
 
     (unbundle -> (jtag_TCK, jtag_TMS, jtag_TDI))
-      -- A hack that enables us to both generate synthesizable HDL and simulate vexRisc in Haskell/Clash
       = bitCoerce <$> jtagInput
-        -- simPrepend (unpack 0) jtagInput
 
     sourcePath = $(do
           cpuSrcPath <- runIO $ getPackageRelFilePath "example-cpu/VexRiscv.v"
           pure $ LitE $ StringL cpuSrcPath
         )
 
+    -- TODO: Remove need for 'vexRiscv#' by doing construction / deconstruction of
+    --       product types in HDL using BlackBoxHaskell functions.
     ( iBus_CYC
       , iBus_STB
       , iBus_WE
@@ -248,7 +188,6 @@ vexRiscv clk rst cpuInput jtagInput =
           jtag_TCK
           jtag_TMS
           jtag_TDI
-          
 
 
 vexRiscv#
@@ -315,180 +254,114 @@ vexRiscv# !_sourcePath clk rst0
   jtag_TCK
   jtag_TMS
   jtag_TDI
-  
+
   =
     let
-      (v, stepRising, stepFalling, _) = unsafePerformIO vexCPU
+      (v, initStage1, initStage2, stepRising, stepFalling, _shutDown) = unsafePerformIO vexCPU
 
-      iBusS2M = WishboneS2M <$> iBus_DAT_MISO <*> iBus_ACK <*> iBus_ERR <*> pure False <*> pure False
-      dBusS2M = WishboneS2M <$> dBus_DAT_MISO <*> dBus_ACK <*> dBus_ERR <*> pure False <*> pure False
+      cpuNonCombInput = CPU_NON_COMB_INPUT
+        <$> (boolToBit <$> unsafeToActiveHigh rst0)
+        <*> timerInterrupt
+        <*> externalInterrupt
+        <*> softwareInterrupt
 
-      wordCast x = fromInteger $ toInteger x
+      cpuCombInput = CPU_COMB_INPUT
+        <$> (boolToBit <$> iBus_ACK)
+        <*> (unpack    <$> iBus_DAT_MISO)
+        <*> (boolToBit <$> iBus_ERR)
+        <*> (boolToBit <$> dBus_ACK)
+        <*> (unpack    <$> dBus_DAT_MISO)
+        <*> (boolToBit <$> dBus_ERR)
 
-      ticks = go <$> singleClockEdgesRelative clk
-        where
-          go (t, edge) = (wordCast t, edge)
+      jtagCombInput = JTAG_COMB_INPUT
+        <$> jtag_TCK
+        <*> jtag_TMS
+        <*> jtag_TDI
 
-      -- The ticks get consumed twice as fast as the signals produce and consume
-      -- values.
-      --
-      -- That means that values in the output signals will be produced in the
-      -- "falling" cases. Values in the input signals will also be consued in the
-      -- "falling" cases.
-      simResults ::
-        [(Word64, ActiveEdge)] ->
-        Signal dom Bool -> -- ^ reset
-        Signal dom Input ->
-        Signal dom JtagIn ->
-        (Signal dom Output, Signal dom JtagOut)
-      simResults ((t, Rising):ticks) (r :- rsts) (c :- cpuIn) (j :- jtagIn) =
-        let (cpuOut1, jtagOut1) = simResults ticks (r :- rsts) (c :- cpuIn) (j :- jtagIn)
-        in unsafePerformIO (stepRising v r t c j) `deepseqX`
-          (cpuOut1, jtagOut1)
+      wordCast = fromInteger . toInteger
 
-      simResults ((t, Falling):ticks) (_ :- rsts) (_ :- cpuIn) (_ :- jtagIn) =
+      simInitThenCycles ::
+        Signal dom CPU_NON_COMB_INPUT ->
+        Signal dom CPU_COMB_INPUT ->
+        Signal dom JTAG_COMB_INPUT ->
+        Signal dom (CPU_OUTPUT, JTAG_OUTPUT)
+      simInitThenCycles (cnc :- cncs) ~(cc :- ccs) ~(jc :- jcs) =
         let
-          (cpuOut1, jtagOut1) = simResults ticks rsts cpuIn jtagIn
-          !(!cpuOut0, !jtagOut0) = unsafePerformIO $ stepFalling v t
-
-        in (cpuOut0, jtagOut0) `deepseqX`
-          (cpuOut0 :- (cpuOut0 `deepseqX` cpuOut1),
-           jtagOut0 :- (jtagOut0 `deepseqX` jtagOut1)
-          )
-      simResults _ _ _ _ = error "should never happen"
-
-      -- The `[ClockSimOrder]` gets consumed twice as fast as the signals produce
-      -- and consume values.
-      --
-      -- That means that values in the output signal will be produced in the
-      -- "falling" cases. Values in the input signals will also be consued in the
-      -- "falling" cases.
-      bothOutputs ::
-        [ClockSimOrder] ->
-        Bool -> -- ^ JTAG_ENABLED asserted
-        Signal domCpu Bool -> -- ^ reset
-        Signal domCpu Input ->
-        Signal domJtag Bool -> -- ^ enable
-        Signal domJtag JtagIn ->
-        (Signal domCpu Output, Signal domJtag JtagOut)
-      {-
-      bothOutputs (CpuFalling:ticks) tckAsserted (r :- rsts) (c :- cpuIn) jtagEn jtagIn =
-        let (cpuSig, jtagSig) = bothOutputs ticks tckAsserted rsts cpuIn jtagEn jtagIn
-            !cpuOut = unsafePerformIO $ cpuStepFalling v
+          -- Note: we don't need @ticks@ for the initialization stages, because this
+          -- first cycle of a Clash Signal is meant to model what happens _before_ a
+          -- clock edge.
+          out0 = unsafePerformIO (initStage1 v cnc)
+          stage2Out = unsafePerformIO (initStage2 v cc jc)
+          ticks = first wordCast <$> singleClockEdgesRelative clk
+          out1 = simCycles ticks cncs ccs jcs
         in
-          cpuOut `deepseqX` (cpuOut :- (cpuOut `deepseqX` cpuSig), jtagSig)
-   
-      bothOutputs (JtagRising:ticks) tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
-        | tckAsserted && en =
-            -- do nothing
-            bothOutputs ticks tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
-        | tckAsserted && not en =
-            -- do nothing, pass to falling edge
-            -- bothOutputs ticks tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
-            
-            -- actually do falling edge
-            let (cpuSig, jtagSig) = bothOutputs ticks False rsts cpuIn (en :- enables) (j :- jtagIn)
-                !jtagOut = unsafePerformIO $ jtagStepFalling v
-            in 
-              -- trace " TCK" $
-              (cpuSig, jtagOut :- (jtagOut `deepseqX` jtagSig))
-        | not tckAsserted && en =
-            -- do rising edge
-            let (cpuSig, jtagSig) = bothOutputs ticks True rsts cpuIn (en :- enables) (j :- jtagIn) in
-              
-            -- trace "!TCK" $
-            unsafePerformIO (jtagStepRising v j) `deepseqX` (cpuSig, jtagSig)
+          out0 :- (out0 `seq` (stage2Out `seq` out1))
 
-        | not tckAsserted && not en =
-            -- do nothing
-            bothOutputs ticks tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
-      bothOutputs (JtagFalling:ticks) tckAsserted rsts cpuIn (en :- enables) (j :- jtagIn)
-        {-
-        | not tckAsserted && en =
-            -- shouldn't happen, if en then there should be a rising edge => TCK
-            error "!TCK && EN shouldn't happen at a falling edge"
-        | not tckAsserted && not en =
-            -- don't need to do anything
-            let (cpuSig, jtagSig) = bothOutputs ticks tckAsserted rsts cpuIn enables jtagIn
-            in (cpuSig, JtagOut low low :- jtagSig)
-        | tckAsserted && en =
-            -- don't need to do anything
-            let (cpuSig, jtagSig) = bothOutputs ticks tckAsserted rsts cpuIn enables jtagIn
-            in (cpuSig, JtagOut low low :- jtagSig)
-        -- | tckAsserted && not en =
-        -}
-        | otherwise =
-            -- actually do falling edge
-            let (cpuSig, jtagSig) = bothOutputs ticks False rsts cpuIn enables jtagIn
-                !jtagOut = unsafePerformIO $ jtagStepFalling v
-            in 
-              -- trace " TCK" $
-              (cpuSig, jtagOut :- (jtagOut `deepseqX` jtagSig))
+      simCycles ::
+        [(Word64, ActiveEdge)] ->
+        Signal dom CPU_NON_COMB_INPUT ->
+        Signal dom CPU_COMB_INPUT ->
+        Signal dom JTAG_COMB_INPUT ->
+        Signal dom (CPU_OUTPUT, JTAG_OUTPUT)
+      simCycles ((fsSinceLastEvent, Rising) : ts) (cnc :- cncs) ccs jcs =
+        let
+          out0 = unsafePerformIO (stepRising v fsSinceLastEvent cnc)
+          out1 = simCycles ts cncs ccs jcs
+        in
+          out0 :- (out0 `seq` out1)
 
-      bothOutputs (AdvanceTime t:ticks) tckAsserted rsts cpuIn jtagEn jtagIn =
-        unsafePerformIO (vexrSimTimeStep v t) `deepseqX`
-          bothOutputs ticks tckAsserted rsts cpuIn jtagEn jtagIn
+      simCycles ((fsSinceLastEvent, Falling) : ts) cncs (cc :- ccs) (jc :- jcs) =
+        let !() = unsafePerformIO (stepFalling v fsSinceLastEvent cc jc)
+        in  simCycles ts cncs ccs jcs
 
-      -}
-      bothOutputs _ _ _ _ _ _ = error "Clock tick list should be infinite"
+      simCycles [] _ _ _ = error "Empty ticks: should never happen"
 
-      
-      cpuInput = Input <$> timerInterrupt <*> externalInterrupt <*> softwareInterrupt <*> iBusS2M <*> dBusS2M
-      
-      jtagInput = JtagIn <$> jtag_TCK <*> jtag_TMS <*> jtag_TDI
+      (cpuOutput, jtagOutput) = unbundle $
+        simInitThenCycles cpuNonCombInput cpuCombInput jtagCombInput
 
-      (cpuOutput, jtagOutput) =
-        simResults
-          ticks
-          (unsafeToActiveHigh rst0)
-          cpuInput
-          jtagInput
+      iBus_CYC      = FFI.iBusWishbone_CYC      <$> cpuOutput
+      iBus_STB      = FFI.iBusWishbone_STB      <$> cpuOutput
+      iBus_WE       = FFI.iBusWishbone_WE       <$> cpuOutput
+      iBus_ADR      = FFI.iBusWishbone_ADR      <$> cpuOutput
+      iBus_DAT_MOSI = FFI.iBusWishbone_DAT_MOSI <$> cpuOutput
+      iBus_SEL      = FFI.iBusWishbone_SEL      <$> cpuOutput
+      iBus_CTI      = FFI.iBusWishbone_CTI      <$> cpuOutput
+      iBus_BTE      = FFI.iBusWishbone_BTE      <$> cpuOutput
 
+      dBus_CYC      = FFI.dBusWishbone_CYC      <$> cpuOutput
+      dBus_STB      = FFI.dBusWishbone_STB      <$> cpuOutput
+      dBus_WE       = FFI.dBusWishbone_WE       <$> cpuOutput
+      dBus_ADR      = FFI.dBusWishbone_ADR      <$> cpuOutput
+      dBus_DAT_MOSI = FFI.dBusWishbone_DAT_MOSI <$> cpuOutput
+      dBus_SEL      = FFI.dBusWishbone_SEL      <$> cpuOutput
+      dBus_CTI      = FFI.dBusWishbone_CTI      <$> cpuOutput
+      dBus_BTE      = FFI.dBusWishbone_BTE      <$> cpuOutput
 
-      (unbundle -> (iBusM2S, dBusM2S)) = (<$> cpuOutput) $ \(Output iBus dBus) -> (iBus, dBus)
-      (unbundle -> (jtag_TDO, debug_resetOut)) = bitCoerce <$> jtagOutput
+      debug_resetOut = FFI.debug_resetOut <$> jtagOutput
+      jtag_TDO = FFI.jtag_TDO <$> jtagOutput
 
-      (unbundle -> ( iBus_ADR
-                   , iBus_DAT_MOSI
-                   , iBus_SEL
-                   , iBus_CYC
-                   , iBus_STB
-                   , iBus_WE
-                   , iBus_CTI
-                   , iBus_BTE
-                   )) =
-        (<$> iBusM2S) $ \(WishboneM2S a b c _ e f g h i) -> (a, b, c, e, f, g, h, i)
-
-      (unbundle -> ( dBus_ADR
-                   , dBus_DAT_MOSI
-                   , dBus_SEL
-                   , dBus_CYC
-                   , dBus_STB
-                   , dBus_WE
-                   , dBus_CTI
-                   , dBus_BTE)) =
-        (<$> dBusM2S) $ \(WishboneM2S a b c _ e f g h i) -> (a, b, c, e, f, g, h, i)
     in
       ( -- iBus
-        iBus_CYC
-      , iBus_STB
-      , iBus_WE
-      , iBus_ADR
-      , iBus_DAT_MOSI
-      , iBus_SEL
-      , pack <$> iBus_CTI
-      , pack <$> iBus_BTE
+        bitToBool <$> iBus_CYC
+      , bitToBool <$> iBus_STB
+      , bitToBool <$> iBus_WE
+      , truncateB . pack <$> iBus_ADR
+      , pack <$> iBus_DAT_MOSI
+      , truncateB . pack <$> iBus_SEL
+      , truncateB . pack <$> iBus_CTI
+      , truncateB . pack <$> iBus_BTE
 
       -- dBus
-      , dBus_CYC
-      , dBus_STB
-      , dBus_WE
-      , dBus_ADR
-      , dBus_DAT_MOSI
-      , dBus_SEL
-      , pack <$> dBus_CTI
-      , pack <$> dBus_BTE
+      , bitToBool <$> dBus_CYC
+      , bitToBool <$> dBus_STB
+      , bitToBool <$> dBus_WE
+      , truncateB . pack <$> dBus_ADR
+      , pack <$> dBus_DAT_MOSI
+      , truncateB . pack <$> dBus_SEL
+      , truncateB . pack <$> dBus_CTI
+      , truncateB . pack <$> dBus_BTE
 
+      -- JTAG
       , debug_resetOut
       , jtag_TDO
       )
@@ -498,7 +371,7 @@ vexRiscv# !_sourcePath clk rst0
     let
       primName = 'vexRiscv#
 
-      
+
       (
        -- ARGs
        _
@@ -601,7 +474,6 @@ vexRiscv# !_sourcePath clk rst0
         .dBusWishbone_CTI      ( ~SYM[#{dBus_CTI}] ),
         .dBusWishbone_BTE      ( ~SYM[#{dBus_BTE}] ),
 
-        
         .jtag_tms       ( ~ARG[#{jtag_TMS}]),
         .jtag_tdi       ( ~ARG[#{jtag_TDI}]),
         .jtag_tck       ( ~ARG[#{jtag_TCK}]),
@@ -639,40 +511,52 @@ vexRiscv# !_sourcePath clk rst0
     |] ) #-}
 
 
-data ClockSimOrder = CpuRising
-                   | CpuFalling
-                   | JtagRising
-                   | JtagFalling
-                   | AdvanceTime Word64
-
 -- | Return a function that performs an execution step and a function to free
 -- the internal CPU state
 vexCPU :: IO
-  ( Ptr VexRiscv,
-    Ptr VexRiscv -> Bool -> Word64 -> Input -> JtagIn -> IO (),
-    Ptr VexRiscv -> Word64 -> IO (Output, JtagOut),
-    Ptr VexRiscv -> IO ()
+  ( Ptr VexRiscv
+  , Ptr VexRiscv -> CPU_NON_COMB_INPUT -> IO (CPU_OUTPUT, JTAG_OUTPUT)           -- initStage1
+  , Ptr VexRiscv -> CPU_COMB_INPUT -> JTAG_COMB_INPUT -> IO ()                   -- initStage2
+  , Ptr VexRiscv -> Word64 -> CPU_NON_COMB_INPUT -> IO (CPU_OUTPUT, JTAG_OUTPUT) -- rising
+  , Ptr VexRiscv -> Word64 -> CPU_COMB_INPUT -> JTAG_COMB_INPUT -> IO ()         -- falling
+  , Ptr VexRiscv -> IO ()
   )
 vexCPU = do
   v <- vexrInit
+
   let
+    {-# NOINLINE initStage1 #-}
+    initStage1 vPtr cpuNonCombInput =
+      alloca $ \cpuNonCombInputFFI -> alloca $ \cpuOutputFFI -> alloca $ \jtagOutputFFI -> do
+        poke cpuNonCombInputFFI cpuNonCombInput
+        vexrInitStage1 vPtr cpuNonCombInputFFI cpuOutputFFI jtagOutputFFI
+        cpuOutput <- peek cpuOutputFFI
+        jtagOutput <- peek jtagOutputFFI
+        pure (cpuOutput, jtagOutput)
+
+    {-# NOINLINE initStage2 #-}
+    initStage2 vPtr cpuCombInput jtagCombInput =
+      alloca $ \cpuCombInputFFI -> alloca $ \jtagCombInputFFI -> do
+        poke cpuCombInputFFI cpuCombInput
+        poke jtagCombInputFFI jtagCombInput
+        vexrInitStage2 vPtr cpuCombInputFFI jtagCombInputFFI
+
     {-# NOINLINE stepRising #-}
-    stepRising v reset timeAdd input JtagIn{..} =
-      alloca $ \inputFFI -> alloca $ \jtagInputFFI -> do
-        poke inputFFI (inputToFFI reset input)
-        poke jtagInputFFI (JTAG_INPUT { jtag_TCK = testClock, jtag_TMS = testModeSelect, jtag_TDI = testDataIn })
-        vexrStepRisingEdge v timeAdd inputFFI jtagInputFFI
-        pure ()
-  
+    stepRising vPtr fsSinceLastEvent cpuNonCombInput =
+      alloca $ \cpuNonCombInputFFI -> alloca $ \cpuOutputFFI -> alloca $ \jtagOutputFFI -> do
+        poke cpuNonCombInputFFI cpuNonCombInput
+        vexrStepRisingEdge vPtr fsSinceLastEvent cpuNonCombInputFFI cpuOutputFFI jtagOutputFFI
+        cpuOutput <- peek cpuOutputFFI
+        jtagOutput <- peek jtagOutputFFI
+        pure (cpuOutput, jtagOutput)
+
     {-# NOINLINE stepFalling #-}
-    stepFalling v timeAdd =
-      alloca $ \outputFFI -> alloca $ \jtagOutputFFI -> do
-        vexrStepFallingEdge v timeAdd outputFFI jtagOutputFFI
-        outVal <- peek outputFFI
-        JTAG_OUTPUT{..} <- peek jtagOutputFFI
-        let cpuOut = outputFromFFI outVal
-        let jtagOut = JtagOut { testDataOut = jtag_TDO, debugReset = debug_resetOut }
-        pure (cpuOut, jtagOut)
+    stepFalling vPtr fsSinceLastEvent cpuCombInput jtagCombInput =
+      alloca $ \cpuCombInputFFI -> alloca $ \jtagCombInputFFI -> do
+        poke cpuCombInputFFI cpuCombInput
+        poke jtagCombInputFFI jtagCombInput
+        vexrStepFallingEdge vPtr fsSinceLastEvent cpuCombInputFFI jtagCombInputFFI
 
     shutDown = vexrShutdown
-  pure (v, stepRising, stepFalling, shutDown)
+
+  pure (v, initStage1, initStage2, stepRising, stepFalling, shutDown)

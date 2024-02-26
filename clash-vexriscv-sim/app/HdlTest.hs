@@ -10,10 +10,10 @@ import VexRiscv
 circuit ::
   "CLK" ::: Clock System ->
   "RST" ::: Reset System ->
-  "INPUT" ::: Signal System Input ->
+  "CPU_COMB_INPUT" ::: Signal System CpuIn ->
   "JTAG_IN_" ::: Signal System JtagIn ->
   "" :::
-    ( "OUTPUT" ::: Signal System Output
+    ( "CPU_OUTPUT" ::: Signal System CpuOut
     , "JTAG_OUT_" ::: Signal System JtagOut)
 circuit clk rst input jtagIn =
   vexRiscv clk rst input jtagIn

@@ -8,13 +8,30 @@ module Utils.Storage where
 
 import Clash.Prelude
 
+import Protocols.Wishbone
+import GHC.Stack (HasCallStack)
+
 import qualified Data.List as L
 import qualified Data.IntMap.Strict as I
 
-import Clash.Signal.Internal (Signal((:-)))
-import Protocols.Wishbone
-import Debug.Trace (trace)
-import Text.Printf (printf)
+newtype MappedMemory = MappedMemory (I.IntMap (BitVector 8))
+
+unMappedMemory :: MappedMemory -> I.IntMap (BitVector 8)
+unMappedMemory (MappedMemory x) = x
+
+instance NFDataX MappedMemory where
+  -- Not a product type, so no spine
+  deepErrorX = errorX
+
+  -- Keys are 'Int's and evaluated to WHNF because this is a strict map. For 'Int's,
+  -- WHNF ~ NF, so we only need to check the values.
+  hasUndefined = any hasUndefined . I.elems . unMappedMemory
+
+  -- Not a product type, so no spine
+  ensureSpine = id
+
+  -- This is a strict map, so we dont need to do anything
+  rnfX x = seq x ()
 
 storage ::
   forall dom.
@@ -25,29 +42,36 @@ storage ::
   -- ^ contents
   Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
   Signal dom (WishboneS2M (BitVector 32))
-storage contents = mealy' go (I.fromAscList $ L.zip [0..] contents)
+storage contents = mealy go (MappedMemory $ I.fromAscList $ L.zip [0..] contents)
  where
   size = L.length contents
 
-  -- Version of mealy that doesn't require NFDataX for the state.
-  -- This is needed because IntMap (Word8) does not implement NFDataX
-  mealy' fn st0 (i :- is) = o :- mealy' fn st1 is 
-    where (!st1, o) = fn st0 i
-
-  go mem WishboneM2S{..}
-    | not (busCycle && strobe)        = (mem, emptyWishboneS2M)
+  go (MappedMemory mem) WishboneM2S{..}
+    | not (busCycle && strobe)        = (MappedMemory mem, emptyWishboneS2M)
     | addr >= fromIntegral size       =
-        trace (printf "ACCESS ERROR addr % 8X tried but size is % 8X\n" (toInteger addr) (toInteger $ fromIntegral size))
-        (mem, emptyWishboneS2M { err = True })
+        -- trace (printf "ACCESS ERROR addr % 8X tried but size is % 8X\n" (toInteger addr) (toInteger $ fromIntegral size))
+        (MappedMemory mem, emptyWishboneS2M { err = True })
         -- (mem, (emptyWishboneS2M @(BitVector 32)) { acknowledge = True, readData = 0 })
     | not writeEnable      {- read -} =
         case readDataSel mem addr busSelect of
-          Nothing -> (mem, emptyWishboneS2M { err = True })
-          Just x -> (mem, (emptyWishboneS2M @(BitVector 32)) { acknowledge = True, readData = x })
+          Nothing -> (MappedMemory mem, emptyWishboneS2M { err = True })
+          Just x -> (MappedMemory mem, (emptyWishboneS2M @(BitVector 32)) { acknowledge = True, readData = x })
     | otherwise           {- write -} =
-        (writeDataSel mem addr busSelect writeData, emptyWishboneS2M { acknowledge = True })
+        ( MappedMemory (writeDataSel mem addr busSelect writeData)
+        , emptyWishboneS2M { acknowledge = True }
+        )
 
-readDataSel :: I.IntMap (BitVector 8) -> BitVector 32 -> BitVector 4 -> Maybe (BitVector 32)
+readDataSel ::
+  HasCallStack =>
+  -- | Memory
+  I.IntMap (BitVector 8) ->
+  -- | Address
+  BitVector 32 ->
+  -- | Byte enables (@SEL@)
+  BitVector 4 ->
+  -- | Read value, or 'Nothing' if the read is invalid due to an unsupported
+  -- value of @SEL@.
+  Maybe (BitVector 32)
 readDataSel mem addr sel =
   case sel of
     0b0001 -> readByte (addr + 0)
@@ -58,7 +82,7 @@ readDataSel mem addr sel =
     0b1100 -> readWord (addr + 2)
     0b1111 -> readDWord addr
     _      -> Nothing
-  
+
   where
     readByte addr' = resize @_ @8 @32 <$> I.lookup (fromIntegral addr') mem
     readWord addr' = do
@@ -70,9 +94,27 @@ readDataSel mem addr sel =
       h <- readWord (addr' + 0)
       pure $ h `shiftL` 16 .|. l
 
-writeDataSel :: I.IntMap (BitVector 8) -> BitVector 32 -> BitVector 4 -> BitVector 32 -> I.IntMap (BitVector 8)
+writeDataSel ::
+  HasCallStack =>
+  -- | Memory
+  I.IntMap (BitVector 8) ->
+  -- | Address
+  BitVector 32 ->
+  -- | Byte enables (SEL)
+  BitVector 4 ->
+  -- | Value to write
+  BitVector 32 ->
+  -- | Updated memory
+  I.IntMap (BitVector 8)
 writeDataSel mem addr sel val =
   case sel of
+    0b1111 ->
+      I.insert (fromIntegral $ addr + 3) ll $
+      I.insert (fromIntegral $ addr + 2) lh $
+      I.insert (fromIntegral $ addr + 1) hl $
+      I.insert (fromIntegral $ addr + 0) hh mem
+    0b0000 ->
+      mem
     0b0001 ->
       I.insert (fromIntegral $ addr + 3) ll mem
     0b0010 ->
@@ -87,12 +129,7 @@ writeDataSel mem addr sel val =
     0b1100 ->
       I.insert (fromIntegral $ addr + 1) hl $
       I.insert (fromIntegral $ addr + 0) hh mem
-    0b1111 ->
-      I.insert (fromIntegral $ addr + 3) ll $
-      I.insert (fromIntegral $ addr + 2) lh $
-      I.insert (fromIntegral $ addr + 1) hl $
-      I.insert (fromIntegral $ addr + 0) hh mem
-    _ -> mem
-  
+    _ -> error $ "Got SEL = " <> show sel <> " which is unsupported"
+
   where
     (hh :: BitVector 8, hl :: BitVector 8, lh :: BitVector 8, ll :: BitVector 8) = unpack val

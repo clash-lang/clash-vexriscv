@@ -39,9 +39,9 @@ fn main() -> ! {
 
         print("wheeeey!\n");
 
-        unsafe {
-            //riscv::asm::ebreak();
-        }
+        // unsafe {
+        //     riscv::asm::ebreak();
+        // }
     }
 }
 
