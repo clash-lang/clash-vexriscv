@@ -11,6 +11,7 @@ module Utils.Storage
 
 import Clash.Prelude
 
+import Data.Either (isLeft)
 import Protocols.Wishbone
 import GHC.Stack (HasCallStack)
 
@@ -28,12 +29,15 @@ instance NFDataX MappedMemory where
 
   -- Keys are 'Int's and evaluated to WHNF because this is a strict map. For 'Int's,
   -- WHNF ~ NF, so we only need to check the values.
-  hasUndefined = any hasUndefined . I.elems . unMappedMemory
+  hasUndefined m =
+       isLeft (isX (unMappedMemory m))
+    || (any hasUndefined $ I.elems $ unMappedMemory m)
 
   -- Not a product type, so no spine
   ensureSpine = id
 
-  -- This is a strict map, so we dont need to do anything
+  -- This is a strict map, so we dont need to do anything. Note that WHNF ~ NF for
+  -- 'BitVector'.
   rnfX x = seq x ()
 
 storage ::
