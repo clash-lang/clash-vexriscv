@@ -18,17 +18,6 @@ import GHC.Stack (HasCallStack)
 import Utils.ProgramLoad (Memory)
 import Utils.Interconnect (interconnectTwo)
 
-emptyInput :: Input
-emptyInput =
-  Input
-    { timerInterrupt = low,
-      externalInterrupt = low,
-      softwareInterrupt = low,
-      iBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0},
-      dBusWbS2M = (emptyWishboneS2M @(BitVector 32)) {readData = 0}
-    }
-
-
 {-
 Address space
 
