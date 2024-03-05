@@ -102,24 +102,36 @@ library
   default-language: Haskell2010
   exposed-modules:
     VexRiscv
+    VexRiscv.BlackBox
     VexRiscv.ClockTicks
     VexRiscv.FFI
     VexRiscv.TH
     VexRiscv.VecToTuple
 
+  -- See https://github.com/clash-lang/clash-compiler/pull/2511
+  if impl(ghc >= 9.4)
+    CPP-Options: -DCLASH_OPAQUE=OPAQUE
+  else
+    CPP-Options: -DCLASH_OPAQUE=NOINLINE
+
   build-depends:
     base,
     bytestring >= 0.10 && < 0.13,
+    clash-lib,
     clash-prelude,
     clash-protocols,
     containers,
     directory >= 1.3 && < 1.4,
     filepath,
     Glob,
+    infinite-list,
+    mtl,
+    pretty-show,
     process >= 1.6 && < 1.8,
     string-interpolate,
     tagged,
     template-haskell,
+    text,
   extra-libraries: VexRiscvFFI, stdc++
   include-dirs: src/
 

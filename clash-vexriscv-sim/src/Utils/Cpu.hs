@@ -61,8 +61,8 @@ cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
             { timerInterrupt = low,
               externalInterrupt = low,
               softwareInterrupt = low,
-              iBusWbS2M = makeDefined iBus,
-              dBusWbS2M = makeDefined dBus
+              iBusWbS2M = iBus,
+              dBusWbS2M = dBus
             }
       )
         <$> iS2M
