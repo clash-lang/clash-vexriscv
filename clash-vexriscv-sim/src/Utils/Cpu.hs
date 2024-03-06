@@ -21,6 +21,7 @@ import GHC.Stack (HasCallStack)
 
 import Utils.ProgramLoad (Memory, DMemory)
 import Utils.Interconnect (interconnectTwo)
+import Clash.Explicit.Prelude (unsafeOrReset)
 
 createDomain vXilinxSystem{vName="Basic50", vPeriod= hzToPeriod 50_000_000}
 
@@ -32,7 +33,9 @@ Address space
 0b0100 0x4000_0000 data memory
 -}
 cpu ::
-  (HasCallStack, HiddenClockResetEnable dom) =>
+  ( HasCallStack
+  , HiddenClockResetEnable dom
+  ) =>
   Maybe Integer ->
   DMemory dom ->
   DMemory dom ->
@@ -51,7 +54,11 @@ cpu jtagPort bootIMem bootDMem =
   , dS2M
   )
   where
-    (output, jtagOut) = vexRiscv hasClock hasReset input jtagIn
+    (output, jtagOut) = vexRiscv hasClock (hasReset `unsafeOrReset` jtagReset) input jtagIn
+
+    jtagReset =
+      unsafeFromActiveHigh $ register False $
+        bitToBool . debugReset <$> jtagOut
 
     jtagIn = case jtagPort of
       Just port -> vexrJtagBridge (fromInteger port) jtagOut

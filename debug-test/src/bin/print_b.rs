@@ -21,8 +21,12 @@ fn print(s: &str) {
     }
 }
 
+fn done() -> ! {
+    loop {};
+}
+
 #[cfg_attr(not(test), entry)]
 fn main() -> ! {
     print("[CPU] b\n");
-    loop {}
+    done();
 }
