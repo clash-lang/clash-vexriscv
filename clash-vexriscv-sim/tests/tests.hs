@@ -21,7 +21,7 @@ import System.IO.Temp (withSystemTempFile)
 import Test.Tasty
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 
-import Utils.ProgramLoad (loadProgram)
+import Utils.ProgramLoad (loadProgramDmem)
 import Utils.Cpu (cpu)
 
 
@@ -35,7 +35,8 @@ runProgramExpect ::
   Assertion
 runProgramExpect act n expected = withSystemTempFile "ELF" $ \fp _ -> do
   act fp
-  (iMem, dMem) <- withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $ loadProgram fp
+  (iMem, dMem) <- withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
+    loadProgramDmem fp
 
   let _all@(unbundle -> (_circuit, writes, _iBus, _dBus)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $

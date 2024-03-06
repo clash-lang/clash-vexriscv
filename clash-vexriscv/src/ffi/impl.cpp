@@ -297,7 +297,7 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 			}
 		}
 	}
-	d->timer = 27; // 3; value used by VexRiscv regression test
+	d->timer = 3;
 }
 
 void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data)
