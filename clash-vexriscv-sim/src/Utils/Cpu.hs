@@ -19,7 +19,7 @@ import VexRiscv.VecToTuple (vecToTuple)
 
 import GHC.Stack (HasCallStack)
 
-import Utils.ProgramLoad (Memory)
+import Utils.ProgramLoad (Memory, DMemory)
 import Utils.Interconnect (interconnectTwo)
 
 createDomain vXilinxSystem{vName="Basic50", vPeriod= hzToPeriod 50_000_000}
@@ -34,21 +34,21 @@ Address space
 cpu ::
   (HasCallStack, HiddenClockResetEnable dom) =>
   Maybe Integer ->
-  Memory dom ->
-  Memory dom ->
+  DMemory dom ->
+  DMemory dom ->
   ( Signal dom CpuOut,
     -- writes
     Signal dom (Maybe (BitVector 32, BitVector 32)),
     -- iBus responses
-    Signal dom (Maybe (WishboneS2M (BitVector 32))),
+    Signal dom (WishboneS2M (BitVector 32)),
     -- dBus responses
-    Signal dom (Maybe (WishboneS2M (BitVector 32)))
+    Signal dom (WishboneS2M (BitVector 32))
   )
 cpu jtagPort bootIMem bootDMem =
   ( output
   , writes
-  , mux validI (Just <$> iS2M) (pure Nothing)
-  , mux validD (Just <$> dS2M) (pure Nothing)
+  , iS2M
+  , dS2M
   )
   where
     (output, jtagOut) = vexRiscv hasClock hasReset input jtagIn
@@ -56,27 +56,39 @@ cpu jtagPort bootIMem bootDMem =
     jtagIn = case jtagPort of
       Just port -> vexrJtagBridge (fromInteger port) jtagOut
       Nothing -> pure JTag.defaultIn
-    -- (unbundle -> (jtagIn', _debugReset)) = unsafePerformIO $ jtagTcpBridge' 7894 hasReset (jtagOut <$> output)
 
+    {-
+    00000000 - dummy area
+    20000000 - instruction memory
+    40000000 - data memory
+    -}
+
+    -- The I-bus is only split once, for the D-mem and everything below.
+    (iS2M, vecToTuple . unbundle -> (iMemIM2S, dMemIM2S)) = interconnectTwo
+      (unBusAddr . iBusWbM2S <$> output)
+      ((0x0000_0000, iMemIS2M) :> (0x4000_0000, dMemIS2M) :> Nil)
+
+    -- Because the dummy region should never be accessed by the instruction bus
+    -- it's just "ignored"
+    (iMemIS2M, iMemDS2M) = bootIMem (mapAddr (\x -> complement 0x2000_0000 .&. x) <$> iMemIM2S) iMemDM2S
+
+    -- needed for 'writes' below
     dM2S = dBusWbM2S <$> output
-    validD = fmap busCycle dM2S .&&. fmap strobe dM2S
 
-    iM2S = unBusAddr . iBusWbM2S <$> output
-    validI = fmap busCycle iM2S .&&. fmap strobe iM2S
+    -- because of the memory map having the dummy at 0x0.., then instructions
+    -- and then data memory, the D-bus is split in an "upper" and "lower" region,
+    -- where the "upper" region is just the D-mem, the "lower" region gets split
+    -- again for the instruction memory and the dummy
+    (dS2M, vecToTuple . unbundle -> (dLowerRegionM2S, dUpperRegionM2S)) = interconnectTwo
+      (unBusAddr <$> dM2S)
+      ((0x0000_0000, dLowerRegionS2M) :> (0x4000_0000, dUpperRegionS2M) :> Nil)
 
-    iS2M = bootIMem (mapAddr (\x -> -- trace (printf "I-addr = % 8X (% 8X)\n" (toInteger $ x - 0x2000_0000) (toInteger x))
-                      x - 0x2000_0000) <$> iM2S)
+    (dLowerRegionS2M, vecToTuple . unbundle -> (dDummyM2S, iMemDM2S)) = interconnectTwo
+      dLowerRegionM2S
+      ((0x0000_0000, dDummyS2M) :> (0x2000_0000, iMemDS2M) :> Nil)
 
-    dummy = dummyWb
-
-    dummyS2M = dummy dummyM2S
-    bootDS2M = bootDMem bootDM2S
-
-    (dS2M, vecToTuple . unbundle -> (dummyM2S, bootDM2S)) = interconnectTwo
-      ((\x ->
-          -- trace (printf "DBUS %08X" (toInteger (addr x)))
-          x) <$> (unBusAddr <$> dM2S))
-      ((0x0000_0000, dummyS2M) :> (0x4000_0000, bootDS2M) :> Nil)
+    (dUpperRegionS2M, dMemIS2M) = bootDMem dUpperRegionM2S dMemIM2S
+    dDummyS2M = dummyWb dDummyM2S
 
     input =
       ( \iBus dBus ->

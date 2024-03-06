@@ -5,11 +5,16 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE RecordWildCards #-}
 
+-- it doesn't like lazy matching on `Signal`s it seems?
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+
 module Utils.Storage
   ( storage
+  , dualPortStorage
   ) where
 
 import Clash.Prelude
+import Clash.Signal.Internal (Signal((:-)))
 
 import Data.Either (isLeft)
 import Protocols.Wishbone
@@ -39,6 +44,81 @@ instance NFDataX MappedMemory where
   -- This is a strict map, so we dont need to do anything. Note that WHNF ~ NF for
   -- 'BitVector'.
   rnfX x = seq x ()
+
+dualPortStorage ::
+  forall dom.
+  ( KnownDomain dom,
+    HiddenClockResetEnable dom
+  ) =>
+  [BitVector 8] ->
+  -- ^ contents
+  Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
+  -- ^ in A
+  Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
+  -- ^ in B
+  ( Signal dom (WishboneS2M (BitVector 32))
+  -- ^ out A
+  , Signal dom (WishboneS2M (BitVector 32))
+  -- ^ out B
+  )
+dualPortStorage contents portA portB = (aReply, bReply)
+  where
+    actualResult = storage contents inSignal
+
+    (_port, inSignal, aReply, bReply) = go A portA portB actualResult
+
+    go currentPort (a :- inA) (b :- inB) ~(res :- actualResult')
+      -- neither active, just say A is current, do nothing
+      | not aActive && not bActive =
+          ( A :- restPorts
+          , a :- restInSignal
+          , res :- aReplies
+          , emptyWishboneS2M :- bReplies
+          )
+      -- A current, A active -> do A
+      | currentPort == A && aActive =
+          ( A :- restPorts
+          , a :- restInSignal
+          , res :- aReplies
+          , emptyWishboneS2M :- bReplies
+          )
+      -- current A, A not active but B is, do B and switch to B
+      | currentPort == A && not aActive && bActive =
+          ( B :- restPorts
+          , b :- restInSignal
+          , emptyWishboneS2M :- aReplies
+          , res :- bReplies
+          )
+      -- current B, B active -> do B
+      | currentPort == B && bActive =
+          ( B :- restPorts
+          , b :- restInSignal
+          , emptyWishboneS2M :- aReplies
+          , res :- bReplies
+          )
+      -- current B, B not active, but A is, do A and switch to A
+      | currentPort == B && not bActive && aActive =
+          ( A :- restPorts
+          , a :- restInSignal
+          , res :- aReplies
+          , emptyWishboneS2M :- bReplies
+          )
+      where
+        aActive = strobe a && busCycle a
+        bActive = strobe b && busCycle b
+
+        nextPort = case (currentPort, aActive, bActive) of
+          (_, False, False) -> A
+          (A, False, True)  -> B
+          (A, True, _)      -> A
+          (B, _, True)      -> B
+          (B, True, False)  -> A
+
+        ~(restPorts, restInSignal, aReplies, bReplies) = go nextPort inA inB actualResult'
+
+data AorB = A | B deriving (Generic, NFDataX, Eq)
+
+
 
 storage ::
   forall dom.

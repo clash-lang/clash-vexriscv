@@ -1,4 +1,4 @@
--- SPDX-FileCopyrightText: 2022 Google LLC
+-- SPDX-FileCopyrightText: 2022-2024 Google LLC
 --
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE NumericUnderscores #-}
@@ -16,13 +16,13 @@ import qualified Data.List as L
 
 import Control.Monad (forM_, when)
 import Data.Char (chr)
-import Data.Maybe (catMaybes, fromMaybe)
+import Data.Maybe (catMaybes)
 import System.Environment (getArgs)
 import System.IO (putChar, hFlush, stdout)
 import Text.Printf (printf)
 
 
-import Utils.ProgramLoad (loadProgram)
+import Utils.ProgramLoad (loadProgramDmem)
 import Utils.Cpu (cpu)
 import System.Exit (exitFailure)
 
@@ -78,21 +78,18 @@ main = do
 
   (iMem, dMem) <-
     withClockResetEnable @System clockGen resetGen enableGen $
-      loadProgram @System elfFile
+      loadProgramDmem @System elfFile
 
   let cpuOut@(unbundle -> (_circuit, writes, _iBus, _dBus)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
           let (circ, writes1, iBus, dBus) = cpu (Just 7894) iMem dMem
-              dBus' = register Nothing dBus
+              dBus' = register emptyWishboneS2M dBus
           in bundle (circ, writes1, iBus, dBus')
 
   case debugConfig of
     RunCharacterDevice ->
       forM_ (sample_lazy @System (bundle (register @System (unpack 0) cpuOut, cpuOut))) $
-        \((_out, write, dS2M0, iS2M0), (out1, _write, _dS2M, _iS2M)) -> do
-        let
-          iS2M = fromMaybe emptyWishboneS2M iS2M0
-          dS2M = fromMaybe emptyWishboneS2M dS2M0
+        \((_out, write, dS2M, iS2M), (out1, _write, _dS2M, _iS2M)) -> do
 
         when (err dS2M) $ do
           let dBusM2S = dBusWbM2S out1
@@ -125,10 +122,8 @@ main = do
               let total = initCycles + uninteresting + nInteresting in
               L.zip [0 ..] $ L.take total $ sample_lazy @System cpuOut
 
-      forM_ sampled $ \(i, (out, _, iBusS2M0, dBusS2M0)) -> do
+      forM_ sampled $ \(i, (out, _, iBusS2M, dBusS2M)) -> do
         let
-          iBusS2M = fromMaybe emptyWishboneS2M iBusS2M0
-          dBusS2M = fromMaybe emptyWishboneS2M dBusS2M0
           doPrint = i >= skipTotal
 
         -- I-bus interactions
