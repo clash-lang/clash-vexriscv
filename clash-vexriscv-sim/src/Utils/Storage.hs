@@ -65,44 +65,24 @@ dualPortStorage contents portA portB = (aReply, bReply)
   where
     actualResult = storage contents inSignal
 
-    (_port, inSignal, aReply, bReply) = go A portA portB actualResult
+    (_port, inSignal, aReply, bReply) = unbundle $ go A portA portB actualResult
 
-    go currentPort (a :- inA) (b :- inB) ~(res :- actualResult')
+    go !currentPort (a :- inA) (b :- inB) ~(res :- actualResult')
       -- neither active, just say A is current, do nothing
       | not aActive && not bActive =
-          ( A :- restPorts
-          , a :- restInSignal
-          , res :- aReplies
-          , emptyWishboneS2M :- bReplies
-          )
+          (A, a, res, emptyWishboneS2M) :- (res `seq` next)
       -- A current, A active -> do A
       | currentPort == A && aActive =
-          ( A :- restPorts
-          , a :- restInSignal
-          , res :- aReplies
-          , emptyWishboneS2M :- bReplies
-          )
+          (A, a, res, emptyWishboneS2M) :- (res `seq` next)
       -- current A, A not active but B is, do B and switch to B
       | currentPort == A && not aActive && bActive =
-          ( B :- restPorts
-          , b :- restInSignal
-          , emptyWishboneS2M :- aReplies
-          , res :- bReplies
-          )
+          (B, b, emptyWishboneS2M, res) :- (res `seq` next)
       -- current B, B active -> do B
       | currentPort == B && bActive =
-          ( B :- restPorts
-          , b :- restInSignal
-          , emptyWishboneS2M :- aReplies
-          , res :- bReplies
-          )
+          (B, b, emptyWishboneS2M, res) :- (res `seq` next)
       -- current B, B not active, but A is, do A and switch to A
       | currentPort == B && not bActive && aActive =
-          ( A :- restPorts
-          , a :- restInSignal
-          , res :- aReplies
-          , emptyWishboneS2M :- bReplies
-          )
+          (A, a, res, emptyWishboneS2M) :- (res `seq` next)
       where
         aActive = strobe a && busCycle a
         bActive = strobe b && busCycle b
@@ -114,7 +94,7 @@ dualPortStorage contents portA portB = (aReply, bReply)
           (B, _, True)      -> B
           (B, True, False)  -> A
 
-        ~(restPorts, restInSignal, aReplies, bReplies) = go nextPort inA inB actualResult'
+        next = go nextPort inA inB actualResult'
 
 data AorB = A | B deriving (Generic, NFDataX, Eq)
 
@@ -133,7 +113,7 @@ storage contents = mealy go (MappedMemory $ I.fromAscList $ L.zip [0..] contents
  where
   size = L.length contents
 
-  go (MappedMemory mem) WishboneM2S{..}
+  go (MappedMemory !mem) WishboneM2S{..}
     | not (busCycle && strobe)        = (MappedMemory mem, emptyWishboneS2M)
     | addr >= fromIntegral size       =
         (MappedMemory mem, emptyWishboneS2M { err = True })
