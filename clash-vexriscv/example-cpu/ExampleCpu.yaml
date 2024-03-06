@@ -1,0 +1,4 @@
+# SPDX-FileCopyrightText: 2024 Google LLC
+#
+# SPDX-License-Identifier: CC0-1.0
+debug: !!vexriscv.DebugReport {hardwareBreakpointCount: 5}
