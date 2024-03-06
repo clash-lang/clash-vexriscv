@@ -5,18 +5,24 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE RecordWildCards #-}
+
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Utils.Cpu where
 
 import Clash.Prelude
 
 import Protocols.Wishbone
 import VexRiscv
+import VexRiscv.JtagTcpBridge as JTag
 import VexRiscv.VecToTuple (vecToTuple)
 
 import GHC.Stack (HasCallStack)
 
 import Utils.ProgramLoad (Memory)
 import Utils.Interconnect (interconnectTwo)
+
+createDomain vXilinxSystem{vName="Basic50", vPeriod= hzToPeriod 50_000_000}
 
 {-
 Address space
@@ -27,24 +33,39 @@ Address space
 -}
 cpu ::
   (HasCallStack, HiddenClockResetEnable dom) =>
+  Maybe Integer ->
   Memory dom ->
   Memory dom ->
-  ( Signal dom Output,
+  ( Signal dom CpuOut,
     -- writes
     Signal dom (Maybe (BitVector 32, BitVector 32)),
     -- iBus responses
-    Signal dom (WishboneS2M (BitVector 32)),
+    Signal dom (Maybe (WishboneS2M (BitVector 32))),
     -- dBus responses
-    Signal dom (WishboneS2M (BitVector 32))
+    Signal dom (Maybe (WishboneS2M (BitVector 32)))
   )
-cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
+cpu jtagPort bootIMem bootDMem =
+  ( output
+  , writes
+  , mux validI (Just <$> iS2M) (pure Nothing)
+  , mux validD (Just <$> dS2M) (pure Nothing)
+  )
   where
-    output = vexRiscv input
+    (output, jtagOut) = vexRiscv hasClock hasReset input jtagIn
+
+    jtagIn = case jtagPort of
+      Just port -> vexrJtagBridge (fromInteger port) jtagOut
+      Nothing -> pure JTag.defaultIn
+    -- (unbundle -> (jtagIn', _debugReset)) = unsafePerformIO $ jtagTcpBridge' 7894 hasReset (jtagOut <$> output)
+
     dM2S = dBusWbM2S <$> output
+    validD = fmap busCycle dM2S .&&. fmap strobe dM2S
 
     iM2S = unBusAddr . iBusWbM2S <$> output
+    validI = fmap busCycle iM2S .&&. fmap strobe iM2S
 
-    iS2M = bootIMem (mapAddr (\x -> x - 0x2000_0000) <$> iM2S)
+    iS2M = bootIMem (mapAddr (\x -> -- trace (printf "I-addr = % 8X (% 8X)\n" (toInteger $ x - 0x2000_0000) (toInteger x))
+                      x - 0x2000_0000) <$> iM2S)
 
     dummy = dummyWb
 
@@ -52,12 +73,14 @@ cpu bootIMem bootDMem = (output, writes, iS2M, dS2M)
     bootDS2M = bootDMem bootDM2S
 
     (dS2M, vecToTuple . unbundle -> (dummyM2S, bootDM2S)) = interconnectTwo
-      (unBusAddr <$> dM2S)
+      ((\x ->
+          -- trace (printf "DBUS %08X" (toInteger (addr x)))
+          x) <$> (unBusAddr <$> dM2S))
       ((0x0000_0000, dummyS2M) :> (0x4000_0000, bootDS2M) :> Nil)
 
     input =
       ( \iBus dBus ->
-          Input
+          CpuIn
             { timerInterrupt = low,
               externalInterrupt = low,
               softwareInterrupt = low,
