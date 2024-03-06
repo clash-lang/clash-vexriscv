@@ -36,12 +36,12 @@ instance NFDataX MappedMemory where
   -- WHNF ~ NF, so we only need to check the values.
   hasUndefined m =
        isLeft (isX (unMappedMemory m))
-    || (any hasUndefined $ I.elems $ unMappedMemory m)
+    || any hasUndefined (I.elems $ unMappedMemory m)
 
   -- Not a product type, so no spine
   ensureSpine = id
 
-  -- This is a strict map, so we dont need to do anything. Note that WHNF ~ NF for
+  -- This is a strict map, so we don't need to do anything. Note that WHNF ~ NF for
   -- 'BitVector'.
   rnfX x = seq x ()
 
