@@ -22,7 +22,7 @@ fn print(s: &str) {
 }
 
 fn done() -> ! {
-    loop {};
+    loop {}
 }
 
 #[cfg_attr(not(test), entry)]

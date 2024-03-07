@@ -7,6 +7,9 @@ author:              QBayLogic B.V.
 maintainer:          devops@qbaylogic.com
 Copyright:           Copyright © 2022 Google LLC
 
+extra-source-files:
+  data/*.cfg
+
 common common-options
   default-extensions:
     BangPatterns
@@ -125,9 +128,12 @@ test-suite unittests
   -- ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-tool-depends:
     clash-vexriscv-sim:clash-vexriscv-bin
+  autogen-modules:
+    Paths_clash_vexriscv_sim
   ghc-options: -threaded
   main-is: tests.hs
   other-modules:
+    Paths_clash_vexriscv_sim
     Tests.Jtag
   build-depends:
     async,
