@@ -7,7 +7,6 @@ import Clash.Prelude
 
 import qualified Data.ByteString as BS
 import qualified Data.List as L
-import qualified Tests.Jtag as Jtag
 
 import Control.Monad (forM)
 import Data.Maybe (catMaybes, mapMaybe)
@@ -130,7 +129,8 @@ main = do
           "VexRiscv Tests"
           [ testGroup "Debug builds" debugTestCases
           , testGroup "Release builds" releaseTestCases
-          , Jtag.tests
+          -- XXX: Disabled, we need to add OpenOCD + GDB to CI (or use the Nix shell?)
+          -- , Jtag.tests
           ]
 
   defaultMain tests

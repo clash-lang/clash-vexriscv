@@ -172,6 +172,10 @@ jobs:
         with:
           name: vexriscv-test-binaries
 
+      - name: Work around dubious owner error
+        run: |
+          git config --global --add safe.directory "$(pwd)"
+
       - name: Extract VexRiscv Integration Tests
         run: |
           tar -x -f vexriscv-test-binaries.tar
