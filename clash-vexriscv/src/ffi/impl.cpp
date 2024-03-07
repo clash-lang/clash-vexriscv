@@ -27,8 +27,6 @@ typedef struct {
 	int32_t rx_buffer_size;
 	int32_t rx_buffer_remaining;
 	JTAG_INPUT prev_input;
-
-	uint64_t tck_change_counter;
 } vexr_jtag_bridge_data;
 
 extern "C" {
@@ -172,8 +170,6 @@ vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 
 	d->prev_input = { 0, 0, 0 };
 
-	d->tck_change_counter = 0;
-
 	d->timer = 0;
 	d->self_sleep = 0;
 	d->check_new_connections_timer = 0;
@@ -214,7 +210,6 @@ vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 
 void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input)
 {
-	const int WAIT_PERIOD = 83333;
 	// We set the input values to their last here
 	// so that only the "successful" path has to update them
 
@@ -272,19 +267,6 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
 			input->tms = (buffer & 1) != 0;
 			input->tdi = (buffer & 2) != 0;
 			input->tck = (buffer & 8) != 0;
-
-			// printf("\n[JTAG_BRIDGE] ");
-			// printf("%d %d %d %d\n",
-			// 	d->tck_change_counter,
-			// 	input->jtag_TCK,
-			// 	input->jtag_TMS,
-			// 	input->jtag_TDI
-			// );
-
-			if (input->tck != d->prev_input.tck) {
-				d->tck_change_counter++;
-			}
-
 
 
 			d->prev_input = *input;
