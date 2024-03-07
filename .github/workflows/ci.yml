@@ -183,3 +183,7 @@ jobs:
       - name: Run `clash-vexriscv-sim` unittests
         run: |
           cabal run clash-vexriscv-sim:unittests
+
+      - name: Run `clash-vexriscv-sim` HDL test
+        run: |
+          cabal run clash-vexriscv-sim:hdl-test

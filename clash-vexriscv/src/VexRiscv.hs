@@ -2,12 +2,12 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE MagicHash #-}
-{-# LANGUAGE TemplateHaskellQuotes #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes #-}
--- {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
 
 {-# OPTIONS_GHC -fconstraint-solver-iterations=10 #-}
 
@@ -356,7 +356,7 @@ vexRiscv# !_sourcePath clk rst0
       , FFI.jtag_debug_resetOut <$> output
       , FFI.jtag_TDO <$> output
       )
-{-# NOINLINE vexRiscv# #-}
+{-# CLASH_OPAQUE vexRiscv# #-}
 {-# ANN vexRiscv# (
     let
       primName = 'vexRiscv#

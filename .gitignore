@@ -68,3 +68,6 @@ tight_setup_hold_pins.txt
 
 # Verilator debug output
 simulation_dump.vcd
+
+# Clash output
+verilog

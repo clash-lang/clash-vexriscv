@@ -46,6 +46,13 @@ common common-options
 
     -- Prelude isn't imported by default as Clash offers Clash.Prelude
     NoImplicitPrelude
+
+  -- See https://github.com/clash-lang/clash-compiler/pull/2511
+  if impl(ghc >= 9.4)
+    CPP-Options: -DCLASH_OPAQUE=OPAQUE
+  else
+    CPP-Options: -DCLASH_OPAQUE=NOINLINE
+
   ghc-options:
     -Wall -Wcompat
 
@@ -76,6 +83,7 @@ library
   default-language: Haskell2010
   exposed-modules:
     Utils.Cpu
+    Utils.Instance
     Utils.Interconnect
     Utils.ProgramLoad
     Utils.ReadElf
@@ -88,19 +96,13 @@ library
     clash-vexriscv,
     elf >= 0.31 && < 0.32,
 
-executable clash
-  import: common-options
-  main-is: app/Clash.hs
-  build-Depends: base, clash-ghc
-
+-- XXX: Doesn't really belong in clash-vexriscv-SIM
 executable hdl-test
   import: common-options
   main-is: app/HdlTest.hs
   build-Depends:
     base,
-    clash-prelude,
-    clash-protocols,
-    clash-vexriscv,
+    clash-ghc,
     clash-vexriscv-sim,
 
 executable clash-vexriscv-bin
