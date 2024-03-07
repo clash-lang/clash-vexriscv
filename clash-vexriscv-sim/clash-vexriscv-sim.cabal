@@ -105,6 +105,7 @@ executable clash-vexriscv-bin
   main-is: VexRiscvSimulation.hs
   hs-source-dirs: app
   default-language: Haskell2010
+  ghc-options: -threaded -rtsopts "-with-rtsopts=-M100M"
   build-depends:
     base,
     clash-prelude,
@@ -122,18 +123,25 @@ test-suite unittests
   type: exitcode-stdio-1.0
   -- TODO: enable parallel tests:
   -- ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-tool-depends:
+    clash-vexriscv-sim:clash-vexriscv-bin
   ghc-options: -threaded
   main-is: tests.hs
+  other-modules:
+    Tests.Jtag
   build-depends:
+    async,
     base,
+    bytestring,
     clash-prelude,
     clash-protocols,
-    clash-vexriscv,
     clash-vexriscv-sim,
-    bytestring,
+    clash-vexriscv,
     containers,
     directory,
-    temporary >=1.1 && <1.4,
+    extra,
+    filepath,
+    process,
     tasty >= 1.2 && < 1.6,
     tasty-hunit >= 0.10 && < 0.11,
-    filepath
+    temporary >=1.1 && <1.4,

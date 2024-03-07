@@ -7,6 +7,7 @@ import Clash.Prelude
 
 import qualified Data.ByteString as BS
 import qualified Data.List as L
+import qualified Tests.Jtag as Jtag
 
 import Control.Monad (forM)
 import Data.Maybe (catMaybes, mapMaybe)
@@ -17,7 +18,6 @@ import System.Exit (exitFailure)
 import System.FilePath
 import System.IO
 import System.IO.Temp (withSystemTempFile)
-
 import Test.Tasty
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 
@@ -128,8 +128,9 @@ main = do
   let tests =
         testGroup
           "VexRiscv Tests"
-          [ testGroup "Debug builds" debugTestCases,
-            testGroup "Release builds" releaseTestCases
+          [ testGroup "Debug builds" debugTestCases
+          , testGroup "Release builds" releaseTestCases
+          , Jtag.tests
           ]
 
   defaultMain tests
