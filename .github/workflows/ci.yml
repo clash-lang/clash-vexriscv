@@ -186,7 +186,7 @@ jobs:
 
       - name: Run `clash-vexriscv-sim` unittests
         run: |
-          cabal run clash-vexriscv-sim:unittests
+          cabal run clash-vexriscv-sim:unittests -- -j2
 
       - name: Run `clash-vexriscv-sim` HDL test
         run: |
