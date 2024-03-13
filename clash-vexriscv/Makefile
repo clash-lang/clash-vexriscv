@@ -9,6 +9,8 @@ FFI_DIR = src/ffi
 
 VERILATOR_FLAGS = -CFLAGS '-O3 -fPIC' -Wno-fatal +1364-2001ext+v --trace
 
+N := $(patsubst -j%,%,$(filter -j%,$(MAKEFLAGS)))
+
 VERILATOR_CFLAGS = $(shell pkg-config --cflags verilator)
 FFI_CPPFLAGS = $(VERILATOR_CFLAGS) -fPIC -O3 -I$(VERILATOR_DIR)
 
@@ -31,19 +33,22 @@ $(VERILATOR_DIR)/VVexRiscv.mk $(VERILATOR_DIR)/VVexRiscv.h: $(OUT_DIR)/VexRiscv.
 	cd $(OUT_DIR); verilator $(VERILATOR_FLAGS) --cc -Mdir ../$(VERILATOR_DIR) VexRiscv.v
 
 $(VERILATOR_DIR)/VVexRiscv__ALL.a: $(VERILATOR_DIR)/VVexRiscv.mk
-	cd $(VERILATOR_DIR); make -f VVexRiscv.mk
+	cd $(VERILATOR_DIR); make -f VVexRiscv.mk -j $(N)
 
-$(OUT_DIR)/impl.o: $(FFI_DIR)/impl.cpp $(FFI_DIR)/interface.h
+$(OUT_DIR)/impl.o: $(FFI_DIR)/impl.cpp $(FFI_DIR)/interface.h $(VERILATOR_DIR)/VVexRiscv.h
 	$(CXX) $(FFI_CPPFLAGS) -c $(FFI_DIR)/impl.cpp -o $(OUT_DIR)/impl.o
 
 $(OUT_DIR)/verilated_vcd_c.o: $(shell pkg-config --variable=includedir verilator)/verilated_vcd_c.cpp
+	mkdir -p $(OUT_DIR)
 	$(CXX) $(FFI_CPPFLAGS) -c $(shell pkg-config --variable=includedir verilator)/verilated_vcd_c.cpp -o $(OUT_DIR)/verilated_vcd_c.o
 
 
 $(OUT_DIR)/verilated.o: $(shell pkg-config --variable=includedir verilator)/verilated.cpp
+	mkdir -p $(OUT_DIR)
 	$(CXX) $(FFI_CPPFLAGS) -c $(shell pkg-config --variable=includedir verilator)/verilated.cpp -o $(OUT_DIR)/verilated.o
 
 $(OUT_DIR)/verilated_threads.o: $(shell pkg-config --variable=includedir verilator)/verilated_threads.cpp
+	mkdir -p $(OUT_DIR)
 	$(CXX) $(FFI_CPPFLAGS) -c $(shell pkg-config --variable=includedir verilator)/verilated_threads.cpp -o $(OUT_DIR)/verilated_threads.o
 
 $(OUT_DIR)/VVexRiscv__ALL.a: $(VERILATOR_DIR)/VVexRiscv__ALL.a
