@@ -23,6 +23,8 @@ import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 import Utils.ProgramLoad (loadProgramDmem)
 import Utils.Cpu (cpu)
 
+-- XXX: Disabled, we need to add OpenOCD + GDB to CI (or use the Nix shell?)
+-- import qualified Tests.Jtag
 
 runProgramExpect ::
   -- | action to copy ELF file
@@ -130,7 +132,7 @@ main = do
           [ testGroup "Debug builds" debugTestCases
           , testGroup "Release builds" releaseTestCases
           -- XXX: Disabled, we need to add OpenOCD + GDB to CI (or use the Nix shell?)
-          -- , Jtag.tests
+          -- , Tests.Jtag.tests
           ]
 
   defaultMain tests
