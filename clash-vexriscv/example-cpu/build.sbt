@@ -4,7 +4,7 @@
 
 import Dependencies._
 
-val spinalVersion = "1.7.1"
+val spinalVersion = "1.10.1"
 
 ThisBuild / scalaVersion     := "2.11.12"
 ThisBuild / version          := "0.1.0-SNAPSHOT"
