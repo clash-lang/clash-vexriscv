@@ -33,6 +33,7 @@ import VexRiscv.ClockTicks
 import VexRiscv.FFI
 import VexRiscv.TH
 import VexRiscv.VecToTuple
+import VexRiscv.Random
 
 import qualified VexRiscv.FFI as FFI
 
@@ -259,23 +260,39 @@ vexRiscv# !_sourcePath clk rst0
   jtag_TDI = unsafePerformIO $ do
     (v, initStage1, initStage2, stepRising, stepFalling, _shutDown) <- vexCPU
 
+    -- Make sure all the inputs are defined
+    let
+      rst0' = unsafePerformIO . makeDefinedRandom <$> unsafeToActiveHigh rst0
+      timerInterrupt' = unsafePerformIO . makeDefinedRandom <$> timerInterrupt
+      externalInterrupt' = unsafePerformIO . makeDefinedRandom <$> externalInterrupt
+      softwareInterrupt' = unsafePerformIO . makeDefinedRandom <$> softwareInterrupt
+      iBus_ACK' = unsafePerformIO . makeDefinedRandom <$> iBus_ACK
+      iBus_DAT_MISO' = unsafePerformIO . makeDefinedRandom <$> iBus_DAT_MISO
+      iBus_ERR' = unsafePerformIO . makeDefinedRandom <$> iBus_ERR
+      dBus_ACK' = unsafePerformIO . makeDefinedRandom <$> dBus_ACK
+      dBus_DAT_MISO' = unsafePerformIO . makeDefinedRandom <$> dBus_DAT_MISO
+      dBus_ERR' = unsafePerformIO . makeDefinedRandom <$> dBus_ERR
+      jtag_TCK' = unsafePerformIO . makeDefinedRandom <$> jtag_TCK
+      jtag_TMS' = unsafePerformIO . makeDefinedRandom <$> jtag_TMS
+      jtag_TDI' = unsafePerformIO . makeDefinedRandom <$> jtag_TDI
+
     let
       nonCombInput = NON_COMB_INPUT
-        <$> (boolToBit <$> unsafeToActiveHigh rst0)
-        <*> timerInterrupt
-        <*> externalInterrupt
-        <*> softwareInterrupt
+        <$> (boolToBit <$> rst0')
+        <*> timerInterrupt'
+        <*> externalInterrupt'
+        <*> softwareInterrupt'
 
       combInput = COMB_INPUT
-        <$> (boolToBit <$> iBus_ACK)
-        <*> (unpack    <$> iBus_DAT_MISO)
-        <*> (boolToBit <$> iBus_ERR)
-        <*> (boolToBit <$> dBus_ACK)
-        <*> (unpack    <$> dBus_DAT_MISO)
-        <*> (boolToBit <$> dBus_ERR)
-        <*> jtag_TCK
-        <*> jtag_TMS
-        <*> jtag_TDI
+        <$> (boolToBit <$> iBus_ACK')
+        <*> (unpack    <$> iBus_DAT_MISO')
+        <*> (boolToBit <$> iBus_ERR')
+        <*> (boolToBit <$> dBus_ACK')
+        <*> (unpack    <$> dBus_DAT_MISO')
+        <*> (boolToBit <$> dBus_ERR')
+        <*> jtag_TCK'
+        <*> jtag_TMS'
+        <*> jtag_TDI'
 
       simInitThenCycles ::
         Signal dom NON_COMB_INPUT ->
