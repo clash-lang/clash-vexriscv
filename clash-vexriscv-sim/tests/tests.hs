@@ -10,6 +10,7 @@ import qualified Data.List as L
 
 import Control.Monad (forM)
 import Data.Maybe (catMaybes, mapMaybe)
+import Data.Tuple.Extra (fst3)
 import Data.Word (Word8)
 import GHC.Base (when)
 import System.Directory (copyFile, doesFileExist, listDirectory)
@@ -23,8 +24,7 @@ import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 import Utils.ProgramLoad (loadProgramDmem)
 import Utils.Cpu (cpu)
 
--- XXX: Disabled, we need to add OpenOCD + GDB to CI (or use the Nix shell?)
--- import qualified Tests.Jtag
+import qualified Tests.Jtag
 
 runProgramExpect ::
   -- | action to copy ELF file
@@ -109,8 +109,8 @@ runTest name mode n elfPath expectPath =
 
 main :: IO ()
 main = do
-  debugTests <- findTests sourceDir debugBinDir
-  releaseTests <- findTests sourceDir releaseBinDir
+  debugTests <- L.sortOn fst3 <$> findTests sourceDir debugBinDir
+  releaseTests <- L.sortOn fst3 <$> findTests sourceDir releaseBinDir
 
   when (L.null debugTests) $ do
     hPutStrLn stderr "No debug tests found! Was `cargo build` run?"
@@ -131,8 +131,7 @@ main = do
           "VexRiscv Tests"
           [ testGroup "Debug builds" debugTestCases
           , testGroup "Release builds" releaseTestCases
-          -- XXX: Disabled, we need to add OpenOCD + GDB to CI (or use the Nix shell?)
-          -- , Tests.Jtag.tests
+          , Tests.Jtag.tests
           ]
 
   defaultMain tests

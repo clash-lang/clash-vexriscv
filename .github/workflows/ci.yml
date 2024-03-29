@@ -162,6 +162,10 @@ jobs:
         run: |
           tar -x -f vexriscv-test-binaries.tar
 
+      - name: OpenOCD bin symlink
+        run: |
+          ln -s /opt/bin/openocd /opt/bin/openocd-vexriscv
+
       - name: Run `clash-vexriscv` unittests
         run: |
           cabal run clash-vexriscv:unittests

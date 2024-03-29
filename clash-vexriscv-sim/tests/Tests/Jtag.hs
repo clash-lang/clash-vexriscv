@@ -7,9 +7,11 @@ module Tests.Jtag where
 
 import Prelude
 
+import Control.Applicative ((<|>))
 import Control.Monad.Extra (ifM)
 import Data.List.Extra (trim)
 import Data.Maybe (fromJust)
+import System.Directory (findExecutable)
 import System.Exit
 import System.IO
 import System.Process
@@ -38,9 +40,20 @@ getOpenOcdCfgPath = getDataFileName "data/vexriscv_sim.cfg"
 getGdbCmdPath :: IO FilePath
 getGdbCmdPath = getDataFileName "data/vexriscv_gdb.cfg"
 
+getGdb :: HasCallStack => IO String
+getGdb = do
+  gdbMultiArch <- findExecutable "gdb-multiarch"
+  gdb <- findExecutable "gdb"
+  case gdbMultiArch <|> gdb of
+    Nothing -> fail "Neither gdb-multiarch nor gdb found in PATH"
+    Just x -> pure x
+
 expectLine :: Handle -> String -> Assertion
 expectLine h expected = do
   line <- hGetLine h
+  -- Uncomment for debugging:
+  -- hPutStr stderr "> "
+  -- hPutStrLn stderr line
   ifM
     (pure $ null line)
     (expectLine h expected)
@@ -49,6 +62,9 @@ expectLine h expected = do
 waitForLine :: Handle -> String -> IO ()
 waitForLine h expected = do
   line <- hGetLine h
+  -- Uncomment for debugging:
+  -- hPutStr stderr "> "
+  -- hPutStrLn stderr line
   if line == expected
     then pure ()
     else waitForLine h expected
@@ -67,6 +83,7 @@ test = do
   projectRoot <- getProjectRoot
   openocdCfgPath <- getOpenOcdCfgPath
   gdbCmdPath <- getGdbCmdPath
+  gdb <- getGdb
 
   let
     vexRiscvProc = (proc simulateExecPath [printElfPath]){
@@ -79,7 +96,7 @@ test = do
       , cwd = Just projectRoot
     }
 
-    gdbProc = (proc "gdb" ["--command", gdbCmdPath]){
+    gdbProc = (proc gdb ["--command", gdbCmdPath]){
       std_out = CreatePipe, -- Comment this line to see GDB output
       cwd = Just projectRoot
     }
