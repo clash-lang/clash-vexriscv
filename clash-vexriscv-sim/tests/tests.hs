@@ -10,6 +10,7 @@ import qualified Data.List as L
 
 import Control.Monad (forM)
 import Data.Maybe (catMaybes, mapMaybe)
+import Data.Proxy
 import Data.Tuple.Extra (fst3)
 import Data.Word (Word8)
 import GHC.Base (when)
@@ -20,6 +21,7 @@ import System.IO
 import System.IO.Temp (withSystemTempFile)
 import Test.Tasty
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
+import Test.Tasty.Options
 
 import Utils.ProgramLoad (loadProgramDmem)
 import Utils.Cpu (cpu)
@@ -134,4 +136,6 @@ main = do
           , Tests.Jtag.tests
           ]
 
-  defaultMain tests
+  defaultMainWithIngredients
+    (includingOptions [Option (Proxy :: Proxy Tests.Jtag.JtagDebug)] : defaultIngredients)
+    tests
