@@ -27,6 +27,7 @@ import Utils.ProgramLoad (loadProgramDmem)
 import Utils.Cpu (cpu)
 
 import qualified Tests.Jtag
+import qualified Tests.JtagChain
 
 runProgramExpect ::
   -- | action to copy ELF file
@@ -135,6 +136,7 @@ main = do
           [ testGroup "Debug builds" debugTestCases
           , testGroup "Release builds" releaseTestCases
           , Tests.Jtag.tests
+          , Tests.JtagChain.tests
           ]
 
   defaultMainWithIngredients
