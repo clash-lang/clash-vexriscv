@@ -41,7 +41,7 @@ runProgramExpect act n expected = withSystemTempFile "ELF" $ \fp _ -> do
   (iMem, dMem) <- withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
     loadProgramDmem fp
 
-  let _all@(unbundle -> (_circuit, writes, _iBus, _dBus)) =
+  let _all@(unbundle -> (_circuit, _, writes, _iBus, _dBus)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
           bundle (cpu Nothing iMem dMem)
 
@@ -60,6 +60,7 @@ findTests ::
   IO [(String, FilePath, FilePath)]
 -- test name  bin path  expected-path
 findTests srcDir binDir = do
+
   srcFiles <- listDirectory srcDir
 
   let expectFiles = L.filter (\p -> takeExtension p == ".expected") srcFiles

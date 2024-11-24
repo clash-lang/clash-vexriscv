@@ -83,6 +83,7 @@ library
   default-language: Haskell2010
   exposed-modules:
     Utils.Cpu
+    Utils.DebugConfig
     Utils.Instance
     Utils.Interconnect
     Utils.ProgramLoad
