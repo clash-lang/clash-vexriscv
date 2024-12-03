@@ -165,7 +165,7 @@ jobs:
 
       - name: OpenOCD bin symlink
         run: |
-          ln -s /opt/bin/openocd /opt/bin/openocd-vexriscv
+          ln -s /opt/bin/openocd /opt/bin/openocd-riscv
 
       - name: Run `clash-vexriscv` unittests
         run: |
