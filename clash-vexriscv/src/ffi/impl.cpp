@@ -95,7 +95,7 @@ void set_comb_inputs(VVexRiscv *top, const COMB_INPUT *input)
 }
 
 // Set all outputs
-void set_ouputs(VVexRiscv *top, OUTPUT *output)
+void set_outputs(VVexRiscv *top, OUTPUT *output)
 {
 	output->iBusWishbone_CYC = top->iBusWishbone_CYC;
 	output->iBusWishbone_STB = top->iBusWishbone_STB;
@@ -129,7 +129,7 @@ void vexr_init_stage1(VerilatedVcdC *vcd, VVexRiscv *top, const NON_COMB_INPUT *
 	if (vcd != NULL) {
 		vcd->dump(contextp->time());
 	}
-	set_ouputs(top, output);
+	set_outputs(top, output);
 
 	// Advance time by 50 nanoseconds. This is an arbitrary value. Ideally, we would
 	// do something similar to Clash's template tag "~LONGESTPERIOD".
@@ -166,7 +166,7 @@ void vexr_step_rising_edge(VerilatedVcdC *vcd, VVexRiscv *top, uint64_t time_add
 	}
 
 	// Set all outputs
-	set_ouputs(top, output);
+	set_outputs(top, output);
 }
 
 void vexr_step_falling_edge(VerilatedVcdC *vcd, VVexRiscv *top, uint64_t time_add, const COMB_INPUT *input)
