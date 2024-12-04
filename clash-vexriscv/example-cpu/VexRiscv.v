@@ -1,4 +1,4 @@
-// Generator : SpinalHDL v1.10.1    git head : 2527c7c6b0fb0f95e5e1a5722a0be732b364ce43
+// Generator : SpinalHDL v1.10.2a    git head : a348a60b7e8b6a455c72e1536ec3d74a2ea16935
 // Component : VexRiscv
 
 `timescale 1ns/1ps
@@ -87,7 +87,6 @@ module VexRiscv (
   localparam FpuRoundMode_RMM = 3'd4;
 
   wire                IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_ready;
-  wire                IBusSimplePlugin_rspJoin_rspBuffer_c_io_flush;
   wire                dataCache_1_io_cpu_execute_isValid;
   wire       [31:0]   dataCache_1_io_cpu_execute_address;
   wire                dataCache_1_io_cpu_memory_isValid;
@@ -108,8 +107,8 @@ module VexRiscv (
   wire       [3:0]    dataCache_1_io_cpu_writeBack_fence_FM;
   wire                dataCache_1_io_cpu_flush_valid;
   wire                dataCache_1_io_cpu_flush_payload_singleLine;
-  reg        [31:0]   _zz_RegFilePlugin_regFile_port0;
-  reg        [31:0]   _zz_RegFilePlugin_regFile_port1;
+  reg        [31:0]   RegFilePlugin_regFile_spinal_port0;
+  reg        [31:0]   RegFilePlugin_regFile_spinal_port1;
   wire                IBusSimplePlugin_rspJoin_rspBuffer_c_io_push_ready;
   wire                IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_valid;
   wire                IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_payload_error;
@@ -1020,7 +1019,7 @@ module VexRiscv (
   reg                 IBusSimplePlugin_rspJoin_fetchRsp_rsp_error;
   wire       [31:0]   IBusSimplePlugin_rspJoin_fetchRsp_rsp_inst;
   wire                IBusSimplePlugin_rspJoin_fetchRsp_isRvc;
-  wire                when_IBusSimplePlugin_l376;
+  wire                when_IBusSimplePlugin_l377;
   wire                IBusSimplePlugin_rspJoin_join_valid;
   wire                IBusSimplePlugin_rspJoin_join_ready;
   wire       [31:0]   IBusSimplePlugin_rspJoin_join_payload_pc;
@@ -1030,7 +1029,7 @@ module VexRiscv (
   reg                 IBusSimplePlugin_rspJoin_exceptionDetected;
   wire                IBusSimplePlugin_rspJoin_join_fire;
   wire                _zz_IBusSimplePlugin_iBusRsp_output_valid;
-  wire                when_IBusSimplePlugin_l402;
+  wire                when_IBusSimplePlugin_l403;
   reg        [31:0]   DBusCachedPlugin_rspCounter;
   wire                when_DBusCachedPlugin_l353;
   wire       [1:0]    execute_DBusCachedPlugin_size;
@@ -1588,7 +1587,7 @@ module VexRiscv (
   wire       [31:0]   iBus_cmd_m2sPipe_payload_pc;
   reg                 iBus_cmd_rValid;
   reg        [31:0]   iBus_cmd_rData_pc;
-  wire                when_Stream_l369;
+  wire                when_Stream_l375;
   reg        [0:0]    _zz_dBusWishbone_ADR;
   wire                _zz_dBusWishbone_CYC;
   wire                _zz_dBus_cmd_ready;
@@ -1699,7 +1698,7 @@ module VexRiscv (
 
   assign _zz_when = (|{decodeExceptionPort_valid,IBusSimplePlugin_decodeExceptionPort_valid});
   assign _zz_memory_MUL_LOW = ($signed(_zz_memory_MUL_LOW_1) + $signed(_zz_memory_MUL_LOW_4));
-  assign _zz_memory_MUL_LOW_1 = ($signed(52'h0000000000000) + $signed(_zz_memory_MUL_LOW_2));
+  assign _zz_memory_MUL_LOW_1 = ($signed(52'h0) + $signed(_zz_memory_MUL_LOW_2));
   assign _zz_memory_MUL_LOW_3 = {1'b0,memory_MUL_LL};
   assign _zz_memory_MUL_LOW_2 = {{19{_zz_memory_MUL_LOW_3[32]}}, _zz_memory_MUL_LOW_3};
   assign _zz_memory_MUL_LOW_5 = ({16'd0,memory_MUL_LH} <<< 5'd16);
@@ -1718,7 +1717,7 @@ module VexRiscv (
   assign _zz_IBusSimplePlugin_fetchPc_pc = {29'd0, _zz_IBusSimplePlugin_fetchPc_pc_1};
   assign _zz_IBusSimplePlugin_decodePc_pcPlus_1 = (decode_IS_RVC ? 3'b010 : 3'b100);
   assign _zz_IBusSimplePlugin_decodePc_pcPlus = {29'd0, _zz_IBusSimplePlugin_decodePc_pcPlus_1};
-  assign _zz_IBusSimplePlugin_decompressor_decompressed_30 = {{_zz_IBusSimplePlugin_decompressor_decompressed_10,_zz_IBusSimplePlugin_decompressor_decompressed[6 : 2]},12'h000};
+  assign _zz_IBusSimplePlugin_decompressor_decompressed_30 = {{_zz_IBusSimplePlugin_decompressor_decompressed_10,_zz_IBusSimplePlugin_decompressor_decompressed[6 : 2]},12'h0};
   assign _zz_IBusSimplePlugin_decompressor_decompressed_37 = {{{4'b0000,_zz_IBusSimplePlugin_decompressor_decompressed[8 : 7]},_zz_IBusSimplePlugin_decompressor_decompressed[12 : 9]},2'b00};
   assign _zz_IBusSimplePlugin_decompressor_decompressed_38 = {{{4'b0000,_zz_IBusSimplePlugin_decompressor_decompressed[8 : 7]},_zz_IBusSimplePlugin_decompressor_decompressed[12 : 9]},2'b00};
   assign _zz_IBusSimplePlugin_decompressor_decompressed_39 = {{{4'b0000,_zz_IBusSimplePlugin_decompressor_decompressed[8 : 7]},_zz_IBusSimplePlugin_decompressor_decompressed[12 : 9]},2'b00};
@@ -1744,7 +1743,7 @@ module VexRiscv (
   assign _zz_execute_SrcPlugin_addSub_1 = ($signed(_zz_execute_SrcPlugin_addSub_2) + $signed(_zz_execute_SrcPlugin_addSub_3));
   assign _zz_execute_SrcPlugin_addSub_2 = execute_SRC1;
   assign _zz_execute_SrcPlugin_addSub_3 = (execute_SRC_USE_SUB_LESS ? (~ execute_SRC2) : execute_SRC2);
-  assign _zz_execute_SrcPlugin_addSub_4 = (execute_SRC_USE_SUB_LESS ? 32'h00000001 : 32'h00000000);
+  assign _zz_execute_SrcPlugin_addSub_4 = (execute_SRC_USE_SUB_LESS ? 32'h00000001 : 32'h0);
   assign _zz_writeBack_MulPlugin_result = {{14{writeBack_MUL_LOW[51]}}, writeBack_MUL_LOW};
   assign _zz_writeBack_MulPlugin_result_1 = ({32'd0,writeBack_MUL_HH} <<< 6'd32);
   assign _zz__zz_lastStageRegFileWrite_payload_data = writeBack_MUL_LOW[31 : 0];
@@ -1811,7 +1810,7 @@ module VexRiscv (
   assign _zz_IBusSimplePlugin_decompressor_decompressed_29 = _zz_IBusSimplePlugin_decompressor_decompressed[2];
   assign _zz_IBusSimplePlugin_decompressor_decompressed_31 = (_zz_IBusSimplePlugin_decompressor_decompressed[11 : 10] == 2'b01);
   assign _zz_IBusSimplePlugin_decompressor_decompressed_32 = ((_zz_IBusSimplePlugin_decompressor_decompressed[11 : 10] == 2'b11) && (_zz_IBusSimplePlugin_decompressor_decompressed[6 : 5] == 2'b00));
-  assign _zz_IBusSimplePlugin_decompressor_decompressed_33 = 7'h00;
+  assign _zz_IBusSimplePlugin_decompressor_decompressed_33 = 7'h0;
   assign _zz_IBusSimplePlugin_decompressor_decompressed_34 = _zz_IBusSimplePlugin_decompressor_decompressed[6 : 2];
   assign _zz_IBusSimplePlugin_decompressor_decompressed_35 = _zz_IBusSimplePlugin_decompressor_decompressed[12];
   assign _zz_IBusSimplePlugin_decompressor_decompressed_36 = _zz_IBusSimplePlugin_decompressor_decompressed[11 : 7];
@@ -1894,9 +1893,9 @@ module VexRiscv (
   assign _zz__zz_decode_FPU_RSP_58 = 32'h00000010;
   assign _zz__zz_decode_FPU_RSP_65 = 32'h10000020;
   assign _zz__zz_decode_FPU_RSP_67 = (decode_INSTRUCTION & 32'h80000020);
-  assign _zz__zz_decode_FPU_RSP_68 = 32'h00000000;
+  assign _zz__zz_decode_FPU_RSP_68 = 32'h0;
   assign _zz__zz_decode_FPU_RSP_70 = (decode_INSTRUCTION & 32'h00000030);
-  assign _zz__zz_decode_FPU_RSP_71 = 32'h00000000;
+  assign _zz__zz_decode_FPU_RSP_71 = 32'h0;
   assign _zz__zz_decode_FPU_RSP_75 = (decode_INSTRUCTION & 32'h00000060);
   assign _zz__zz_decode_FPU_RSP_76 = 32'h00000040;
   assign _zz__zz_decode_FPU_RSP_78 = (decode_INSTRUCTION & 32'h0000005c);
@@ -1981,18 +1980,18 @@ module VexRiscv (
   assign _zz__zz_decode_FPU_RSP_144 = (decode_INSTRUCTION & 32'h00002030);
   assign _zz__zz_decode_FPU_RSP_145 = 32'h00002030;
   assign _zz__zz_decode_FPU_RSP_147 = ((decode_INSTRUCTION & _zz__zz_decode_FPU_RSP_148) == 32'h00000024);
-  assign _zz__zz_decode_FPU_RSP_149 = ((decode_INSTRUCTION & _zz__zz_decode_FPU_RSP_150) == 32'h00000000);
+  assign _zz__zz_decode_FPU_RSP_149 = ((decode_INSTRUCTION & _zz__zz_decode_FPU_RSP_150) == 32'h0);
   assign _zz__zz_decode_FPU_RSP_156 = (decode_INSTRUCTION & 32'h00000070);
   assign _zz__zz_decode_FPU_RSP_157 = 32'h00000020;
   assign _zz__zz_decode_FPU_RSP_161 = (decode_INSTRUCTION & 32'h00000020);
-  assign _zz__zz_decode_FPU_RSP_162 = 32'h00000000;
+  assign _zz__zz_decode_FPU_RSP_162 = 32'h0;
   assign _zz__zz_decode_FPU_RSP_166 = (decode_INSTRUCTION & 32'h00006004);
   assign _zz__zz_decode_FPU_RSP_167 = 32'h00006000;
   assign _zz__zz_decode_FPU_RSP_169 = (decode_INSTRUCTION & 32'h00005014);
   assign _zz__zz_decode_FPU_RSP_170 = 32'h00004010;
   assign _zz__zz_decode_FPU_RSP_173 = (decode_INSTRUCTION & 32'h00006014);
   assign _zz__zz_decode_FPU_RSP_174 = 32'h00002010;
-  assign _zz__zz_decode_FPU_RSP_177 = ((decode_INSTRUCTION & _zz__zz_decode_FPU_RSP_178) == 32'h00000000);
+  assign _zz__zz_decode_FPU_RSP_177 = ((decode_INSTRUCTION & _zz__zz_decode_FPU_RSP_178) == 32'h0);
   assign _zz__zz_decode_FPU_RSP_179 = {(_zz__zz_decode_FPU_RSP_180 == _zz__zz_decode_FPU_RSP_181),{_zz__zz_decode_FPU_RSP_182,{_zz__zz_decode_FPU_RSP_183,_zz__zz_decode_FPU_RSP_184}}};
   assign _zz__zz_decode_FPU_RSP_191 = _zz_decode_FPU_RSP_4;
   assign _zz__zz_decode_FPU_RSP_193 = (|{_zz__zz_decode_FPU_RSP_194,{_zz__zz_decode_FPU_RSP_195,_zz__zz_decode_FPU_RSP_196}});
@@ -2021,13 +2020,13 @@ module VexRiscv (
   assign _zz__zz_decode_FPU_RSP_200 = 32'h00002014;
   always @(posedge clk) begin
     if(_zz_decode_RegFilePlugin_rs1Data) begin
-      _zz_RegFilePlugin_regFile_port0 <= RegFilePlugin_regFile[decode_RegFilePlugin_regFileReadAddress1];
+      RegFilePlugin_regFile_spinal_port0 <= RegFilePlugin_regFile[decode_RegFilePlugin_regFileReadAddress1];
     end
   end
 
   always @(posedge clk) begin
     if(_zz_decode_RegFilePlugin_rs2Data) begin
-      _zz_RegFilePlugin_regFile_port1 <= RegFilePlugin_regFile[decode_RegFilePlugin_regFileReadAddress2];
+      RegFilePlugin_regFile_spinal_port1 <= RegFilePlugin_regFile[decode_RegFilePlugin_regFileReadAddress2];
     end
   end
 
@@ -2046,7 +2045,7 @@ module VexRiscv (
     .io_pop_ready          (IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_ready             ), //i
     .io_pop_payload_error  (IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_payload_error     ), //o
     .io_pop_payload_inst   (IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_payload_inst[31:0]), //o
-    .io_flush              (IBusSimplePlugin_rspJoin_rspBuffer_c_io_flush                 ), //i
+    .io_flush              (1'b0                                                          ), //i
     .io_occupancy          (IBusSimplePlugin_rspJoin_rspBuffer_c_io_occupancy             ), //o
     .io_availability       (IBusSimplePlugin_rspJoin_rspBuffer_c_io_availability          ), //o
     .clk                   (clk                                                           ), //i
@@ -3367,7 +3366,7 @@ module VexRiscv (
   assign decode_ALU_CTRL = _zz_decode_ALU_CTRL;
   assign _zz_decode_to_execute_ALU_CTRL = _zz_decode_to_execute_ALU_CTRL_1;
   assign decode_CSR_READ_OPCODE = (decode_INSTRUCTION[13 : 7] != 7'h20);
-  assign decode_CSR_WRITE_OPCODE = (! (((decode_INSTRUCTION[14 : 13] == 2'b01) && (decode_INSTRUCTION[19 : 15] == 5'h00)) || ((decode_INSTRUCTION[14 : 13] == 2'b11) && (decode_INSTRUCTION[19 : 15] == 5'h00))));
+  assign decode_CSR_WRITE_OPCODE = (! (((decode_INSTRUCTION[14 : 13] == 2'b01) && (decode_INSTRUCTION[19 : 15] == 5'h0)) || ((decode_INSTRUCTION[14 : 13] == 2'b11) && (decode_INSTRUCTION[19 : 15] == 5'h0))));
   assign decode_MEMORY_FORCE_CONSTISTENCY = 1'b0;
   assign writeBack_FORMAL_PC_NEXT = memory_to_writeBack_FORMAL_PC_NEXT;
   assign memory_FORMAL_PC_NEXT = execute_to_memory_FORMAL_PC_NEXT;
@@ -4008,12 +4007,12 @@ module VexRiscv (
   assign IBusSimplePlugin_decompressor_isRvc = (IBusSimplePlugin_decompressor_raw[1 : 0] != 2'b11);
   assign _zz_IBusSimplePlugin_decompressor_decompressed = IBusSimplePlugin_decompressor_raw[15 : 0];
   always @(*) begin
-    IBusSimplePlugin_decompressor_decompressed = 32'h00000000;
+    IBusSimplePlugin_decompressor_decompressed = 32'h0;
     case(switch_Misc_l44)
-      5'h00 : begin
+      5'h0 : begin
         IBusSimplePlugin_decompressor_decompressed = {{{{{{{{{2'b00,_zz_IBusSimplePlugin_decompressor_decompressed[10 : 7]},_zz_IBusSimplePlugin_decompressor_decompressed[12 : 11]},_zz_IBusSimplePlugin_decompressor_decompressed[5]},_zz_IBusSimplePlugin_decompressor_decompressed[6]},2'b00},5'h02},3'b000},_zz_IBusSimplePlugin_decompressor_decompressed_2},7'h13};
         if(when_Misc_l47) begin
-          IBusSimplePlugin_decompressor_decompressed = 32'h00000000;
+          IBusSimplePlugin_decompressor_decompressed = 32'h0;
         end
       end
       5'h02 : begin
@@ -4035,13 +4034,13 @@ module VexRiscv (
         IBusSimplePlugin_decompressor_decompressed = {{{{{_zz_IBusSimplePlugin_decompressor_decompressed_8[20],_zz_IBusSimplePlugin_decompressor_decompressed_8[10 : 1]},_zz_IBusSimplePlugin_decompressor_decompressed_8[11]},_zz_IBusSimplePlugin_decompressor_decompressed_8[19 : 12]},_zz_IBusSimplePlugin_decompressor_decompressed_20},7'h6f};
       end
       5'h0a : begin
-        IBusSimplePlugin_decompressor_decompressed = {{{{_zz_IBusSimplePlugin_decompressor_decompressed_5,5'h00},3'b000},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h13};
+        IBusSimplePlugin_decompressor_decompressed = {{{{_zz_IBusSimplePlugin_decompressor_decompressed_5,5'h0},3'b000},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h13};
       end
       5'h0b : begin
         IBusSimplePlugin_decompressor_decompressed = ((_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7] == 5'h02) ? {{{{{{{{_zz_IBusSimplePlugin_decompressor_decompressed_27,_zz_IBusSimplePlugin_decompressor_decompressed_28},_zz_IBusSimplePlugin_decompressor_decompressed_29},_zz_IBusSimplePlugin_decompressor_decompressed[6]},4'b0000},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},3'b000},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h13} : {{_zz_IBusSimplePlugin_decompressor_decompressed_30[31 : 12],_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h37});
       end
       5'h0c : begin
-        IBusSimplePlugin_decompressor_decompressed = {{{{{((_zz_IBusSimplePlugin_decompressor_decompressed[11 : 10] == 2'b10) ? _zz_IBusSimplePlugin_decompressor_decompressed_26 : {{1'b0,(_zz_IBusSimplePlugin_decompressor_decompressed_31 || _zz_IBusSimplePlugin_decompressor_decompressed_32)},5'h00}),(((! _zz_IBusSimplePlugin_decompressor_decompressed[11]) || _zz_IBusSimplePlugin_decompressor_decompressed_22) ? _zz_IBusSimplePlugin_decompressor_decompressed[6 : 2] : _zz_IBusSimplePlugin_decompressor_decompressed_2)},_zz_IBusSimplePlugin_decompressor_decompressed_1},_zz_IBusSimplePlugin_decompressor_decompressed_24},_zz_IBusSimplePlugin_decompressor_decompressed_1},(_zz_IBusSimplePlugin_decompressor_decompressed_22 ? 7'h13 : 7'h33)};
+        IBusSimplePlugin_decompressor_decompressed = {{{{{((_zz_IBusSimplePlugin_decompressor_decompressed[11 : 10] == 2'b10) ? _zz_IBusSimplePlugin_decompressor_decompressed_26 : {{1'b0,(_zz_IBusSimplePlugin_decompressor_decompressed_31 || _zz_IBusSimplePlugin_decompressor_decompressed_32)},5'h0}),(((! _zz_IBusSimplePlugin_decompressor_decompressed[11]) || _zz_IBusSimplePlugin_decompressor_decompressed_22) ? _zz_IBusSimplePlugin_decompressor_decompressed[6 : 2] : _zz_IBusSimplePlugin_decompressor_decompressed_2)},_zz_IBusSimplePlugin_decompressor_decompressed_1},_zz_IBusSimplePlugin_decompressor_decompressed_24},_zz_IBusSimplePlugin_decompressor_decompressed_1},(_zz_IBusSimplePlugin_decompressor_decompressed_22 ? 7'h13 : 7'h33)};
       end
       5'h0d : begin
         IBusSimplePlugin_decompressor_decompressed = {{{{{_zz_IBusSimplePlugin_decompressor_decompressed_15[20],_zz_IBusSimplePlugin_decompressor_decompressed_15[10 : 1]},_zz_IBusSimplePlugin_decompressor_decompressed_15[11]},_zz_IBusSimplePlugin_decompressor_decompressed_15[19 : 12]},_zz_IBusSimplePlugin_decompressor_decompressed_19},7'h6f};
@@ -4053,7 +4052,7 @@ module VexRiscv (
         IBusSimplePlugin_decompressor_decompressed = {{{{{{{_zz_IBusSimplePlugin_decompressor_decompressed_18[12],_zz_IBusSimplePlugin_decompressor_decompressed_18[10 : 5]},_zz_IBusSimplePlugin_decompressor_decompressed_19},_zz_IBusSimplePlugin_decompressor_decompressed_1},3'b001},_zz_IBusSimplePlugin_decompressor_decompressed_18[4 : 1]},_zz_IBusSimplePlugin_decompressor_decompressed_18[11]},7'h63};
       end
       5'h10 : begin
-        IBusSimplePlugin_decompressor_decompressed = {{{{{7'h00,_zz_IBusSimplePlugin_decompressor_decompressed[6 : 2]},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},3'b001},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h13};
+        IBusSimplePlugin_decompressor_decompressed = {{{{{7'h0,_zz_IBusSimplePlugin_decompressor_decompressed[6 : 2]},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},3'b001},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h13};
       end
       5'h12 : begin
         IBusSimplePlugin_decompressor_decompressed = {{{{{{{{4'b0000,_zz_IBusSimplePlugin_decompressor_decompressed[3 : 2]},_zz_IBusSimplePlugin_decompressor_decompressed[12]},_zz_IBusSimplePlugin_decompressor_decompressed[6 : 4]},2'b00},_zz_IBusSimplePlugin_decompressor_decompressed_21},3'b010},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h03};
@@ -4062,7 +4061,7 @@ module VexRiscv (
         IBusSimplePlugin_decompressor_decompressed = {{{{{{{{4'b0000,_zz_IBusSimplePlugin_decompressor_decompressed[3 : 2]},_zz_IBusSimplePlugin_decompressor_decompressed[12]},_zz_IBusSimplePlugin_decompressor_decompressed[6 : 4]},2'b00},_zz_IBusSimplePlugin_decompressor_decompressed_21},3'b010},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h07};
       end
       5'h14 : begin
-        IBusSimplePlugin_decompressor_decompressed = ((_zz_IBusSimplePlugin_decompressor_decompressed[12 : 2] == 11'h400) ? 32'h00100073 : ((_zz_IBusSimplePlugin_decompressor_decompressed[6 : 2] == 5'h00) ? {{{{12'h000,_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},3'b000},(_zz_IBusSimplePlugin_decompressor_decompressed[12] ? _zz_IBusSimplePlugin_decompressor_decompressed_20 : _zz_IBusSimplePlugin_decompressor_decompressed_19)},7'h67} : {{{{{_zz_IBusSimplePlugin_decompressor_decompressed_33,_zz_IBusSimplePlugin_decompressor_decompressed_34},(_zz_IBusSimplePlugin_decompressor_decompressed_35 ? _zz_IBusSimplePlugin_decompressor_decompressed_36 : _zz_IBusSimplePlugin_decompressor_decompressed_19)},3'b000},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h33}));
+        IBusSimplePlugin_decompressor_decompressed = ((_zz_IBusSimplePlugin_decompressor_decompressed[12 : 2] == 11'h400) ? 32'h00100073 : ((_zz_IBusSimplePlugin_decompressor_decompressed[6 : 2] == 5'h0) ? {{{{12'h0,_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},3'b000},(_zz_IBusSimplePlugin_decompressor_decompressed[12] ? _zz_IBusSimplePlugin_decompressor_decompressed_20 : _zz_IBusSimplePlugin_decompressor_decompressed_19)},7'h67} : {{{{{_zz_IBusSimplePlugin_decompressor_decompressed_33,_zz_IBusSimplePlugin_decompressor_decompressed_34},(_zz_IBusSimplePlugin_decompressor_decompressed_35 ? _zz_IBusSimplePlugin_decompressor_decompressed_36 : _zz_IBusSimplePlugin_decompressor_decompressed_19)},3'b000},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 7]},7'h33}));
       end
       5'h16 : begin
         IBusSimplePlugin_decompressor_decompressed = {{{{{_zz_IBusSimplePlugin_decompressor_decompressed_37[11 : 5],_zz_IBusSimplePlugin_decompressor_decompressed[6 : 2]},_zz_IBusSimplePlugin_decompressor_decompressed_21},3'b010},_zz_IBusSimplePlugin_decompressor_decompressed_38[4 : 0]},7'h23};
@@ -4077,7 +4076,7 @@ module VexRiscv (
 
   assign _zz_IBusSimplePlugin_decompressor_decompressed_1 = {2'b01,_zz_IBusSimplePlugin_decompressor_decompressed[9 : 7]};
   assign _zz_IBusSimplePlugin_decompressor_decompressed_2 = {2'b01,_zz_IBusSimplePlugin_decompressor_decompressed[4 : 2]};
-  assign _zz_IBusSimplePlugin_decompressor_decompressed_3 = {{{{5'h00,_zz_IBusSimplePlugin_decompressor_decompressed[5]},_zz_IBusSimplePlugin_decompressor_decompressed[12 : 10]},_zz_IBusSimplePlugin_decompressor_decompressed[6]},2'b00};
+  assign _zz_IBusSimplePlugin_decompressor_decompressed_3 = {{{{5'h0,_zz_IBusSimplePlugin_decompressor_decompressed[5]},_zz_IBusSimplePlugin_decompressor_decompressed[12 : 10]},_zz_IBusSimplePlugin_decompressor_decompressed[6]},2'b00};
   assign _zz_IBusSimplePlugin_decompressor_decompressed_4 = _zz_IBusSimplePlugin_decompressor_decompressed[12];
   always @(*) begin
     _zz_IBusSimplePlugin_decompressor_decompressed_5[11] = _zz_IBusSimplePlugin_decompressor_decompressed_4;
@@ -4156,11 +4155,11 @@ module VexRiscv (
   end
 
   assign _zz_IBusSimplePlugin_decompressor_decompressed_18 = {{{{{_zz_IBusSimplePlugin_decompressor_decompressed_17,_zz_IBusSimplePlugin_decompressor_decompressed[6 : 5]},_zz_IBusSimplePlugin_decompressor_decompressed[2]},_zz_IBusSimplePlugin_decompressor_decompressed[11 : 10]},_zz_IBusSimplePlugin_decompressor_decompressed[4 : 3]},1'b0};
-  assign _zz_IBusSimplePlugin_decompressor_decompressed_19 = 5'h00;
+  assign _zz_IBusSimplePlugin_decompressor_decompressed_19 = 5'h0;
   assign _zz_IBusSimplePlugin_decompressor_decompressed_20 = 5'h01;
   assign _zz_IBusSimplePlugin_decompressor_decompressed_21 = 5'h02;
   assign switch_Misc_l44 = {_zz_IBusSimplePlugin_decompressor_decompressed[1 : 0],_zz_IBusSimplePlugin_decompressor_decompressed[15 : 13]};
-  assign when_Misc_l47 = (_zz_IBusSimplePlugin_decompressor_decompressed[12 : 2] == 11'h000);
+  assign when_Misc_l47 = (_zz_IBusSimplePlugin_decompressor_decompressed[12 : 2] == 11'h0);
   assign _zz_IBusSimplePlugin_decompressor_decompressed_22 = (_zz_IBusSimplePlugin_decompressor_decompressed[11 : 10] != 2'b11);
   assign switch_Misc_l241 = _zz_IBusSimplePlugin_decompressor_decompressed[11 : 10];
   assign switch_Misc_l241_1 = _zz_IBusSimplePlugin_decompressor_decompressed[6 : 5];
@@ -4272,19 +4271,20 @@ module VexRiscv (
   assign IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_ready = (IBusSimplePlugin_rspJoin_rspBuffer_output_ready || IBusSimplePlugin_rspJoin_rspBuffer_flush);
   assign toplevel_IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_fire = (IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_valid && IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_ready);
   assign IBusSimplePlugin_pending_dec = toplevel_IBusSimplePlugin_rspJoin_rspBuffer_c_io_pop_fire;
+  assign IBusSimplePlugin_rspJoin_fetchRsp_isRvc = 1'b0;
   assign IBusSimplePlugin_rspJoin_fetchRsp_pc = IBusSimplePlugin_iBusRsp_stages_1_output_payload;
   always @(*) begin
     IBusSimplePlugin_rspJoin_fetchRsp_rsp_error = IBusSimplePlugin_rspJoin_rspBuffer_output_payload_error;
-    if(when_IBusSimplePlugin_l376) begin
+    if(when_IBusSimplePlugin_l377) begin
       IBusSimplePlugin_rspJoin_fetchRsp_rsp_error = 1'b0;
     end
   end
 
   assign IBusSimplePlugin_rspJoin_fetchRsp_rsp_inst = IBusSimplePlugin_rspJoin_rspBuffer_output_payload_inst;
-  assign when_IBusSimplePlugin_l376 = (! IBusSimplePlugin_rspJoin_rspBuffer_output_valid);
+  assign when_IBusSimplePlugin_l377 = (! IBusSimplePlugin_rspJoin_rspBuffer_output_valid);
   always @(*) begin
     IBusSimplePlugin_rspJoin_exceptionDetected = 1'b0;
-    if(when_IBusSimplePlugin_l402) begin
+    if(when_IBusSimplePlugin_l403) begin
       IBusSimplePlugin_rspJoin_exceptionDetected = 1'b1;
     end
   end
@@ -4306,13 +4306,13 @@ module VexRiscv (
   assign IBusSimplePlugin_iBusRsp_output_payload_isRvc = IBusSimplePlugin_rspJoin_join_payload_isRvc;
   always @(*) begin
     IBusSimplePlugin_decodeExceptionPort_payload_code = 4'bxxxx;
-    if(when_IBusSimplePlugin_l402) begin
+    if(when_IBusSimplePlugin_l403) begin
       IBusSimplePlugin_decodeExceptionPort_payload_code = 4'b0001;
     end
   end
 
   assign IBusSimplePlugin_decodeExceptionPort_payload_badAddr = {IBusSimplePlugin_rspJoin_join_payload_pc[31 : 2],2'b00};
-  assign when_IBusSimplePlugin_l402 = (IBusSimplePlugin_rspJoin_join_valid && IBusSimplePlugin_rspJoin_join_payload_rsp_error);
+  assign when_IBusSimplePlugin_l403 = (IBusSimplePlugin_rspJoin_join_valid && IBusSimplePlugin_rspJoin_join_payload_rsp_error);
   assign IBusSimplePlugin_decodeExceptionPort_valid = (IBusSimplePlugin_rspJoin_exceptionDetected && IBusSimplePlugin_iBusRsp_readyForError);
   assign dBus_cmd_valid = dataCache_1_io_mem_cmd_valid;
   assign dBus_cmd_payload_wr = dataCache_1_io_mem_cmd_payload_wr;
@@ -4341,7 +4341,7 @@ module VexRiscv (
   end
 
   assign dataCache_1_io_cpu_flush_valid = (execute_arbitration_isValid && execute_MEMORY_MANAGMENT);
-  assign dataCache_1_io_cpu_flush_payload_singleLine = (execute_INSTRUCTION[19 : 15] != 5'h00);
+  assign dataCache_1_io_cpu_flush_payload_singleLine = (execute_INSTRUCTION[19 : 15] != 5'h0);
   assign toplevel_dataCache_1_io_cpu_flush_isStall = (dataCache_1_io_cpu_flush_valid && (! dataCache_1_io_cpu_flush_ready));
   assign when_DBusCachedPlugin_l395 = (toplevel_dataCache_1_io_cpu_flush_isStall || dataCache_1_io_cpu_execute_haltIt);
   assign when_DBusCachedPlugin_l411 = (dataCache_1_io_cpu_execute_refilling && execute_arbitration_isValid);
@@ -4747,7 +4747,7 @@ module VexRiscv (
   assign _zz_decode_FPU_RSP_1 = ((decode_INSTRUCTION & 32'h00004050) == 32'h00004050);
   assign _zz_decode_FPU_RSP_2 = ((decode_INSTRUCTION & 32'h00000014) == 32'h00000014);
   assign _zz_decode_FPU_RSP_3 = ((decode_INSTRUCTION & 32'h00000008) == 32'h00000008);
-  assign _zz_decode_FPU_RSP_4 = ((decode_INSTRUCTION & 32'h00000058) == 32'h00000000);
+  assign _zz_decode_FPU_RSP_4 = ((decode_INSTRUCTION & 32'h00000058) == 32'h0);
   assign _zz_decode_FPU_RSP_5 = ((decode_INSTRUCTION & 32'h00002004) == 32'h00000004);
   assign _zz_decode_FPU_RSP_6 = ((decode_INSTRUCTION & 32'h90000010) == 32'h80000010);
   assign _zz_decode_FPU_RSP_7 = ((decode_INSTRUCTION & 32'h00000028) == 32'h00000028);
@@ -4755,7 +4755,7 @@ module VexRiscv (
   assign _zz_decode_FPU_RSP_9 = ((decode_INSTRUCTION & 32'h00000004) == 32'h00000004);
   assign _zz_decode_FPU_RSP_10 = ((decode_INSTRUCTION & 32'h00000020) == 32'h00000020);
   assign _zz_decode_FPU_RSP_11 = ((decode_INSTRUCTION & 32'h10003070) == 32'h00000070);
-  assign _zz_decode_FPU_RSP_12 = ((decode_INSTRUCTION & 32'h00001000) == 32'h00000000);
+  assign _zz_decode_FPU_RSP_12 = ((decode_INSTRUCTION & 32'h00001000) == 32'h0);
   assign _zz_decode_FPU_RSP = {(|{_zz_decode_FPU_RSP_7,(_zz__zz_decode_FPU_RSP == _zz__zz_decode_FPU_RSP_1)}),{(|(_zz__zz_decode_FPU_RSP_2 == _zz__zz_decode_FPU_RSP_3)),{(|_zz__zz_decode_FPU_RSP_4),{(|_zz__zz_decode_FPU_RSP_5),{_zz__zz_decode_FPU_RSP_8,{_zz__zz_decode_FPU_RSP_11,_zz__zz_decode_FPU_RSP_19}}}}}};
   assign _zz_decode_SRC1_CTRL_2 = _zz_decode_FPU_RSP[1 : 0];
   assign _zz_decode_SRC1_CTRL_1 = _zz_decode_SRC1_CTRL_2;
@@ -4777,11 +4777,11 @@ module VexRiscv (
   assign decodeExceptionPort_valid = (decode_arbitration_isValid && (! decode_LEGAL_INSTRUCTION));
   assign decodeExceptionPort_payload_code = 4'b0010;
   assign decodeExceptionPort_payload_badAddr = decode_INSTRUCTION;
-  assign when_RegFilePlugin_l63 = (decode_INSTRUCTION[11 : 7] == 5'h00);
+  assign when_RegFilePlugin_l63 = (decode_INSTRUCTION[11 : 7] == 5'h0);
   assign decode_RegFilePlugin_regFileReadAddress1 = decode_INSTRUCTION_ANTICIPATED[19 : 15];
   assign decode_RegFilePlugin_regFileReadAddress2 = decode_INSTRUCTION_ANTICIPATED[24 : 20];
-  assign decode_RegFilePlugin_rs1Data = _zz_RegFilePlugin_regFile_port0;
-  assign decode_RegFilePlugin_rs2Data = _zz_RegFilePlugin_regFile_port1;
+  assign decode_RegFilePlugin_rs1Data = RegFilePlugin_regFile_spinal_port0;
+  assign decode_RegFilePlugin_rs2Data = RegFilePlugin_regFile_spinal_port1;
   always @(*) begin
     lastStageRegFileWrite_valid = (_zz_lastStageRegFileWrite_valid && writeBack_arbitration_isFiring);
     if(_zz_5) begin
@@ -4792,14 +4792,14 @@ module VexRiscv (
   always @(*) begin
     lastStageRegFileWrite_payload_address = _zz_lastStageRegFileWrite_payload_address[11 : 7];
     if(_zz_5) begin
-      lastStageRegFileWrite_payload_address = 5'h00;
+      lastStageRegFileWrite_payload_address = 5'h0;
     end
   end
 
   always @(*) begin
     lastStageRegFileWrite_payload_data = _zz_lastStageRegFileWrite_payload_data;
     if(_zz_5) begin
-      lastStageRegFileWrite_payload_data = 32'h00000000;
+      lastStageRegFileWrite_payload_data = 32'h0;
     end
   end
 
@@ -4840,7 +4840,7 @@ module VexRiscv (
         _zz_decode_SRC1 = {29'd0, _zz__zz_decode_SRC1};
       end
       Src1CtrlEnum_IMU : begin
-        _zz_decode_SRC1 = {decode_INSTRUCTION[31 : 12],12'h000};
+        _zz_decode_SRC1 = {decode_INSTRUCTION[31 : 12],12'h0};
       end
       default : begin
         _zz_decode_SRC1 = {27'd0, _zz__zz_decode_SRC1_1};
@@ -4982,12 +4982,12 @@ module VexRiscv (
   assign memory_DivPlugin_div_counter_willOverflow = (memory_DivPlugin_div_counter_willOverflowIfInc && memory_DivPlugin_div_counter_willIncrement);
   always @(*) begin
     if(memory_DivPlugin_div_counter_willOverflow) begin
-      memory_DivPlugin_div_counter_valueNext = 6'h00;
+      memory_DivPlugin_div_counter_valueNext = 6'h0;
     end else begin
       memory_DivPlugin_div_counter_valueNext = (memory_DivPlugin_div_counter_value + _zz_memory_DivPlugin_div_counter_valueNext);
     end
     if(memory_DivPlugin_div_counter_willClear) begin
-      memory_DivPlugin_div_counter_valueNext = 6'h00;
+      memory_DivPlugin_div_counter_valueNext = 6'h0;
     end
   end
 
@@ -5026,7 +5026,7 @@ module VexRiscv (
   assign FpuPlugin_port_completion_payload_written = FpuPlugin_fpu_io_port_0_completion_payload_written;
   assign FpuPlugin_port_cmd_fire = (FpuPlugin_port_cmd_valid && FpuPlugin_port_cmd_ready);
   assign FpuPlugin_port_rsp_fire = (FpuPlugin_port_rsp_valid && FpuPlugin_port_rsp_ready);
-  assign FpuPlugin_hasPending = (FpuPlugin_pendings != 6'h00);
+  assign FpuPlugin_hasPending = (FpuPlugin_pendings != 6'h0);
   assign when_FpuPlugin_l215 = (FpuPlugin_port_completion_valid && FpuPlugin_port_completion_payload_flags_NV);
   assign when_FpuPlugin_l216 = (FpuPlugin_port_completion_valid && FpuPlugin_port_completion_payload_flags_DZ);
   assign when_FpuPlugin_l217 = (FpuPlugin_port_completion_valid && FpuPlugin_port_completion_payload_flags_OF);
@@ -5141,7 +5141,7 @@ module VexRiscv (
   assign execute_LightShifterPlugin_amplitude = (execute_LightShifterPlugin_isActive ? execute_LightShifterPlugin_amplitudeReg : execute_SRC2[4 : 0]);
   assign execute_LightShifterPlugin_shiftInput = (execute_LightShifterPlugin_isActive ? memory_REGFILE_WRITE_DATA : execute_SRC1);
   assign execute_LightShifterPlugin_done = (execute_LightShifterPlugin_amplitude[4 : 1] == 4'b0000);
-  assign when_ShiftPlugins_l169 = ((execute_arbitration_isValid && execute_LightShifterPlugin_isShift) && (execute_SRC2[4 : 0] != 5'h00));
+  assign when_ShiftPlugins_l169 = ((execute_arbitration_isValid && execute_LightShifterPlugin_isShift) && (execute_SRC2[4 : 0] != 5'h0));
   always @(*) begin
     case(execute_SHIFT_CTRL)
       ShiftCtrlEnum_SLL_1 : begin
@@ -5576,7 +5576,7 @@ module VexRiscv (
   assign when_CsrPlugin_l1669_8 = (! execute_arbitration_isStuck);
   assign switch_CsrPlugin_l1031 = CsrPlugin_csrMapping_writeDataSignal[12 : 11];
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit = 32'h0;
     if(execute_CsrPlugin_csr_768) begin
       _zz_CsrPlugin_csrMapping_readDataInit[7 : 7] = CsrPlugin_mstatus_MPIE;
       _zz_CsrPlugin_csrMapping_readDataInit[3 : 3] = CsrPlugin_mstatus_MIE;
@@ -5587,7 +5587,7 @@ module VexRiscv (
   end
 
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit_1 = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit_1 = 32'h0;
     if(execute_CsrPlugin_csr_836) begin
       _zz_CsrPlugin_csrMapping_readDataInit_1[11 : 11] = CsrPlugin_mip_MEIP;
       _zz_CsrPlugin_csrMapping_readDataInit_1[7 : 7] = CsrPlugin_mip_MTIP;
@@ -5596,7 +5596,7 @@ module VexRiscv (
   end
 
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit_2 = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit_2 = 32'h0;
     if(execute_CsrPlugin_csr_772) begin
       _zz_CsrPlugin_csrMapping_readDataInit_2[11 : 11] = CsrPlugin_mie_MEIE;
       _zz_CsrPlugin_csrMapping_readDataInit_2[7 : 7] = CsrPlugin_mie_MTIE;
@@ -5605,14 +5605,14 @@ module VexRiscv (
   end
 
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit_3 = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit_3 = 32'h0;
     if(execute_CsrPlugin_csr_773) begin
       _zz_CsrPlugin_csrMapping_readDataInit_3[31 : 2] = CsrPlugin_mtvec_base;
     end
   end
 
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit_4 = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit_4 = 32'h0;
     if(execute_CsrPlugin_csr_834) begin
       _zz_CsrPlugin_csrMapping_readDataInit_4[31 : 31] = CsrPlugin_mcause_interrupt;
       _zz_CsrPlugin_csrMapping_readDataInit_4[3 : 0] = CsrPlugin_mcause_exceptionCode;
@@ -5621,7 +5621,7 @@ module VexRiscv (
 
   assign _zz_FpuPlugin_flags_NX = CsrPlugin_csrMapping_writeDataSignal[4 : 0];
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit_5 = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit_5 = 32'h0;
     if(execute_CsrPlugin_csr_3) begin
       _zz_CsrPlugin_csrMapping_readDataInit_5[7 : 5] = FpuPlugin_rm;
       _zz_CsrPlugin_csrMapping_readDataInit_5[4 : 0] = {FpuPlugin_flags_NV,{FpuPlugin_flags_DZ,{FpuPlugin_flags_OF,{FpuPlugin_flags_UF,FpuPlugin_flags_NX}}}};
@@ -5629,7 +5629,7 @@ module VexRiscv (
   end
 
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit_6 = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit_6 = 32'h0;
     if(execute_CsrPlugin_csr_2) begin
       _zz_CsrPlugin_csrMapping_readDataInit_6[2 : 0] = FpuPlugin_rm;
     end
@@ -5637,14 +5637,14 @@ module VexRiscv (
 
   assign _zz_FpuPlugin_flags_NX_1 = CsrPlugin_csrMapping_writeDataSignal[4 : 0];
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit_7 = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit_7 = 32'h0;
     if(execute_CsrPlugin_csr_1) begin
       _zz_CsrPlugin_csrMapping_readDataInit_7[4 : 0] = {FpuPlugin_flags_NV,{FpuPlugin_flags_DZ,{FpuPlugin_flags_OF,{FpuPlugin_flags_UF,FpuPlugin_flags_NX}}}};
     end
   end
 
   always @(*) begin
-    _zz_CsrPlugin_csrMapping_readDataInit_8 = 32'h00000000;
+    _zz_CsrPlugin_csrMapping_readDataInit_8 = 32'h0;
     if(execute_CsrPlugin_csr_256) begin
       _zz_CsrPlugin_csrMapping_readDataInit_8[14 : 13] = FpuPlugin_fs;
       _zz_CsrPlugin_csrMapping_readDataInit_8[31 : 31] = FpuPlugin_sd;
@@ -5666,12 +5666,12 @@ module VexRiscv (
   assign when_CsrPlugin_l1725 = ((! execute_arbitration_isValid) || (! execute_IS_CSR));
   always @(*) begin
     iBus_cmd_ready = iBus_cmd_m2sPipe_ready;
-    if(when_Stream_l369) begin
+    if(when_Stream_l375) begin
       iBus_cmd_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369 = (! iBus_cmd_m2sPipe_valid);
+  assign when_Stream_l375 = (! iBus_cmd_m2sPipe_valid);
   assign iBus_cmd_m2sPipe_valid = iBus_cmd_rValid;
   assign iBus_cmd_m2sPipe_payload_pc = iBus_cmd_rData_pc;
   assign iBusWishbone_ADR = (iBus_cmd_m2sPipe_payload_pc >>> 2'd2);
@@ -5709,7 +5709,6 @@ module VexRiscv (
   assign debug_bus_cmd_payload_address = systemDebugger_1_io_mem_cmd_payload_address[7:0];
   assign debug_bus_cmd_fire = (debug_bus_cmd_valid && debug_bus_cmd_ready);
   assign jtag_tdo = jtagBridge_1_io_jtag_tdo;
-  assign IBusSimplePlugin_rspJoin_rspBuffer_c_io_flush = 1'b0;
   always @(posedge clk or posedge reset) begin
     if(reset) begin
       IBusSimplePlugin_fetchPc_pcReg <= 32'h20000000;
@@ -5727,7 +5726,7 @@ module VexRiscv (
       IBusSimplePlugin_injector_nextPcCalc_valids_3 <= 1'b0;
       IBusSimplePlugin_pending_value <= 3'b000;
       IBusSimplePlugin_rspJoin_rspBuffer_discardCounter <= 3'b000;
-      DBusCachedPlugin_rspCounter <= 32'h00000000;
+      DBusCachedPlugin_rspCounter <= 32'h0;
       CsrPlugin_mtvec_base <= 30'h00000008;
       CsrPlugin_mstatus_MIE <= 1'b0;
       CsrPlugin_mstatus_MPIE <= 1'b0;
@@ -5735,8 +5734,8 @@ module VexRiscv (
       CsrPlugin_mie_MEIE <= 1'b0;
       CsrPlugin_mie_MTIE <= 1'b0;
       CsrPlugin_mie_MSIE <= 1'b0;
-      CsrPlugin_mcycle <= 64'h0000000000000000;
-      CsrPlugin_minstret <= 64'h0000000000000000;
+      CsrPlugin_mcycle <= 64'h0;
+      CsrPlugin_minstret <= 64'h0;
       CsrPlugin_exceptionPortCtrl_exceptionValidsRegs_decode <= 1'b0;
       CsrPlugin_exceptionPortCtrl_exceptionValidsRegs_execute <= 1'b0;
       CsrPlugin_exceptionPortCtrl_exceptionValidsRegs_memory <= 1'b0;
@@ -5748,8 +5747,8 @@ module VexRiscv (
       CsrPlugin_hadException <= 1'b0;
       execute_CsrPlugin_wfiWake <= 1'b0;
       _zz_5 <= 1'b1;
-      memory_DivPlugin_div_counter_value <= 6'h00;
-      FpuPlugin_pendings <= 6'h00;
+      memory_DivPlugin_div_counter_value <= 6'h0;
+      FpuPlugin_pendings <= 6'h0;
       FpuPlugin_flags_NV <= 1'b0;
       FpuPlugin_flags_DZ <= 1'b0;
       FpuPlugin_flags_OF <= 1'b0;
@@ -6022,7 +6021,7 @@ module VexRiscv (
       end
       if(debug_bus_cmd_valid) begin
         case(switch_DebugPlugin_l280)
-          6'h00 : begin
+          6'h0 : begin
             if(debug_bus_cmd_payload_wr) begin
               DebugPlugin_stepIt <= debug_bus_cmd_payload_data[4];
               if(when_DebugPlugin_l284) begin
@@ -6291,10 +6290,10 @@ module VexRiscv (
       end
     end
     if(when_MulDivIterativePlugin_l162) begin
-      memory_DivPlugin_accumulator <= 65'h00000000000000000;
+      memory_DivPlugin_accumulator <= 65'h0;
       memory_DivPlugin_rs1 <= ((_zz_memory_DivPlugin_rs1 ? (~ _zz_memory_DivPlugin_rs1_1) : _zz_memory_DivPlugin_rs1_1) + _zz_memory_DivPlugin_rs1_2);
       memory_DivPlugin_rs2 <= ((_zz_memory_DivPlugin_rs2 ? (~ execute_RS2) : execute_RS2) + _zz_memory_DivPlugin_rs2_1);
-      memory_DivPlugin_div_needRevert <= ((_zz_memory_DivPlugin_rs1 ^ (_zz_memory_DivPlugin_rs2 && (! execute_INSTRUCTION[13]))) && (! (((execute_RS2 == 32'h00000000) && execute_IS_RS2_SIGNED) && (! execute_INSTRUCTION[13]))));
+      memory_DivPlugin_div_needRevert <= ((_zz_memory_DivPlugin_rs1 ^ (_zz_memory_DivPlugin_rs2 && (! execute_INSTRUCTION[13]))) && (! (((execute_RS2 == 32'h0) && execute_IS_RS2_SIGNED) && (! execute_INSTRUCTION[13]))));
     end
     if(writeBack_FpuPlugin_commit_ready) begin
       writeBack_FpuPlugin_commit_rData_opcode <= writeBack_FpuPlugin_commit_payload_opcode;
@@ -6663,7 +6662,7 @@ module SystemDebugger (
   assign io_mem_cmd_payload_data = _zz_io_mem_cmd_payload_address[63 : 32];
   assign io_mem_cmd_payload_wr = _zz_io_mem_cmd_payload_address[64];
   assign io_mem_cmd_payload_size = _zz_io_mem_cmd_payload_address[66 : 65];
-  assign io_mem_cmd_valid = (dispatcher_dataLoaded && (dispatcher_header == 8'h00));
+  assign io_mem_cmd_valid = (dispatcher_dataLoaded && (dispatcher_header == 8'h0));
   assign io_mem_cmd_isStall = (io_mem_cmd_valid && (! io_mem_cmd_ready));
   assign when_Fragment_l382 = ((dispatcher_headerLoaded && dispatcher_dataLoaded) && (! io_mem_cmd_isStall));
   assign io_remote_rsp_valid = io_mem_rsp_valid;
@@ -6741,9 +6740,9 @@ module JtagBridge (
   localparam JtagState_DR_EXIT2 = 4'd14;
   localparam JtagState_DR_UPDATE = 4'd15;
 
-  wire                flowCCByToggle_1_io_output_valid;
-  wire                flowCCByToggle_1_io_output_payload_last;
-  wire       [0:0]    flowCCByToggle_1_io_output_payload_fragment;
+  wire                flowCCUnsafeByToggle_1_io_output_valid;
+  wire                flowCCUnsafeByToggle_1_io_output_payload_last;
+  wire       [0:0]    flowCCUnsafeByToggle_1_io_output_payload_fragment;
   wire       [3:0]    _zz_jtag_tap_isBypass;
   wire       [1:0]    _zz_jtag_tap_instructionShift;
   wire                system_cmd_valid;
@@ -6757,7 +6756,7 @@ module JtagBridge (
   (* async_reg = "true" *) reg                 system_rsp_payload_error;
   (* async_reg = "true" *) reg        [31:0]   system_rsp_payload_data;
   wire                io_remote_rsp_fire;
-  wire       [3:0]    jtag_tap_fsm_stateNext;
+  reg        [3:0]    jtag_tap_fsm_stateNext;
   reg        [3:0]    jtag_tap_fsm_state;
   wire       [3:0]    _zz_jtag_tap_fsm_stateNext;
   wire       [3:0]    _zz_jtag_tap_fsm_stateNext_1;
@@ -6775,7 +6774,6 @@ module JtagBridge (
   wire       [3:0]    _zz_jtag_tap_fsm_stateNext_13;
   wire       [3:0]    _zz_jtag_tap_fsm_stateNext_14;
   wire       [3:0]    _zz_jtag_tap_fsm_stateNext_15;
-  reg        [3:0]    _zz_jtag_tap_fsm_stateNext_16;
   reg        [3:0]    jtag_tap_instruction;
   reg        [3:0]    jtag_tap_instructionShift;
   reg                 jtag_tap_bypass;
@@ -6792,7 +6790,7 @@ module JtagBridge (
   wire                jtag_idcodeArea_ctrl_reset;
   wire                jtag_idcodeArea_ctrl_tdo;
   reg        [31:0]   jtag_idcodeArea_shifter;
-  wire                when_JtagTap_l120;
+  wire                when_JtagTap_l121;
   wire                jtag_writeArea_ctrl_tdi;
   wire                jtag_writeArea_ctrl_enable;
   wire                jtag_writeArea_ctrl_capture;
@@ -6832,22 +6830,21 @@ module JtagBridge (
   reg [79:0] _zz_jtag_tap_fsm_stateNext_13_string;
   reg [79:0] _zz_jtag_tap_fsm_stateNext_14_string;
   reg [79:0] _zz_jtag_tap_fsm_stateNext_15_string;
-  reg [79:0] _zz_jtag_tap_fsm_stateNext_16_string;
   `endif
 
 
   assign _zz_jtag_tap_isBypass = jtag_tap_instruction;
   assign _zz_jtag_tap_instructionShift = 2'b01;
-  FlowCCByToggle flowCCByToggle_1 (
-    .io_input_valid             (jtag_writeArea_source_valid                ), //i
-    .io_input_payload_last      (jtag_writeArea_source_payload_last         ), //i
-    .io_input_payload_fragment  (jtag_writeArea_source_payload_fragment     ), //i
-    .io_output_valid            (flowCCByToggle_1_io_output_valid           ), //o
-    .io_output_payload_last     (flowCCByToggle_1_io_output_payload_last    ), //o
-    .io_output_payload_fragment (flowCCByToggle_1_io_output_payload_fragment), //o
-    .io_jtag_tck                (io_jtag_tck                                ), //i
-    .clk                        (clk                                        ), //i
-    .reset                      (reset                                      )  //i
+  FlowCCUnsafeByToggle flowCCUnsafeByToggle_1 (
+    .io_input_valid             (jtag_writeArea_source_valid                      ), //i
+    .io_input_payload_last      (jtag_writeArea_source_payload_last               ), //i
+    .io_input_payload_fragment  (jtag_writeArea_source_payload_fragment           ), //i
+    .io_output_valid            (flowCCUnsafeByToggle_1_io_output_valid           ), //o
+    .io_output_payload_last     (flowCCUnsafeByToggle_1_io_output_payload_last    ), //o
+    .io_output_payload_fragment (flowCCUnsafeByToggle_1_io_output_payload_fragment), //o
+    .io_jtag_tck                (io_jtag_tck                                      ), //i
+    .clk                        (clk                                              ), //i
+    .reset                      (reset                                            )  //i
   );
   initial begin
   `ifndef SYNTHESIS
@@ -7234,27 +7231,6 @@ module JtagBridge (
       default : _zz_jtag_tap_fsm_stateNext_15_string = "??????????";
     endcase
   end
-  always @(*) begin
-    case(_zz_jtag_tap_fsm_stateNext_16)
-      JtagState_RESET : _zz_jtag_tap_fsm_stateNext_16_string = "RESET     ";
-      JtagState_IDLE : _zz_jtag_tap_fsm_stateNext_16_string = "IDLE      ";
-      JtagState_IR_SELECT : _zz_jtag_tap_fsm_stateNext_16_string = "IR_SELECT ";
-      JtagState_IR_CAPTURE : _zz_jtag_tap_fsm_stateNext_16_string = "IR_CAPTURE";
-      JtagState_IR_SHIFT : _zz_jtag_tap_fsm_stateNext_16_string = "IR_SHIFT  ";
-      JtagState_IR_EXIT1 : _zz_jtag_tap_fsm_stateNext_16_string = "IR_EXIT1  ";
-      JtagState_IR_PAUSE : _zz_jtag_tap_fsm_stateNext_16_string = "IR_PAUSE  ";
-      JtagState_IR_EXIT2 : _zz_jtag_tap_fsm_stateNext_16_string = "IR_EXIT2  ";
-      JtagState_IR_UPDATE : _zz_jtag_tap_fsm_stateNext_16_string = "IR_UPDATE ";
-      JtagState_DR_SELECT : _zz_jtag_tap_fsm_stateNext_16_string = "DR_SELECT ";
-      JtagState_DR_CAPTURE : _zz_jtag_tap_fsm_stateNext_16_string = "DR_CAPTURE";
-      JtagState_DR_SHIFT : _zz_jtag_tap_fsm_stateNext_16_string = "DR_SHIFT  ";
-      JtagState_DR_EXIT1 : _zz_jtag_tap_fsm_stateNext_16_string = "DR_EXIT1  ";
-      JtagState_DR_PAUSE : _zz_jtag_tap_fsm_stateNext_16_string = "DR_PAUSE  ";
-      JtagState_DR_EXIT2 : _zz_jtag_tap_fsm_stateNext_16_string = "DR_EXIT2  ";
-      JtagState_DR_UPDATE : _zz_jtag_tap_fsm_stateNext_16_string = "DR_UPDATE ";
-      default : _zz_jtag_tap_fsm_stateNext_16_string = "??????????";
-    endcase
-  end
   `endif
 
   assign system_cmd_toStream_valid = system_cmd_valid;
@@ -7267,6 +7243,61 @@ module JtagBridge (
   assign io_remote_rsp_fire = (io_remote_rsp_valid && io_remote_rsp_ready);
   assign io_remote_rsp_ready = 1'b1;
   assign _zz_jtag_tap_fsm_stateNext = (io_jtag_tms ? JtagState_RESET : JtagState_IDLE);
+  always @(*) begin
+    case(jtag_tap_fsm_state)
+      JtagState_RESET : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext;
+      end
+      JtagState_IDLE : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_1;
+      end
+      JtagState_IR_SELECT : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_2;
+      end
+      JtagState_IR_CAPTURE : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_3;
+      end
+      JtagState_IR_SHIFT : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_4;
+      end
+      JtagState_IR_EXIT1 : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_5;
+      end
+      JtagState_IR_PAUSE : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_6;
+      end
+      JtagState_IR_EXIT2 : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_7;
+      end
+      JtagState_IR_UPDATE : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_8;
+      end
+      JtagState_DR_SELECT : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_9;
+      end
+      JtagState_DR_CAPTURE : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_10;
+      end
+      JtagState_DR_SHIFT : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_11;
+      end
+      JtagState_DR_EXIT1 : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_12;
+      end
+      JtagState_DR_PAUSE : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_13;
+      end
+      JtagState_DR_EXIT2 : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_14;
+      end
+      JtagState_DR_UPDATE : begin
+        jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_15;
+      end
+      default : begin
+      end
+    endcase
+  end
+
   assign _zz_jtag_tap_fsm_stateNext_1 = (io_jtag_tms ? JtagState_DR_SELECT : JtagState_IDLE);
   assign _zz_jtag_tap_fsm_stateNext_2 = (io_jtag_tms ? JtagState_RESET : JtagState_IR_CAPTURE);
   assign _zz_jtag_tap_fsm_stateNext_3 = (io_jtag_tms ? JtagState_IR_EXIT1 : JtagState_IR_SHIFT);
@@ -7282,60 +7313,6 @@ module JtagBridge (
   assign _zz_jtag_tap_fsm_stateNext_13 = (io_jtag_tms ? JtagState_DR_EXIT2 : JtagState_DR_PAUSE);
   assign _zz_jtag_tap_fsm_stateNext_14 = (io_jtag_tms ? JtagState_DR_UPDATE : JtagState_DR_SHIFT);
   assign _zz_jtag_tap_fsm_stateNext_15 = (io_jtag_tms ? JtagState_DR_SELECT : JtagState_IDLE);
-  always @(*) begin
-    case(jtag_tap_fsm_state)
-      JtagState_IDLE : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_1;
-      end
-      JtagState_IR_SELECT : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_2;
-      end
-      JtagState_IR_CAPTURE : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_3;
-      end
-      JtagState_IR_SHIFT : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_4;
-      end
-      JtagState_IR_EXIT1 : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_5;
-      end
-      JtagState_IR_PAUSE : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_6;
-      end
-      JtagState_IR_EXIT2 : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_7;
-      end
-      JtagState_IR_UPDATE : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_8;
-      end
-      JtagState_DR_SELECT : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_9;
-      end
-      JtagState_DR_CAPTURE : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_10;
-      end
-      JtagState_DR_SHIFT : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_11;
-      end
-      JtagState_DR_EXIT1 : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_12;
-      end
-      JtagState_DR_PAUSE : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_13;
-      end
-      JtagState_DR_EXIT2 : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_14;
-      end
-      JtagState_DR_UPDATE : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext_15;
-      end
-      default : begin
-        _zz_jtag_tap_fsm_stateNext_16 = _zz_jtag_tap_fsm_stateNext;
-      end
-    endcase
-  end
-
-  assign jtag_tap_fsm_stateNext = _zz_jtag_tap_fsm_stateNext_16;
   always @(*) begin
     jtag_tap_tdoUnbufferd = jtag_tap_bypass;
     case(jtag_tap_fsm_state)
@@ -7377,13 +7354,13 @@ module JtagBridge (
   assign jtag_idcodeArea_ctrl_shift = (jtag_tap_fsm_state == JtagState_DR_SHIFT);
   assign jtag_idcodeArea_ctrl_update = (jtag_tap_fsm_state == JtagState_DR_UPDATE);
   assign jtag_idcodeArea_ctrl_reset = (jtag_tap_fsm_state == JtagState_RESET);
-  assign when_JtagTap_l120 = (jtag_tap_fsm_state == JtagState_RESET);
+  assign when_JtagTap_l121 = (jtag_tap_fsm_state == JtagState_RESET);
   assign jtag_writeArea_source_valid = jtag_writeArea_valid;
   assign jtag_writeArea_source_payload_last = (! (jtag_writeArea_ctrl_enable && jtag_writeArea_ctrl_shift));
   assign jtag_writeArea_source_payload_fragment[0] = jtag_writeArea_data;
-  assign system_cmd_valid = flowCCByToggle_1_io_output_valid;
-  assign system_cmd_payload_last = flowCCByToggle_1_io_output_payload_last;
-  assign system_cmd_payload_fragment = flowCCByToggle_1_io_output_payload_fragment;
+  assign system_cmd_valid = flowCCUnsafeByToggle_1_io_output_valid;
+  assign system_cmd_payload_last = flowCCUnsafeByToggle_1_io_output_payload_last;
+  assign system_cmd_payload_fragment = flowCCUnsafeByToggle_1_io_output_payload_fragment;
   assign jtag_writeArea_ctrl_tdo = 1'b0;
   assign jtag_writeArea_ctrl_tdi = io_jtag_tdi;
   assign jtag_writeArea_ctrl_enable = (jtag_tap_instruction == 4'b0010);
@@ -7436,7 +7413,7 @@ module JtagBridge (
     if(jtag_idcodeArea_ctrl_capture) begin
       jtag_idcodeArea_shifter <= 32'h10001fff;
     end
-    if(when_JtagTap_l120) begin
+    if(when_JtagTap_l121) begin
       jtag_tap_instruction <= 4'b0001;
     end
     jtag_writeArea_valid <= (jtag_writeArea_ctrl_enable && jtag_writeArea_ctrl_shift);
@@ -7519,19 +7496,19 @@ module FpuCore (
   wire       [23:0]   div_divider_io_input_payload_b;
   wire                sqrt_sqrt_io_input_valid;
   wire       [24:0]   sqrt_sqrt_io_input_payload_a;
-  reg        [33:0]   _zz_rf_ram_port0;
-  reg        [33:0]   _zz_rf_ram_port1;
-  reg        [33:0]   _zz_rf_ram_port2;
-  wire       [0:0]    _zz_rf_scoreboards_0_target_port1;
-  wire       [0:0]    _zz_rf_scoreboards_0_target_port2;
-  wire       [0:0]    _zz_rf_scoreboards_0_target_port3;
-  wire       [0:0]    _zz_rf_scoreboards_0_target_port4;
-  wire       [0:0]    _zz_rf_scoreboards_0_hit_port1;
-  wire       [0:0]    _zz_rf_scoreboards_0_hit_port2;
-  wire       [0:0]    _zz_rf_scoreboards_0_hit_port3;
-  wire       [0:0]    _zz_rf_scoreboards_0_hit_port4;
-  wire       [0:0]    _zz_rf_scoreboards_0_hit_port5;
-  wire       [0:0]    _zz_rf_scoreboards_0_writes_port1;
+  reg        [33:0]   rf_ram_spinal_port0;
+  reg        [33:0]   rf_ram_spinal_port1;
+  reg        [33:0]   rf_ram_spinal_port2;
+  wire       [0:0]    rf_scoreboards_0_target_spinal_port1;
+  wire       [0:0]    rf_scoreboards_0_target_spinal_port2;
+  wire       [0:0]    rf_scoreboards_0_target_spinal_port3;
+  wire       [0:0]    rf_scoreboards_0_target_spinal_port4;
+  wire       [0:0]    rf_scoreboards_0_hit_spinal_port1;
+  wire       [0:0]    rf_scoreboards_0_hit_spinal_port2;
+  wire       [0:0]    rf_scoreboards_0_hit_spinal_port3;
+  wire       [0:0]    rf_scoreboards_0_hit_spinal_port4;
+  wire       [0:0]    rf_scoreboards_0_hit_spinal_port5;
+  wire       [0:0]    rf_scoreboards_0_writes_spinal_port1;
   wire                streamFork_1_io_input_ready;
   wire                streamFork_1_io_outputs_0_valid;
   wire       [3:0]    streamFork_1_io_outputs_0_payload_opcode;
@@ -7934,7 +7911,7 @@ module FpuCore (
   reg        [4:0]    read_s0_rData_rd;
   reg        [1:0]    read_s0_rData_arg;
   reg        [2:0]    read_s0_rData_roundMode;
-  wire                when_Stream_l369;
+  wire                when_Stream_l375;
   wire                read_output_valid;
   wire                read_output_ready;
   wire       [3:0]    read_output_payload_opcode;
@@ -8152,7 +8129,7 @@ module FpuCore (
   reg                 decode_load_s2mPipe_rData_i2f;
   reg        [1:0]    decode_load_s2mPipe_rData_arg;
   reg        [2:0]    decode_load_s2mPipe_rData_roundMode;
-  wire                when_Stream_l369_1;
+  wire                when_Stream_l375_1;
   wire                load_s0_input_valid;
   wire                load_s0_input_ready;
   wire       [4:0]    load_s0_input_payload_rd;
@@ -8164,8 +8141,8 @@ module FpuCore (
   reg                 decode_load_s2mPipe_m2sPipe_rData_i2f;
   reg        [1:0]    decode_load_s2mPipe_m2sPipe_rData_arg;
   reg        [2:0]    decode_load_s2mPipe_m2sPipe_rData_roundMode;
-  wire                when_Stream_l369_2;
-  wire                when_Stream_l439;
+  wire                when_Stream_l375_2;
+  wire                when_Stream_l445;
   reg                 load_s0_filtred_0_valid;
   reg                 load_s0_filtred_0_ready;
   wire       [3:0]    load_s0_filtred_0_payload_opcode;
@@ -8194,7 +8171,7 @@ module FpuCore (
   reg                 load_s0_output_rData_i2f;
   reg        [1:0]    load_s0_output_rData_arg;
   reg        [2:0]    load_s0_output_rData_roundMode;
-  wire                when_Stream_l369_3;
+  wire                when_Stream_l375_3;
   reg                 load_s1_busy;
   wire       [22:0]   load_s1_f32_mantissa;
   wire       [7:0]    load_s1_f32_exponent;
@@ -8310,7 +8287,7 @@ module FpuCore (
   reg        [31:0]   decode_shortPip_rData_value;
   reg        [1:0]    decode_shortPip_rData_arg;
   reg        [2:0]    decode_shortPip_rData_roundMode;
-  wire                when_Stream_l369_4;
+  wire                when_Stream_l375_4;
   wire                shortPip_toFpuRf;
   wire                shortPip_rfOutput_valid;
   wire                shortPip_rfOutput_ready;
@@ -8433,7 +8410,7 @@ module FpuCore (
   reg        [31:0]   shortPip_rspStreams_0_rData_value;
   reg                 shortPip_rspStreams_0_rData_NV;
   reg                 shortPip_rspStreams_0_rData_NX;
-  wire                when_Stream_l369_5;
+  wire                when_Stream_l375_5;
   wire                mul_preMul_input_valid;
   wire                mul_preMul_input_ready;
   wire       [22:0]   mul_preMul_input_payload_rs1_mantissa;
@@ -8473,7 +8450,7 @@ module FpuCore (
   reg                 decode_mul_rData_msb1;
   reg                 decode_mul_rData_msb2;
   reg        [2:0]    decode_mul_rData_roundMode;
-  wire                when_Stream_l369_6;
+  wire                when_Stream_l375_6;
   wire                mul_preMul_output_valid;
   reg                 mul_preMul_output_ready;
   wire       [22:0]   mul_preMul_output_payload_rs1_mantissa;
@@ -8536,7 +8513,7 @@ module FpuCore (
   reg                 mul_preMul_output_rData_msb2;
   reg        [2:0]    mul_preMul_output_rData_roundMode;
   reg        [9:0]    mul_preMul_output_rData_exp;
-  wire                when_Stream_l369_7;
+  wire                when_Stream_l375_7;
   wire                mul_mul_output_valid;
   reg                 mul_mul_output_ready;
   wire       [22:0]   mul_mul_output_payload_rs1_mantissa;
@@ -8613,7 +8590,7 @@ module FpuCore (
   reg        [23:0]   mul_mul_output_rData_muls_1;
   reg        [23:0]   mul_mul_output_rData_muls_2;
   reg        [11:0]   mul_mul_output_rData_muls_3;
-  wire                when_Stream_l369_8;
+  wire                when_Stream_l375_8;
   wire       [47:0]   mul_sum1_sum;
   wire                mul_sum1_output_valid;
   reg                 mul_sum1_output_ready;
@@ -8686,7 +8663,7 @@ module FpuCore (
   reg        [23:0]   mul_sum1_output_rData_muls2_0;
   reg        [11:0]   mul_sum1_output_rData_muls2_1;
   reg        [47:0]   mul_sum1_output_rData_mulC2;
-  wire                when_Stream_l369_9;
+  wire                when_Stream_l375_9;
   wire       [47:0]   mul_sum2_sum;
   wire                mul_sum2_input_fire;
   wire                when_FpuCore_l221_1;
@@ -8757,7 +8734,7 @@ module FpuCore (
   reg        [2:0]    mul_sum2_output_rData_roundMode;
   reg        [9:0]    mul_sum2_output_rData_exp;
   reg        [47:0]   mul_sum2_output_rData_mulC;
-  wire                when_Stream_l369_10;
+  wire                when_Stream_l375_10;
   wire       [25:0]   mul_norm_mulHigh;
   wire       [21:0]   mul_norm_mulLow;
   reg                 mul_norm_scrap;
@@ -8830,7 +8807,7 @@ module FpuCore (
   reg        [4:0]    mul_result_mulToAdd_rData_rd;
   reg        [2:0]    mul_result_mulToAdd_rData_roundMode;
   reg                 mul_result_mulToAdd_rData_needCommit;
-  wire                when_Stream_l369_11;
+  wire                when_Stream_l375_11;
   wire                div_input_valid;
   wire                div_input_ready;
   wire       [22:0]   div_input_payload_rs1_mantissa;
@@ -8992,7 +8969,7 @@ module FpuCore (
   reg                 add_preShifter_output_rData_needCommit;
   reg                 add_preShifter_output_rData_absRs1Bigger;
   reg                 add_preShifter_output_rData_rs1ExponentBigger;
-  wire                when_Stream_l369_12;
+  wire                when_Stream_l375_12;
   wire                add_shifter_output_valid;
   reg                 add_shifter_output_ready;
   wire       [24:0]   add_shifter_output_payload_rs1_mantissa;
@@ -9068,7 +9045,7 @@ module FpuCore (
   reg        [8:0]    add_shifter_output_rData_xyExponent;
   reg                 add_shifter_output_rData_xySign;
   reg                 add_shifter_output_rData_roundingScrap;
-  wire                when_Stream_l369_13;
+  wire                when_Stream_l375_13;
   wire                add_math_output_valid;
   reg                 add_math_output_ready;
   wire       [24:0]   add_math_output_payload_rs1_mantissa;
@@ -9133,7 +9110,7 @@ module FpuCore (
   reg                 add_math_output_rData_xySign;
   reg                 add_math_output_rData_roundingScrap;
   reg        [26:0]   add_math_output_rData_xyMantissa;
-  wire                when_Stream_l369_14;
+  wire                when_Stream_l375_14;
   wire                add_oh_input_fire;
   wire                when_FpuCore_l221_4;
   wire                add_oh_isCommited;
@@ -9232,7 +9209,7 @@ module FpuCore (
   reg                 add_oh_output_rData_roundingScrap;
   reg        [26:0]   add_oh_output_rData_xyMantissa;
   reg        [4:0]    add_oh_output_rData_shift;
-  wire                when_Stream_l369_15;
+  wire                when_Stream_l375_15;
   wire                add_norm_output_valid;
   wire                add_norm_output_ready;
   wire       [24:0]   add_norm_output_payload_rs1_mantissa;
@@ -9311,7 +9288,7 @@ module FpuCore (
   reg        [2:0]    load_s1_output_rData_roundMode;
   reg                 load_s1_output_rData_NV;
   reg                 load_s1_output_rData_DZ;
-  wire                when_Stream_l369_16;
+  wire                when_Stream_l375_16;
   wire                shortPip_output_m2sPipe_valid;
   wire                shortPip_output_m2sPipe_ready;
   wire       [4:0]    shortPip_output_m2sPipe_payload_rd;
@@ -9333,7 +9310,7 @@ module FpuCore (
   reg        [2:0]    shortPip_output_rData_roundMode;
   reg                 shortPip_output_rData_NV;
   reg                 shortPip_output_rData_DZ;
-  wire                when_Stream_l369_17;
+  wire                when_Stream_l375_17;
   wire                FpuPlugin_fpu_streamArbiter_2_io_output_combStage_valid;
   wire                FpuPlugin_fpu_streamArbiter_2_io_output_combStage_ready;
   wire       [4:0]    FpuPlugin_fpu_streamArbiter_2_io_output_combStage_payload_rd;
@@ -9642,7 +9619,7 @@ module FpuCore (
   assign _zz_shortPip_fsm_shift_input_4 = (shortPip_fsm_shift_input_3 >>> 3'b100);
   assign _zz_shortPip_fsm_shift_input_5 = (shortPip_fsm_shift_input_4 >>> 2'b10);
   assign _zz_shortPip_fsm_shift_input_6 = (shortPip_fsm_shift_input_5 >>> 1'b1);
-  assign _zz_shortPip_fsm_shift_by_2 = (((_zz_shortPip_fsm_shift_by < _zz_shortPip_fsm_shift_by_3) ? _zz_shortPip_fsm_shift_by : _zz_shortPip_fsm_shift_by_4) + 9'h000);
+  assign _zz_shortPip_fsm_shift_by_2 = (((_zz_shortPip_fsm_shift_by < _zz_shortPip_fsm_shift_by_3) ? _zz_shortPip_fsm_shift_by : _zz_shortPip_fsm_shift_by_4) + 9'h0);
   assign _zz_shortPip_fsm_shift_by_3 = {3'd0, _zz_shortPip_fsm_shift_by_1};
   assign _zz_shortPip_fsm_shift_by_4 = {3'd0, _zz_shortPip_fsm_shift_by_1};
   assign _zz_shortPip_fsm_shift_by_5 = (_zz_shortPip_fsm_shift_by_6 - shortPip_input_payload_rs1_exponent);
@@ -9703,7 +9680,7 @@ module FpuCore (
   assign _zz_roundFront_rneBit = {2'b01,_zz_roundFront_rneBit_1};
   assign _zz_roundFront_rneBit_1 = (roundFront_manAggregate >>> 2'd2);
   assign _zz_roundBack_adderMantissa = (roundBack_input_payload_exactMask[23 : 0] >>> 1'd1);
-  assign _zz_roundBack_adderRightOp = (roundBack_input_payload_mantissaIncrement ? _zz_roundBack_adderRightOp_1 : 24'h000000);
+  assign _zz_roundBack_adderRightOp = (roundBack_input_payload_mantissaIncrement ? _zz_roundBack_adderRightOp_1 : 24'h0);
   assign _zz_roundBack_adderRightOp_1 = (roundBack_input_payload_exactMask >>> 1'd1);
   assign _zz_roundBack_adder_2 = (_zz_roundBack_adder + _zz_roundBack_adder_3);
   assign _zz_roundBack_adder_3 = {9'd0, roundBack_adderRightOp};
@@ -9732,7 +9709,7 @@ module FpuCore (
   assign _zz__zz_load_s1_fsm_shift_by_7 = load_s1_fsm_ohInput[30];
   assign _zz__zz_load_s1_fsm_shift_by_8 = load_s1_fsm_ohInput[31];
   assign _zz_shortPip_f2i_underflow = shortPip_f2i_unsigned[30 : 0];
-  assign _zz_shortPip_f2i_underflow_1 = 31'h00000000;
+  assign _zz_shortPip_f2i_underflow_1 = 31'h0;
   assign _zz__zz_add_oh_shift = add_oh_output_payload_xyMantissa[7];
   assign _zz__zz_add_oh_shift_1 = add_oh_output_payload_xyMantissa[8];
   assign _zz__zz_add_oh_shift_2 = {add_oh_output_payload_xyMantissa[9],{add_oh_output_payload_xyMantissa[10],{add_oh_output_payload_xyMantissa[11],{add_oh_output_payload_xyMantissa[12],{add_oh_output_payload_xyMantissa[13],{add_oh_output_payload_xyMantissa[14],{add_oh_output_payload_xyMantissa[15],{add_oh_output_payload_xyMantissa[16],{add_oh_output_payload_xyMantissa[17],{_zz__zz_add_oh_shift_3,{_zz__zz_add_oh_shift_4,_zz__zz_add_oh_shift_5}}}}}}}}}}};
@@ -9750,22 +9727,22 @@ module FpuCore (
   assign _zz_roundFront_exactMask_8 = 5'h03;
   assign _zz_roundFront_exactMask_9 = (5'h02 < roundFront_discardCountTrunk);
   assign _zz_roundFront_exactMask_10 = (5'h01 < roundFront_discardCountTrunk);
-  assign _zz_roundFront_exactMask_11 = {(5'h00 < roundFront_discardCountTrunk),1'b1};
+  assign _zz_roundFront_exactMask_11 = {(5'h0 < roundFront_discardCountTrunk),1'b1};
   always @(posedge clk) begin
     if(_zz_read_rs_0_value_mantissa_1) begin
-      _zz_rf_ram_port0 <= rf_ram[_zz_read_rs_0_value_mantissa];
+      rf_ram_spinal_port0 <= rf_ram[_zz_read_rs_0_value_mantissa];
     end
   end
 
   always @(posedge clk) begin
     if(_zz_read_rs_1_value_mantissa_1) begin
-      _zz_rf_ram_port1 <= rf_ram[_zz_read_rs_1_value_mantissa];
+      rf_ram_spinal_port1 <= rf_ram[_zz_read_rs_1_value_mantissa];
     end
   end
 
   always @(posedge clk) begin
     if(_zz_read_rs_2_value_mantissa_1) begin
-      _zz_rf_ram_port2 <= rf_ram[_zz_read_rs_2_value_mantissa];
+      rf_ram_spinal_port2 <= rf_ram[_zz_read_rs_2_value_mantissa];
     end
   end
 
@@ -9781,28 +9758,28 @@ module FpuCore (
     end
   end
 
-  assign _zz_rf_scoreboards_0_target_port1 = rf_scoreboards_0_target[scheduler_0_input_payload_rs1];
-  assign _zz_rf_scoreboards_0_target_port2 = rf_scoreboards_0_target[scheduler_0_input_payload_rs2];
-  assign _zz_rf_scoreboards_0_target_port3 = rf_scoreboards_0_target[scheduler_0_input_payload_rs3];
-  assign _zz_rf_scoreboards_0_target_port4 = rf_scoreboards_0_target[scheduler_0_input_payload_rd];
+  assign rf_scoreboards_0_target_spinal_port1 = rf_scoreboards_0_target[scheduler_0_input_payload_rs1];
+  assign rf_scoreboards_0_target_spinal_port2 = rf_scoreboards_0_target[scheduler_0_input_payload_rs2];
+  assign rf_scoreboards_0_target_spinal_port3 = rf_scoreboards_0_target[scheduler_0_input_payload_rs3];
+  assign rf_scoreboards_0_target_spinal_port4 = rf_scoreboards_0_target[scheduler_0_input_payload_rd];
   always @(posedge clk) begin
     if(_zz_3) begin
       rf_scoreboards_0_hit[rf_scoreboards_0_hitWrite_payload_address] <= _zz_rf_scoreboards_0_hit_port;
     end
   end
 
-  assign _zz_rf_scoreboards_0_hit_port1 = rf_scoreboards_0_hit[scheduler_0_input_payload_rs1];
-  assign _zz_rf_scoreboards_0_hit_port2 = rf_scoreboards_0_hit[scheduler_0_input_payload_rs2];
-  assign _zz_rf_scoreboards_0_hit_port3 = rf_scoreboards_0_hit[scheduler_0_input_payload_rs3];
-  assign _zz_rf_scoreboards_0_hit_port4 = rf_scoreboards_0_hit[scheduler_0_input_payload_rd];
-  assign _zz_rf_scoreboards_0_hit_port5 = rf_scoreboards_0_hit[writeback_input_payload_rd];
+  assign rf_scoreboards_0_hit_spinal_port1 = rf_scoreboards_0_hit[scheduler_0_input_payload_rs1];
+  assign rf_scoreboards_0_hit_spinal_port2 = rf_scoreboards_0_hit[scheduler_0_input_payload_rs2];
+  assign rf_scoreboards_0_hit_spinal_port3 = rf_scoreboards_0_hit[scheduler_0_input_payload_rs3];
+  assign rf_scoreboards_0_hit_spinal_port4 = rf_scoreboards_0_hit[scheduler_0_input_payload_rd];
+  assign rf_scoreboards_0_hit_spinal_port5 = rf_scoreboards_0_hit[writeback_input_payload_rd];
   always @(posedge clk) begin
     if(_zz_2) begin
       rf_scoreboards_0_writes[commitLogic_0_input_payload_rd] <= _zz_rf_scoreboards_0_writes_port;
     end
   end
 
-  assign _zz_rf_scoreboards_0_writes_port1 = rf_scoreboards_0_writes[roundBack_input_payload_rd];
+  assign rf_scoreboards_0_writes_spinal_port1 = rf_scoreboards_0_writes[roundBack_input_payload_rd];
   StreamFork streamFork_1 (
     .io_input_valid              (io_port_0_commit_valid                         ), //i
     .io_input_ready              (streamFork_1_io_input_ready                    ), //o
@@ -11364,7 +11341,7 @@ module FpuCore (
     add_shifter_yMantissa_5 = add_shifter_yMantissa_4;
     add_shifter_yMantissa_5 = (add_shifter_shiftBy[0] ? _zz_add_shifter_yMantissa_5 : add_shifter_yMantissa_4);
     if(add_shifter_passThrough) begin
-      add_shifter_yMantissa_5 = 26'h0000000;
+      add_shifter_yMantissa_5 = 26'h0;
     end
   end
 
@@ -11506,7 +11483,7 @@ module FpuCore (
   always @(*) begin
     rf_scoreboards_0_hitWrite_payload_data = 1'b0;
     if(writeback_input_valid) begin
-      rf_scoreboards_0_hitWrite_payload_data = (! _zz_rf_scoreboards_0_hit_port5[0]);
+      rf_scoreboards_0_hitWrite_payload_data = (! rf_scoreboards_0_hit_spinal_port5[0]);
     end
   end
 
@@ -11844,14 +11821,14 @@ module FpuCore (
     endcase
   end
 
-  assign scheduler_0_rfHits_0 = _zz_rf_scoreboards_0_hit_port1[0];
-  assign scheduler_0_rfHits_1 = _zz_rf_scoreboards_0_hit_port2[0];
-  assign scheduler_0_rfHits_2 = _zz_rf_scoreboards_0_hit_port3[0];
-  assign scheduler_0_rfHits_3 = _zz_rf_scoreboards_0_hit_port4[0];
-  assign scheduler_0_rfTargets_0 = _zz_rf_scoreboards_0_target_port1[0];
-  assign scheduler_0_rfTargets_1 = _zz_rf_scoreboards_0_target_port2[0];
-  assign scheduler_0_rfTargets_2 = _zz_rf_scoreboards_0_target_port3[0];
-  assign scheduler_0_rfTargets_3 = _zz_rf_scoreboards_0_target_port4[0];
+  assign scheduler_0_rfHits_0 = rf_scoreboards_0_hit_spinal_port1[0];
+  assign scheduler_0_rfHits_1 = rf_scoreboards_0_hit_spinal_port2[0];
+  assign scheduler_0_rfHits_2 = rf_scoreboards_0_hit_spinal_port3[0];
+  assign scheduler_0_rfHits_3 = rf_scoreboards_0_hit_spinal_port4[0];
+  assign scheduler_0_rfTargets_0 = rf_scoreboards_0_target_spinal_port1[0];
+  assign scheduler_0_rfTargets_1 = rf_scoreboards_0_target_spinal_port2[0];
+  assign scheduler_0_rfTargets_2 = rf_scoreboards_0_target_spinal_port3[0];
+  assign scheduler_0_rfTargets_3 = rf_scoreboards_0_target_spinal_port4[0];
   assign scheduler_0_rfBusy_0 = (scheduler_0_rfHits_0 ^ scheduler_0_rfTargets_0);
   assign scheduler_0_rfBusy_1 = (scheduler_0_rfHits_1 ^ scheduler_0_rfTargets_1);
   assign scheduler_0_rfBusy_2 = (scheduler_0_rfHits_2 ^ scheduler_0_rfTargets_2);
@@ -11905,12 +11882,12 @@ module FpuCore (
   assign read_s0_payload_roundMode = cmdArbiter_output_payload_roundMode;
   always @(*) begin
     read_s0_ready = read_s1_ready;
-    if(when_Stream_l369) begin
+    if(when_Stream_l375) begin
       read_s0_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369 = (! read_s1_valid);
+  assign when_Stream_l375 = (! read_s1_valid);
   assign read_s1_valid = read_s0_rValid;
   assign read_s1_payload_opcode = read_s0_rData_opcode;
   assign read_s1_payload_rs1 = read_s0_rData_rs1;
@@ -11924,21 +11901,21 @@ module FpuCore (
   assign _zz_read_rs_0_value_mantissa = read_s0_payload_rs1;
   assign read_output_isStall = (read_output_valid && (! read_output_ready));
   assign _zz_read_rs_0_value_mantissa_1 = (! read_output_isStall);
-  assign _zz_read_rs_0_value_mantissa_2 = _zz_rf_ram_port0[33 : 0];
+  assign _zz_read_rs_0_value_mantissa_2 = rf_ram_spinal_port0[33 : 0];
   assign read_rs_0_value_mantissa = _zz_read_rs_0_value_mantissa_2[22 : 0];
   assign read_rs_0_value_exponent = _zz_read_rs_0_value_mantissa_2[31 : 23];
   assign read_rs_0_value_sign = _zz_read_rs_0_value_mantissa_2[32];
   assign read_rs_0_value_special = _zz_read_rs_0_value_mantissa_2[33];
   assign _zz_read_rs_1_value_mantissa = read_s0_payload_rs2;
   assign _zz_read_rs_1_value_mantissa_1 = (! read_output_isStall);
-  assign _zz_read_rs_1_value_mantissa_2 = _zz_rf_ram_port1[33 : 0];
+  assign _zz_read_rs_1_value_mantissa_2 = rf_ram_spinal_port1[33 : 0];
   assign read_rs_1_value_mantissa = _zz_read_rs_1_value_mantissa_2[22 : 0];
   assign read_rs_1_value_exponent = _zz_read_rs_1_value_mantissa_2[31 : 23];
   assign read_rs_1_value_sign = _zz_read_rs_1_value_mantissa_2[32];
   assign read_rs_1_value_special = _zz_read_rs_1_value_mantissa_2[33];
   assign _zz_read_rs_2_value_mantissa = read_s0_payload_rs3;
   assign _zz_read_rs_2_value_mantissa_1 = (! read_output_isStall);
-  assign _zz_read_rs_2_value_mantissa_2 = _zz_rf_ram_port2[33 : 0];
+  assign _zz_read_rs_2_value_mantissa_2 = rf_ram_spinal_port2[33 : 0];
   assign read_rs_2_value_mantissa = _zz_read_rs_2_value_mantissa_2[22 : 0];
   assign read_rs_2_value_exponent = _zz_read_rs_2_value_mantissa_2[31 : 23];
   assign read_rs_2_value_sign = _zz_read_rs_2_value_mantissa_2[32];
@@ -12288,12 +12265,12 @@ module FpuCore (
   assign decode_load_s2mPipe_payload_roundMode = _zz_decode_load_s2mPipe_payload_roundMode;
   always @(*) begin
     decode_load_s2mPipe_ready = decode_load_s2mPipe_m2sPipe_ready;
-    if(when_Stream_l369_1) begin
+    if(when_Stream_l375_1) begin
       decode_load_s2mPipe_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_1 = (! decode_load_s2mPipe_m2sPipe_valid);
+  assign when_Stream_l375_1 = (! decode_load_s2mPipe_m2sPipe_valid);
   assign decode_load_s2mPipe_m2sPipe_valid = decode_load_s2mPipe_rValid;
   assign decode_load_s2mPipe_m2sPipe_payload_rd = decode_load_s2mPipe_rData_rd;
   assign decode_load_s2mPipe_m2sPipe_payload_i2f = decode_load_s2mPipe_rData_i2f;
@@ -12301,28 +12278,28 @@ module FpuCore (
   assign decode_load_s2mPipe_m2sPipe_payload_roundMode = decode_load_s2mPipe_rData_roundMode;
   always @(*) begin
     decode_load_s2mPipe_m2sPipe_ready = load_s0_input_ready;
-    if(when_Stream_l369_2) begin
+    if(when_Stream_l375_2) begin
       decode_load_s2mPipe_m2sPipe_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_2 = (! load_s0_input_valid);
+  assign when_Stream_l375_2 = (! load_s0_input_valid);
   assign load_s0_input_valid = decode_load_s2mPipe_m2sPipe_rValid;
   assign load_s0_input_payload_rd = decode_load_s2mPipe_m2sPipe_rData_rd;
   assign load_s0_input_payload_i2f = decode_load_s2mPipe_m2sPipe_rData_i2f;
   assign load_s0_input_payload_arg = decode_load_s2mPipe_m2sPipe_rData_arg;
   assign load_s0_input_payload_roundMode = decode_load_s2mPipe_m2sPipe_rData_roundMode;
-  assign when_Stream_l439 = (! (|{(commitFork_load_0_payload_opcode == FpuOpcode_I2F),{(commitFork_load_0_payload_opcode == FpuOpcode_FMV_W_X),(commitFork_load_0_payload_opcode == FpuOpcode_LOAD)}}));
+  assign when_Stream_l445 = (! (|{(commitFork_load_0_payload_opcode == FpuOpcode_I2F),{(commitFork_load_0_payload_opcode == FpuOpcode_FMV_W_X),(commitFork_load_0_payload_opcode == FpuOpcode_LOAD)}}));
   always @(*) begin
     load_s0_filtred_0_valid = commitFork_load_0_valid;
-    if(when_Stream_l439) begin
+    if(when_Stream_l445) begin
       load_s0_filtred_0_valid = 1'b0;
     end
   end
 
   always @(*) begin
     commitFork_load_0_ready = load_s0_filtred_0_ready;
-    if(when_Stream_l439) begin
+    if(when_Stream_l445) begin
       commitFork_load_0_ready = 1'b1;
     end
   end
@@ -12349,12 +12326,12 @@ module FpuCore (
   assign load_s0_output_payload_roundMode = load_s0_input_payload_roundMode;
   always @(*) begin
     load_s0_output_ready = load_s1_input_ready;
-    if(when_Stream_l369_3) begin
+    if(when_Stream_l375_3) begin
       load_s0_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_3 = (! load_s1_input_valid);
+  assign when_Stream_l375_3 = (! load_s1_input_valid);
   assign load_s1_input_valid = load_s0_output_rValid;
   assign load_s1_input_payload_rd = load_s0_output_rData_rd;
   assign load_s1_input_payload_value = load_s0_output_rData_value;
@@ -12376,8 +12353,8 @@ module FpuCore (
   assign load_s1_passThroughFloat_exponent = {1'd0, load_s1_f32_exponent};
   assign load_s1_passThroughFloat_mantissa = load_s1_f32_mantissa;
   assign load_s1_recodedExpOffset = 9'h080;
-  assign load_s1_manZero = (load_s1_passThroughFloat_mantissa == 23'h000000);
-  assign load_s1_expZero = (load_s1_passThroughFloat_exponent == 9'h000);
+  assign load_s1_manZero = (load_s1_passThroughFloat_mantissa == 23'h0);
+  assign load_s1_expZero = (load_s1_passThroughFloat_exponent == 9'h0);
   assign load_s1_expOne = (&load_s1_passThroughFloat_exponent[7 : 0]);
   assign load_s1_isZero = (load_s1_expZero && load_s1_manZero);
   assign load_s1_isSubnormal = (load_s1_expZero && (! load_s1_manZero));
@@ -12437,7 +12414,7 @@ module FpuCore (
   assign _zz_load_s1_fsm_shift_by_31 = (((((((((((((((_zz_load_s1_fsm_shift_by_1[8] || _zz_load_s1_fsm_shift_by_6) || _zz_load_s1_fsm_shift_by_7) || _zz_load_s1_fsm_shift_by_8) || _zz_load_s1_fsm_shift_by_9) || _zz_load_s1_fsm_shift_by_10) || _zz_load_s1_fsm_shift_by_11) || _zz_load_s1_fsm_shift_by_12) || _zz_load_s1_fsm_shift_by_20) || _zz_load_s1_fsm_shift_by_21) || _zz_load_s1_fsm_shift_by_22) || _zz_load_s1_fsm_shift_by_23) || _zz_load_s1_fsm_shift_by_24) || _zz_load_s1_fsm_shift_by_25) || _zz_load_s1_fsm_shift_by_26) || _zz_load_s1_fsm_shift_by_27);
   assign _zz_load_s1_fsm_shift_by_32 = (((((((((((((((_zz_load_s1_fsm_shift_by_1[16] || _zz_load_s1_fsm_shift_by_13) || _zz_load_s1_fsm_shift_by_14) || _zz_load_s1_fsm_shift_by_15) || _zz_load_s1_fsm_shift_by_16) || _zz_load_s1_fsm_shift_by_17) || _zz_load_s1_fsm_shift_by_18) || _zz_load_s1_fsm_shift_by_19) || _zz_load_s1_fsm_shift_by_20) || _zz_load_s1_fsm_shift_by_21) || _zz_load_s1_fsm_shift_by_22) || _zz_load_s1_fsm_shift_by_23) || _zz_load_s1_fsm_shift_by_24) || _zz_load_s1_fsm_shift_by_25) || _zz_load_s1_fsm_shift_by_26) || _zz_load_s1_fsm_shift_by_27);
   always @(*) begin
-    load_s1_fsm_expOffset = 9'h000;
+    load_s1_fsm_expOffset = 9'h0;
     if(load_s1_isSubnormal) begin
       load_s1_fsm_expOffset = {4'd0, load_s1_fsm_shift_by};
     end
@@ -12447,7 +12424,7 @@ module FpuCore (
   assign when_FpuCore_l551 = (! load_s1_input_isStall);
   assign load_s1_i2fHigh = load_s1_fsm_shift_output[31 : 8];
   assign load_s1_i2fLow = load_s1_fsm_shift_output[7 : 0];
-  assign load_s1_scrap = (load_s1_i2fLow != 8'h00);
+  assign load_s1_scrap = (load_s1_i2fLow != 8'h0);
   assign load_s1_recoded_mantissa = load_s1_passThroughFloat_mantissa;
   always @(*) begin
     load_s1_recoded_exponent = _zz_load_s1_recoded_exponent[8:0];
@@ -12528,12 +12505,12 @@ module FpuCore (
   assign when_FpuCore_l594 = (load_s1_input_payload_i2f || load_s1_isSubnormal);
   always @(*) begin
     decode_shortPip_ready = shortPip_input_ready;
-    if(when_Stream_l369_4) begin
+    if(when_Stream_l375_4) begin
       decode_shortPip_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_4 = (! shortPip_input_valid);
+  assign when_Stream_l375_4 = (! shortPip_input_valid);
   assign shortPip_input_valid = decode_shortPip_rValid;
   assign shortPip_input_payload_opcode = decode_shortPip_rData_opcode;
   assign shortPip_input_payload_rs1_mantissa = decode_shortPip_rData_rs1_mantissa;
@@ -12602,10 +12579,10 @@ module FpuCore (
       shortPip_recodedResult[22 : 0] = shortPip_fsm_shift_output[22 : 0];
     end
     if(shortPip_mantissaForced) begin
-      shortPip_recodedResult[22 : 0] = (shortPip_mantissaForcedValue ? 23'h7fffff : 23'h000000);
+      shortPip_recodedResult[22 : 0] = (shortPip_mantissaForcedValue ? 23'h7fffff : 23'h0);
     end
     if(shortPip_exponentForced) begin
-      shortPip_recodedResult[30 : 23] = (shortPip_exponentForcedValue ? 8'hff : 8'h00);
+      shortPip_recodedResult[30 : 23] = (shortPip_exponentForcedValue ? 8'hff : 8'h0);
     end
     if(shortPip_cononicalForced) begin
       shortPip_recodedResult[31] = 1'b0;
@@ -12626,9 +12603,9 @@ module FpuCore (
     shortPip_fsm_shift_input = ({9'd0,{(! shortPip_fsm_isZero),shortPip_input_payload_rs1_mantissa}} <<< 4'd9);
   end
 
-  assign when_FpuCore_l646 = (shortPip_fsm_shift_by[5] && (shortPip_fsm_shift_input[31 : 0] != 32'h00000000));
-  assign when_FpuCore_l646_1 = (shortPip_fsm_shift_by[4] && (shortPip_fsm_shift_input_1[15 : 0] != 16'h0000));
-  assign when_FpuCore_l646_2 = (shortPip_fsm_shift_by[3] && (shortPip_fsm_shift_input_2[7 : 0] != 8'h00));
+  assign when_FpuCore_l646 = (shortPip_fsm_shift_by[5] && (shortPip_fsm_shift_input[31 : 0] != 32'h0));
+  assign when_FpuCore_l646_1 = (shortPip_fsm_shift_by[4] && (shortPip_fsm_shift_input_1[15 : 0] != 16'h0));
+  assign when_FpuCore_l646_2 = (shortPip_fsm_shift_by[3] && (shortPip_fsm_shift_input_2[7 : 0] != 8'h0));
   assign when_FpuCore_l646_3 = (shortPip_fsm_shift_by[2] && (shortPip_fsm_shift_input_3[3 : 0] != 4'b0000));
   assign when_FpuCore_l646_4 = (shortPip_fsm_shift_by[1] && (shortPip_fsm_shift_input_4[1 : 0] != 2'b00));
   assign when_FpuCore_l646_5 = (shortPip_fsm_shift_by[0] && (shortPip_fsm_shift_input_5[0 : 0] != 1'b0));
@@ -12789,17 +12766,17 @@ module FpuCore (
   always @(*) begin
     shortPip_f2i_result = ((shortPip_f2i_resign ? (~ shortPip_f2i_unsigned) : shortPip_f2i_unsigned) + _zz_shortPip_f2i_result);
     if(shortPip_f2i_isZero) begin
-      shortPip_f2i_result = 32'h00000000;
+      shortPip_f2i_result = 32'h0;
     end else begin
       if(when_FpuCore_l767) begin
-        shortPip_f2i_result = (shortPip_f2i_overflow ? 32'hffffffff : 32'h00000000);
+        shortPip_f2i_result = (shortPip_f2i_overflow ? 32'hffffffff : 32'h0);
         shortPip_f2i_result[31] = (shortPip_input_payload_arg[0] ^ shortPip_f2i_overflow);
       end
     end
   end
 
   assign shortPip_f2i_overflow = (((((shortPip_input_payload_arg[0] ? 9'h11d : 9'h11e) < shortPip_input_payload_rs1_exponent) || (shortPip_input_payload_rs1_special && (shortPip_input_payload_rs1_exponent[1 : 0] == 2'b01))) && (! shortPip_input_payload_rs1_sign)) || (shortPip_input_payload_rs1_special && (shortPip_input_payload_rs1_exponent[1 : 0] == 2'b10)));
-  assign shortPip_f2i_underflow = (((((9'h11e < shortPip_input_payload_rs1_exponent) || ((shortPip_input_payload_arg[0] && shortPip_f2i_unsigned[31]) && ((_zz_shortPip_f2i_underflow != _zz_shortPip_f2i_underflow_1) || shortPip_f2i_increment))) || ((! shortPip_input_payload_arg[0]) && ((shortPip_f2i_unsigned != 32'h00000000) || shortPip_f2i_increment))) || (shortPip_input_payload_rs1_special && (shortPip_input_payload_rs1_exponent[1 : 0] == 2'b01))) && shortPip_input_payload_rs1_sign);
+  assign shortPip_f2i_underflow = (((((9'h11e < shortPip_input_payload_rs1_exponent) || ((shortPip_input_payload_arg[0] && shortPip_f2i_unsigned[31]) && ((_zz_shortPip_f2i_underflow != _zz_shortPip_f2i_underflow_1) || shortPip_f2i_increment))) || ((! shortPip_input_payload_arg[0]) && ((shortPip_f2i_unsigned != 32'h0) || shortPip_f2i_increment))) || (shortPip_input_payload_rs1_special && (shortPip_input_payload_rs1_exponent[1 : 0] == 2'b01))) && shortPip_input_payload_rs1_sign);
   assign shortPip_f2i_isZero = (shortPip_input_payload_rs1_special && (shortPip_input_payload_rs1_exponent[1 : 0] == 2'b00));
   assign when_FpuCore_l767 = (shortPip_f2i_underflow || shortPip_f2i_overflow);
   assign shortPip_bothZero = ((shortPip_input_payload_rs1_special && (shortPip_input_payload_rs1_exponent[1 : 0] == 2'b00)) && (shortPip_input_payload_rs2_special && (shortPip_input_payload_rs2_exponent[1 : 0] == 2'b00)));
@@ -12863,7 +12840,7 @@ module FpuCore (
   assign shortPip_sgnjRs2Sign = shortPip_input_payload_rs2_sign;
   assign shortPip_sgnjResult = (((shortPip_sgnjRs1Sign && shortPip_input_payload_arg[1]) ^ shortPip_sgnjRs2Sign) ^ shortPip_input_payload_arg[0]);
   always @(*) begin
-    shortPip_fclassResult = 32'h00000000;
+    shortPip_fclassResult = 32'h0;
     shortPip_fclassResult[0] = (shortPip_input_payload_rs1_sign && shortPip_decoded_isInfinity);
     shortPip_fclassResult[1] = (shortPip_input_payload_rs1_sign && shortPip_isNormal);
     shortPip_fclassResult[2] = (shortPip_input_payload_rs1_sign && shortPip_isSubnormal);
@@ -12966,12 +12943,12 @@ module FpuCore (
   assign shortPip_rspStreams_0_payload_NX = shortPip_rspNx;
   always @(*) begin
     shortPip_rspStreams_0_ready = shortPip_rspStreams_0_m2sPipe_ready;
-    if(when_Stream_l369_5) begin
+    if(when_Stream_l375_5) begin
       shortPip_rspStreams_0_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_5 = (! shortPip_rspStreams_0_m2sPipe_valid);
+  assign when_Stream_l375_5 = (! shortPip_rspStreams_0_m2sPipe_valid);
   assign shortPip_rspStreams_0_m2sPipe_valid = shortPip_rspStreams_0_rValid;
   assign shortPip_rspStreams_0_m2sPipe_payload_value = shortPip_rspStreams_0_rData_value;
   assign shortPip_rspStreams_0_m2sPipe_payload_NV = shortPip_rspStreams_0_rData_NV;
@@ -12985,12 +12962,12 @@ module FpuCore (
   assign shortPip_rfOutput_payload_DZ = 1'b0;
   always @(*) begin
     decode_mul_ready = mul_preMul_input_ready;
-    if(when_Stream_l369_6) begin
+    if(when_Stream_l375_6) begin
       decode_mul_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_6 = (! mul_preMul_input_valid);
+  assign when_Stream_l375_6 = (! mul_preMul_input_valid);
   assign mul_preMul_input_valid = decode_mul_rValid;
   assign mul_preMul_input_payload_rs1_mantissa = decode_mul_rData_rs1_mantissa;
   assign mul_preMul_input_payload_rs1_exponent = decode_mul_rData_rs1_exponent;
@@ -13033,12 +13010,12 @@ module FpuCore (
   assign mul_preMul_output_payload_exp = ({1'b0,mul_preMul_input_payload_rs1_exponent} + {1'b0,mul_preMul_input_payload_rs2_exponent});
   always @(*) begin
     mul_preMul_output_ready = mul_mul_input_ready;
-    if(when_Stream_l369_7) begin
+    if(when_Stream_l375_7) begin
       mul_preMul_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_7 = (! mul_mul_input_valid);
+  assign when_Stream_l375_7 = (! mul_mul_input_valid);
   assign mul_mul_input_valid = mul_preMul_output_rValid;
   assign mul_mul_input_payload_rs1_mantissa = mul_preMul_output_rData_rs1_mantissa;
   assign mul_mul_input_payload_rs1_exponent = mul_preMul_output_rData_rs1_exponent;
@@ -13088,12 +13065,12 @@ module FpuCore (
   assign mul_mul_output_payload_muls_3 = (mul_mul_mulA[23 : 18] * mul_mul_mulB[23 : 18]);
   always @(*) begin
     mul_mul_output_ready = mul_sum1_input_ready;
-    if(when_Stream_l369_8) begin
+    if(when_Stream_l375_8) begin
       mul_mul_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_8 = (! mul_sum1_input_valid);
+  assign when_Stream_l375_8 = (! mul_sum1_input_valid);
   assign mul_sum1_input_valid = mul_mul_output_rValid;
   assign mul_sum1_input_payload_rs1_mantissa = mul_mul_output_rData_rs1_mantissa;
   assign mul_sum1_input_payload_rs1_exponent = mul_mul_output_rData_rs1_exponent;
@@ -13145,12 +13122,12 @@ module FpuCore (
   assign mul_sum1_output_payload_muls2_1 = mul_sum1_input_payload_muls_3;
   always @(*) begin
     mul_sum1_output_ready = mul_sum2_input_ready;
-    if(when_Stream_l369_9) begin
+    if(when_Stream_l375_9) begin
       mul_sum1_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_9 = (! mul_sum2_input_valid);
+  assign when_Stream_l375_9 = (! mul_sum2_input_valid);
   assign mul_sum2_input_valid = mul_sum1_output_rValid;
   assign mul_sum2_input_payload_rs1_mantissa = mul_sum1_output_rData_rs1_mantissa;
   assign mul_sum2_input_payload_rs1_exponent = mul_sum1_output_rData_rs1_exponent;
@@ -13203,12 +13180,12 @@ module FpuCore (
   assign mul_sum2_output_payload_mulC = mul_sum2_sum;
   always @(*) begin
     mul_sum2_output_ready = mul_norm_input_ready;
-    if(when_Stream_l369_10) begin
+    if(when_Stream_l375_10) begin
       mul_sum2_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_10 = (! mul_norm_input_valid);
+  assign when_Stream_l375_10 = (! mul_norm_input_valid);
   assign mul_norm_input_valid = mul_sum2_output_rValid;
   assign mul_norm_input_payload_rs1_mantissa = mul_sum2_output_rData_rs1_mantissa;
   assign mul_norm_input_payload_rs1_exponent = mul_sum2_output_rData_rs1_exponent;
@@ -13233,7 +13210,7 @@ module FpuCore (
   assign mul_norm_mulHigh = mul_norm_input_payload_mulC[47 : 22];
   assign mul_norm_mulLow = mul_norm_input_payload_mulC[21 : 0];
   always @(*) begin
-    mul_norm_scrap = (mul_norm_mulLow != 22'h000000);
+    mul_norm_scrap = (mul_norm_mulLow != 22'h0);
     if(when_FpuCore_l967) begin
       mul_norm_scrap = 1'b1;
     end
@@ -13321,12 +13298,12 @@ module FpuCore (
   assign mul_result_output_payload_DZ = 1'b0;
   always @(*) begin
     mul_result_mulToAdd_ready = mul_result_mulToAdd_m2sPipe_ready;
-    if(when_Stream_l369_11) begin
+    if(when_Stream_l375_11) begin
       mul_result_mulToAdd_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_11 = (! mul_result_mulToAdd_m2sPipe_valid);
+  assign when_Stream_l375_11 = (! mul_result_mulToAdd_m2sPipe_valid);
   assign mul_result_mulToAdd_m2sPipe_valid = mul_result_mulToAdd_rValid;
   assign mul_result_mulToAdd_m2sPipe_payload_rs1_mantissa = mul_result_mulToAdd_rData_rs1_mantissa;
   assign mul_result_mulToAdd_m2sPipe_payload_rs1_exponent = mul_result_mulToAdd_rData_rs1_exponent;
@@ -13398,7 +13375,7 @@ module FpuCore (
   assign div_divider_io_input_payload_a = ({1'd0,div_input_payload_rs1_mantissa} <<< 1'd1);
   assign div_divider_io_input_payload_b = ({1'd0,div_input_payload_rs2_mantissa} <<< 1'd1);
   assign div_dividerResult = (div_divider_io_output_payload_result >>> 1'd1);
-  assign div_dividerScrap = ((div_divider_io_output_payload_remain != 25'h0000000) || (div_divider_io_output_payload_result[0 : 0] != 1'b0));
+  assign div_dividerScrap = ((div_divider_io_output_payload_remain != 25'h0) || (div_divider_io_output_payload_result[0 : 0] != 1'b0));
   assign FpuPlugin_fpu_div_divider_io_input_fire = (div_divider_io_input_valid && div_divider_io_input_ready);
   assign when_FpuCore_l1056 = (! div_haltIt);
   assign div_divider_io_input_valid = (div_input_valid && (! div_cmdSent));
@@ -13505,7 +13482,7 @@ module FpuCore (
   assign sqrt_sqrt_io_input_valid = (sqrt_input_valid && (! sqrt_cmdSent));
   assign sqrt_output_payload_rd = sqrt_input_payload_rd;
   assign sqrt_output_payload_roundMode = sqrt_input_payload_roundMode;
-  assign sqrt_scrap = (sqrt_sqrt_io_output_payload_remain != 28'h0000000);
+  assign sqrt_scrap = (sqrt_sqrt_io_output_payload_remain != 28'h0);
   always @(*) begin
     sqrt_output_payload_value_special = 1'b0;
     if(when_FpuCore_l1137) begin
@@ -13602,12 +13579,12 @@ module FpuCore (
   assign add_preShifter_output_payload_rs1ExponentBigger = add_preShifter_rs1ExponentBigger;
   always @(*) begin
     add_preShifter_output_ready = add_shifter_input_ready;
-    if(when_Stream_l369_12) begin
+    if(when_Stream_l375_12) begin
       add_preShifter_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_12 = (! add_shifter_input_valid);
+  assign when_Stream_l375_12 = (! add_shifter_input_valid);
   assign add_shifter_input_valid = add_preShifter_output_rValid;
   assign add_shifter_input_payload_rs1_mantissa = add_preShifter_output_rData_rs1_mantissa;
   assign add_shifter_input_payload_rs1_exponent = add_preShifter_output_rData_rs1_exponent;
@@ -13671,8 +13648,8 @@ module FpuCore (
     end
   end
 
-  assign when_FpuCore_l1419 = (add_shifter_shiftBy[4] && (add_shifter_yMantissa[15 : 0] != 16'h0000));
-  assign when_FpuCore_l1419_1 = (add_shifter_shiftBy[3] && (add_shifter_yMantissa_1[7 : 0] != 8'h00));
+  assign when_FpuCore_l1419 = (add_shifter_shiftBy[4] && (add_shifter_yMantissa[15 : 0] != 16'h0));
+  assign when_FpuCore_l1419_1 = (add_shifter_shiftBy[3] && (add_shifter_yMantissa_1[7 : 0] != 8'h0));
   assign when_FpuCore_l1419_2 = (add_shifter_shiftBy[2] && (add_shifter_yMantissa_2[3 : 0] != 4'b0000));
   assign when_FpuCore_l1419_3 = (add_shifter_shiftBy[1] && (add_shifter_yMantissa_3[1 : 0] != 2'b00));
   assign when_FpuCore_l1419_4 = (add_shifter_shiftBy[0] && (add_shifter_yMantissa_4[0 : 0] != 1'b0));
@@ -13684,12 +13661,12 @@ module FpuCore (
   assign add_shifter_output_payload_roundingScrap = add_shifter_roundingScrap;
   always @(*) begin
     add_shifter_output_ready = add_math_input_ready;
-    if(when_Stream_l369_13) begin
+    if(when_Stream_l375_13) begin
       add_shifter_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_13 = (! add_math_input_valid);
+  assign when_Stream_l375_13 = (! add_math_input_valid);
   assign add_math_input_valid = add_shifter_output_rValid;
   assign add_math_input_payload_rs1_mantissa = add_shifter_output_rData_rs1_mantissa;
   assign add_math_input_payload_rs1_exponent = add_shifter_output_rData_rs1_exponent;
@@ -13734,12 +13711,12 @@ module FpuCore (
   assign add_math_output_payload_xyMantissa = _zz_add_math_output_payload_xyMantissa[26 : 0];
   always @(*) begin
     add_math_output_ready = add_oh_input_ready;
-    if(when_Stream_l369_14) begin
+    if(when_Stream_l375_14) begin
       add_math_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_14 = (! add_oh_input_valid);
+  assign when_Stream_l375_14 = (! add_oh_input_valid);
   assign add_oh_input_valid = add_math_output_rValid;
   assign add_oh_input_payload_rs1_mantissa = add_math_output_rData_rs1_mantissa;
   assign add_oh_input_payload_rs1_exponent = add_math_output_rData_rs1_exponent;
@@ -13817,12 +13794,12 @@ module FpuCore (
   assign add_oh_output_payload_shift = add_oh_shift;
   always @(*) begin
     add_oh_output_ready = add_norm_input_ready;
-    if(when_Stream_l369_15) begin
+    if(when_Stream_l375_15) begin
       add_oh_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_15 = (! add_norm_input_valid);
+  assign when_Stream_l375_15 = (! add_norm_input_valid);
   assign add_norm_input_valid = add_oh_output_rValid;
   assign add_norm_input_payload_rs1_mantissa = add_oh_output_rData_rs1_mantissa;
   assign add_norm_input_payload_rs1_exponent = add_oh_output_rData_rs1_exponent;
@@ -13862,10 +13839,10 @@ module FpuCore (
   assign add_norm_output_payload_mantissa = (add_norm_input_payload_xyMantissa <<< add_norm_input_payload_shift);
   assign add_norm_output_payload_exponent = (_zz_add_norm_output_payload_exponent + 10'h001);
   assign add_norm_output_payload_forceInfinity = ((add_norm_input_payload_rs1_special && (add_norm_input_payload_rs1_exponent[1 : 0] == 2'b01)) || (add_norm_input_payload_rs2_special && (add_norm_input_payload_rs2_exponent[1 : 0] == 2'b01)));
-  assign add_norm_output_payload_forceZero = ((add_norm_input_payload_xyMantissa == 27'h0000000) || ((add_norm_input_payload_rs1_special && (add_norm_input_payload_rs1_exponent[1 : 0] == 2'b00)) && (add_norm_input_payload_rs2_special && (add_norm_input_payload_rs2_exponent[1 : 0] == 2'b00))));
+  assign add_norm_output_payload_forceZero = ((add_norm_input_payload_xyMantissa == 27'h0) || ((add_norm_input_payload_rs1_special && (add_norm_input_payload_rs1_exponent[1 : 0] == 2'b00)) && (add_norm_input_payload_rs2_special && (add_norm_input_payload_rs2_exponent[1 : 0] == 2'b00))));
   assign add_norm_output_payload_infinityNan = (((add_norm_input_payload_rs1_special && (add_norm_input_payload_rs1_exponent[1 : 0] == 2'b01)) && (add_norm_input_payload_rs2_special && (add_norm_input_payload_rs2_exponent[1 : 0] == 2'b01))) && (add_norm_input_payload_rs1_sign ^ add_norm_input_payload_rs2_sign));
   assign add_norm_output_payload_forceNan = (((add_norm_input_payload_rs1_special && (add_norm_input_payload_rs1_exponent[1 : 0] == 2'b10)) || (add_norm_input_payload_rs2_special && (add_norm_input_payload_rs2_exponent[1 : 0] == 2'b10))) || add_norm_output_payload_infinityNan);
-  assign add_norm_output_payload_xyMantissaZero = (add_norm_input_payload_xyMantissa == 27'h0000000);
+  assign add_norm_output_payload_xyMantissaZero = (add_norm_input_payload_xyMantissa == 27'h0);
   assign add_result_input_valid = add_norm_output_valid;
   assign add_norm_output_ready = add_result_input_ready;
   assign add_result_input_payload_rs1_mantissa = add_norm_output_payload_rs1_mantissa;
@@ -13953,12 +13930,12 @@ module FpuCore (
   assign when_FpuCore_l1516 = ((add_result_input_payload_rs1_sign || add_result_input_payload_rs2_sign) && (add_result_input_payload_roundMode == FpuRoundMode_RDN));
   always @(*) begin
     load_s1_output_ready = load_s1_output_m2sPipe_ready;
-    if(when_Stream_l369_16) begin
+    if(when_Stream_l375_16) begin
       load_s1_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_16 = (! load_s1_output_m2sPipe_valid);
+  assign when_Stream_l375_16 = (! load_s1_output_m2sPipe_valid);
   assign load_s1_output_m2sPipe_valid = load_s1_output_rValid;
   assign load_s1_output_m2sPipe_payload_rd = load_s1_output_rData_rd;
   assign load_s1_output_m2sPipe_payload_value_mantissa = load_s1_output_rData_value_mantissa;
@@ -13971,12 +13948,12 @@ module FpuCore (
   assign load_s1_output_m2sPipe_payload_DZ = load_s1_output_rData_DZ;
   always @(*) begin
     shortPip_output_ready = shortPip_output_m2sPipe_ready;
-    if(when_Stream_l369_17) begin
+    if(when_Stream_l375_17) begin
       shortPip_output_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369_17 = (! shortPip_output_m2sPipe_valid);
+  assign when_Stream_l375_17 = (! shortPip_output_m2sPipe_valid);
   assign shortPip_output_m2sPipe_valid = shortPip_output_rValid;
   assign shortPip_output_m2sPipe_payload_rd = shortPip_output_rData_rd;
   assign shortPip_output_m2sPipe_payload_value_mantissa = shortPip_output_rData_value_mantissa;
@@ -14028,7 +14005,7 @@ module FpuCore (
   assign roundFront_expBase = 8'h81;
   assign roundFront_expDif = (_zz_roundFront_expDif - {1'b0,roundFront_input_payload_value_exponent});
   assign roundFront_expSubnormal = ((! roundFront_input_payload_value_special) && (! roundFront_expDif[9]));
-  assign roundFront_discardCount = (roundFront_expSubnormal ? roundFront_expDif : 10'h000);
+  assign roundFront_discardCount = (roundFront_expSubnormal ? roundFront_expDif : 10'h0);
   assign roundFront_discardCountTrunk = roundFront_discardCount[4:0];
   always @(*) begin
     roundFront_exactMask = {(5'h17 < roundFront_discardCountTrunk),{(5'h16 < roundFront_discardCountTrunk),{(5'h15 < roundFront_discardCountTrunk),{(5'h14 < roundFront_discardCountTrunk),{(_zz_roundFront_exactMask < roundFront_discardCountTrunk),{_zz_roundFront_exactMask_1,{_zz_roundFront_exactMask_2,_zz_roundFront_exactMask_3}}}}}}};
@@ -14038,7 +14015,7 @@ module FpuCore (
   end
 
   always @(*) begin
-    roundFront_roundAdjusted = {_zz_roundFront_roundAdjusted[roundFront_discardCountTrunk],((roundFront_manAggregate & roundFront_exactMask) != 25'h0000000)};
+    roundFront_roundAdjusted = {_zz_roundFront_roundAdjusted[roundFront_discardCountTrunk],((roundFront_manAggregate & roundFront_exactMask) != 25'h0)};
     if(when_FpuCore_l1559) begin
       roundFront_roundAdjusted[1] = 1'b0;
     end
@@ -14096,7 +14073,7 @@ module FpuCore (
     end
     if(when_FpuCore_l1638) begin
       if(when_FpuCore_l1648) begin
-        roundBack_patched_mantissa = 23'h000000;
+        roundBack_patched_mantissa = 23'h0;
       end
     end
   end
@@ -14233,7 +14210,7 @@ module FpuCore (
   end
 
   assign when_FpuCore_l1657 = ((! roundBack_input_payload_value_special) && (roundBack_input_payload_roundAdjusted != 2'b00));
-  assign roundBack_writes_0 = _zz_rf_scoreboards_0_writes_port1[0];
+  assign roundBack_writes_0 = rf_scoreboards_0_writes_spinal_port1[0];
   assign roundBack_write = roundBack_writes_0;
   assign roundBack_output_payload_NX = (roundBack_nx && roundBack_write);
   assign roundBack_output_payload_OF = (roundBack_of && roundBack_write);
@@ -14262,7 +14239,7 @@ module FpuCore (
   assign writeback_port_payload_data_value_special = writeback_input_payload_value_special;
   always @(posedge clk or posedge reset) begin
     if(reset) begin
-      rf_init_counter <= 6'h00;
+      rf_init_counter <= 6'h0;
       FpuPlugin_fpu_streamFork_1_io_outputs_1_rValidN <= 1'b1;
       commitLogic_0_pending_counter <= 4'b0000;
       commitLogic_0_add_counter <= 4'b0000;
@@ -14409,9 +14386,9 @@ module FpuCore (
       if(writeback_port_valid) begin
         `ifndef SYNTHESIS
           `ifdef FORMAL
-            assert((! ((writeback_port_payload_data_value_exponent == 9'h000) && (! writeback_port_payload_data_value_special)))); // FpuCore.scala:L1718
+            assert((! ((writeback_port_payload_data_value_exponent == 9'h0) && (! writeback_port_payload_data_value_special)))); // FpuCore.scala:L1718
           `else
-            if(!(! ((writeback_port_payload_data_value_exponent == 9'h000) && (! writeback_port_payload_data_value_special)))) begin
+            if(!(! ((writeback_port_payload_data_value_exponent == 9'h0) && (! writeback_port_payload_data_value_special)))) begin
               $display("FAILURE Special violation"); // FpuCore.scala:L1718
               $finish;
             end
@@ -14493,7 +14470,7 @@ module FpuCore (
         end else begin
           load_s1_fsm_shift_by <= {_zz_load_s1_fsm_shift_by_32,{_zz_load_s1_fsm_shift_by_31,{_zz_load_s1_fsm_shift_by_30,{_zz_load_s1_fsm_shift_by_29,_zz_load_s1_fsm_shift_by_28}}}};
           load_s1_fsm_boot <= 1'b0;
-          load_s1_fsm_i2fZero <= (load_s1_input_payload_value[31 : 0] == 32'h00000000);
+          load_s1_fsm_i2fZero <= (load_s1_input_payload_value[31 : 0] == 32'h0);
         end
       end else begin
         load_s1_fsm_done <= 1'b1;
@@ -14915,11 +14892,11 @@ module DataCache (
   input  wire          reset
 );
 
-  reg        [31:0]   _zz_ways_0_data_port0;
+  reg        [31:0]   ways_0_data_spinal_port0;
   wire       [0:0]    _zz_when;
   wire       [1:0]    _zz_loader_waysAllocator;
   reg                 _zz_1;
-  reg                 when_Phase_l763;
+  reg                 when_Phase_l768;
   wire                haltCpu;
   reg                 tagsReadCmd_valid;
   reg                 tagsWriteCmd_valid;
@@ -14939,7 +14916,7 @@ module DataCache (
   reg        [0:0]    dataWriteCmd_payload_address;
   reg        [31:0]   dataWriteCmd_payload_data;
   reg        [3:0]    dataWriteCmd_payload_mask;
-  wire                when_Phase_l790;
+  wire                when_Phase_l795;
   wire                ways_0_tagsReadRsp_valid;
   wire                ways_0_tagsReadRsp_error;
   wire       [28:0]   ways_0_tagsReadRsp_address;
@@ -15070,7 +15047,7 @@ module DataCache (
   assign _zz_when = 1'b1;
   assign _zz_loader_waysAllocator = {loader_waysAllocator,loader_waysAllocator[0]};
   always @(*) begin
-    _zz_ways_0_data_port0 = {_zz_ways_0_datasymbol_read_3, _zz_ways_0_datasymbol_read_2, _zz_ways_0_datasymbol_read_1, _zz_ways_0_datasymbol_read};
+    ways_0_data_spinal_port0 = {_zz_ways_0_datasymbol_read_3, _zz_ways_0_datasymbol_read_2, _zz_ways_0_datasymbol_read_1, _zz_ways_0_datasymbol_read};
   end
   always @(posedge clk) begin
     if(_zz_ways_0_dataReadRspMem) begin
@@ -15104,20 +15081,20 @@ module DataCache (
   end
 
   always @(*) begin
-    when_Phase_l763 = 1'b0;
+    when_Phase_l768 = 1'b0;
     if(when_DataCache_l645) begin
-      when_Phase_l763 = 1'b1;
+      when_Phase_l768 = 1'b1;
     end
   end
 
   assign haltCpu = 1'b0;
-  assign when_Phase_l790 = (tagsReadCmd_valid && (! io_cpu_memory_isStuck));
+  assign when_Phase_l795 = (tagsReadCmd_valid && (! io_cpu_memory_isStuck));
   assign _zz_ways_0_tagsReadRsp_valid = _zz_ways_0_tagsReadRsp_valid_2;
   assign ways_0_tagsReadRsp_valid = _zz_ways_0_tagsReadRsp_valid[0];
   assign ways_0_tagsReadRsp_error = _zz_ways_0_tagsReadRsp_valid[1];
   assign ways_0_tagsReadRsp_address = _zz_ways_0_tagsReadRsp_valid[30 : 2];
   assign _zz_ways_0_dataReadRspMem = (dataReadCmd_valid && (! io_cpu_memory_isStuck));
-  assign ways_0_dataReadRspMem = _zz_ways_0_data_port0;
+  assign ways_0_dataReadRspMem = ways_0_data_spinal_port0;
   assign ways_0_dataReadRsp = ways_0_dataReadRspMem[31 : 0];
   assign when_DataCache_l645 = (tagsWriteCmd_valid && tagsWriteCmd_payload_way[0]);
   assign when_DataCache_l648 = (dataWriteCmd_valid && dataWriteCmd_payload_way[0]);
@@ -15593,10 +15570,10 @@ module DataCache (
       stageB_mask <= stageA_mask;
     end
     loader_valid_regNext <= loader_valid;
-    if(when_Phase_l790) begin
+    if(when_Phase_l795) begin
       _zz_ways_0_tagsReadRsp_valid_2 <= _zz_ways_0_tagsReadRsp_valid_1;
     end
-    if(when_Phase_l763) begin
+    if(when_Phase_l768) begin
       _zz_ways_0_tagsReadRsp_valid_3 <= {tagsWriteCmd_payload_data_address,{tagsWriteCmd_payload_data_error,tagsWriteCmd_payload_data_valid}};
     end
   end
@@ -15718,7 +15695,7 @@ module StreamFifoLowLatency (
 
 endmodule
 
-module FlowCCByToggle (
+module FlowCCUnsafeByToggle (
   input  wire          io_input_valid,
   input  wire          io_input_payload_last,
   input  wire [0:0]    io_input_payload_fragment,
@@ -15743,7 +15720,7 @@ module FlowCCByToggle (
   (* async_reg = "true" *) reg                 outputArea_flow_m2sPipe_payload_last;
   (* async_reg = "true" *) reg        [0:0]    outputArea_flow_m2sPipe_payload_fragment;
 
-  BufferCC inputArea_target_buffercc (
+  (* keep_hierarchy = "TRUE" *) BufferCC inputArea_target_buffercc (
     .io_dataIn  (inputArea_target                    ), //i
     .io_dataOut (inputArea_target_buffercc_io_dataOut), //o
     .clk        (clk                                 ), //i
@@ -16227,10 +16204,10 @@ module FpuSqrt (
       x <= (x <<< 2);
     end
     if(when_FpuSqrt_l52) begin
-      q <= 24'h000000;
+      q <= 24'h0;
       a <= {26'd0, _zz_a_2};
       x <= io_input_payload_a[22:0];
-      counter <= 5'h00;
+      counter <= 5'h0;
     end
   end
 
@@ -16732,12 +16709,12 @@ module StreamFifo (
   reg                 io_push_rValid;
   reg                 io_push_rData_error;
   reg        [31:0]   io_push_rData_inst;
-  wire                when_Stream_l369;
-  wire                when_Stream_l1187;
+  wire                when_Stream_l375;
+  wire                when_Stream_l1230;
 
   always @(*) begin
     oneStage_doFlush = io_flush;
-    if(when_Stream_l1187) begin
+    if(when_Stream_l1230) begin
       if(io_pop_ready) begin
         oneStage_doFlush = 1'b1;
       end
@@ -16746,18 +16723,18 @@ module StreamFifo (
 
   always @(*) begin
     io_push_ready = oneStage_buffer_ready;
-    if(when_Stream_l369) begin
+    if(when_Stream_l375) begin
       io_push_ready = 1'b1;
     end
   end
 
-  assign when_Stream_l369 = (! oneStage_buffer_valid);
+  assign when_Stream_l375 = (! oneStage_buffer_valid);
   assign oneStage_buffer_valid = io_push_rValid;
   assign oneStage_buffer_payload_error = io_push_rData_error;
   assign oneStage_buffer_payload_inst = io_push_rData_inst;
   always @(*) begin
     io_pop_valid = oneStage_buffer_valid;
-    if(when_Stream_l1187) begin
+    if(when_Stream_l1230) begin
       io_pop_valid = io_push_valid;
     end
   end
@@ -16765,21 +16742,21 @@ module StreamFifo (
   assign oneStage_buffer_ready = io_pop_ready;
   always @(*) begin
     io_pop_payload_error = oneStage_buffer_payload_error;
-    if(when_Stream_l1187) begin
+    if(when_Stream_l1230) begin
       io_pop_payload_error = io_push_payload_error;
     end
   end
 
   always @(*) begin
     io_pop_payload_inst = oneStage_buffer_payload_inst;
-    if(when_Stream_l1187) begin
+    if(when_Stream_l1230) begin
       io_pop_payload_inst = io_push_payload_inst;
     end
   end
 
   assign io_occupancy = oneStage_buffer_valid;
   assign io_availability = (! oneStage_buffer_valid);
-  assign when_Stream_l1187 = (! oneStage_buffer_valid);
+  assign when_Stream_l1230 = (! oneStage_buffer_valid);
   always @(posedge clk or posedge reset) begin
     if(reset) begin
       io_push_rValid <= 1'b0;
