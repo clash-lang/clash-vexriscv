@@ -9,7 +9,7 @@
 import Clash.Prelude
 
 import Protocols.Wishbone
-import VexRiscv (CpuOut(iBusWbM2S, dBusWbM2S))
+import VexRiscv (CpuOut(iBusWbM2S, dBusWbM2S), DumpVcd(NoDumpVcd))
 
 import qualified Data.List as L
 
@@ -58,7 +58,7 @@ main = do
     jtagPort = vexrJtagBridge 7894 jtagOut
     cpuOut@(unbundle -> (_circuit, jtagOut, writes, _iBus, _dBus)) =
       withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
-        let (circ, jto, writes1, iBus, dBus) = cpu (Just jtagPort) iMem dMem
+        let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagPort) iMem dMem
             dBus' = register emptyWishboneS2M dBus
         in bundle (circ, jto, writes1, iBus, dBus')
 

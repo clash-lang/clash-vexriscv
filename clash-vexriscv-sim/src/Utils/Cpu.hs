@@ -40,6 +40,7 @@ cpu ::
   --      convenient it is to use this within a design with synchronous resets.
   -- , HasAsynchronousReset dom
   ) =>
+  DumpVcd ->
   Maybe (Signal dom JtagIn) ->
   DMemory dom ->
   DMemory dom ->
@@ -52,7 +53,7 @@ cpu ::
   , -- dBus responses
     Signal dom (WishboneS2M (BitVector 32))
   )
-cpu jtagIn0 bootIMem bootDMem =
+cpu dumpVcd jtagIn0 bootIMem bootDMem =
   ( cpuOut
   , jtagOut
   , writes
@@ -60,7 +61,7 @@ cpu jtagIn0 bootIMem bootDMem =
   , dS2M
   )
   where
-    (cpuOut, jtagOut) = vexRiscv hasClock (hasReset `unsafeOrReset` jtagReset) input jtagIn1
+    (cpuOut, jtagOut) = vexRiscv dumpVcd hasClock (hasReset `unsafeOrReset` jtagReset) input jtagIn1
 
     jtagReset =
       unsafeFromActiveHigh $ register False $
