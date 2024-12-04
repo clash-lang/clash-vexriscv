@@ -20,7 +20,7 @@ import Text.Printf (printf, hPrintf)
 import Utils.DebugConfig (DebugConfiguration (..))
 import Utils.Cpu (cpu)
 import Utils.ProgramLoad (loadProgramDmem)
-import VexRiscv (JtagIn (JtagIn), JtagOut (JtagOut), CpuOut (dBusWbM2S, iBusWbM2S))
+import VexRiscv (JtagIn (JtagIn), JtagOut (JtagOut), CpuOut (dBusWbM2S, iBusWbM2S), DumpVcd(NoDumpVcd))
 import VexRiscv.JtagTcpBridge (vexrJtagBridge)
 
 
@@ -106,7 +106,7 @@ main = do
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
       withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
         let
-          (circ, jto, writes1, iBus, dBus) = cpu (Just jtagInA) iMemA dMemA
+          (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInA) iMemA dMemA
           dBus' = register emptyWishboneS2M dBus
         in bundle (circ, jto, writes1, iBus, dBus')
 
@@ -114,7 +114,7 @@ main = do
     cpuOutB@(unbundle -> (_circuitB, jtagOutB, _, _iBusB, _dBusB)) =
       withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
         let
-          (circ, jto, writes1, iBus, dBus) = cpu (Just jtagInB) iMemB dMemB
+          (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInB) iMemB dMemB
           dBus' = register emptyWishboneS2M dBus
         in bundle (circ, jto, writes1, iBus, dBus')
 

@@ -25,6 +25,7 @@ import Test.Tasty.Options
 
 import Utils.ProgramLoad (loadProgramDmem)
 import Utils.Cpu (cpu)
+import VexRiscv (DumpVcd(NoDumpVcd))
 
 import qualified Tests.Jtag
 import qualified Tests.JtagChain
@@ -44,7 +45,7 @@ runProgramExpect act n expected = withSystemTempFile "ELF" $ \fp _ -> do
 
   let _all@(unbundle -> (_circuit, _, writes, _iBus, _dBus)) =
         withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen $
-          bundle (cpu Nothing iMem dMem)
+          bundle (cpu NoDumpVcd Nothing iMem dMem)
 
   let output = L.take (BS.length expected) $
         flip mapMaybe (sampleN_lazy n writes) $ \case
@@ -104,7 +105,7 @@ runTest ::
   FilePath ->
   TestTree
 runTest name mode n elfPath expectPath =
-  testCase ("Integration test `" <> name <> "` (" <> mode <> ")") $ do
+  testCase ("Integration test " <> name <> " (" <> mode <> ")") $ do
     expected <- BS.readFile expectPath
     let act = copyFile elfPath
 
