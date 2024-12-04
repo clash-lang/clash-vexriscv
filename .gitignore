@@ -71,3 +71,6 @@ simulation_dump.vcd
 
 # Clash output
 verilog
+
+# Metals vscode extension
+.metals
