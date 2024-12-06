@@ -48,7 +48,8 @@ data JtagIn = JtagIn
 
 data JtagOut = JtagOut
   { testDataOut :: "TDO" ::: Bit
-  , debugReset :: "RST" ::: Bit
+  , ndmreset :: "RST" ::: Bit
+  , stoptime :: "STOPTIME" ::: Bit
   }
   deriving (Generic, NFDataX, ShowX, Eq, BitPack)
 
@@ -78,7 +79,7 @@ instance Protocol (Jtag dom) where
 
 instance IdleCircuit (Jtag dom) where
   idleFwd _ = pure $ JtagIn 0 0 0
-  idleBwd _ = pure $ JtagOut 0 0
+  idleBwd _ = pure $ JtagOut 0 0 0
 
 vexRiscv ::
   forall dom .
@@ -117,17 +118,10 @@ vexRiscv dumpVcd clk rst cpuInput jtagInput =
       <*> (unpack <$> dBus_CTI)
       <*> (unpack <$> dBus_BTE)
     )
-  , JtagOut <$> jtag_TDO1 <*> debug_resetOut1
+  , JtagOut <$> jtag_TDO <*> ndmreset <*> stoptime
   )
 
   where
-
-    jtag_TDO1 =
-          jtag_TDO
-
-    debug_resetOut1 =
-          debug_resetOut
-
     (unbundle -> (timerInterrupt, externalInterrupt, softwareInterrupt, iBusS2M, dBusS2M))
       = (\(CpuIn a b c d e) -> (a, b, c, d, e)) <$> cpuInput
 
@@ -163,7 +157,8 @@ vexRiscv dumpVcd clk rst cpuInput jtagInput =
       , dBus_SEL
       , dBus_CTI
       , dBus_BTE
-      , debug_resetOut
+      , ndmreset
+      , stoptime
       , jtag_TDO
       ) = vexRiscv# dumpVcd sourcePath clk rst
           timerInterrupt
@@ -230,7 +225,8 @@ vexRiscv#
     , Signal dom (BitVector 3)  -- ^ dBus_CTI
     , Signal dom (BitVector 2)  -- ^ dBus_BTE
 
-    , Signal dom Bit -- ^ debug_resetOut
+    , Signal dom Bit -- ^ ndmreset
+    , Signal dom Bit -- ^ stoptime
     , Signal dom Bit -- ^ jtag_TDO
     )
 vexRiscv# dumpVcd !_sourcePath clk rst0
@@ -360,7 +356,8 @@ vexRiscv# dumpVcd !_sourcePath clk rst0
       , truncateB . pack <$> dBus_BTE
 
       -- JTAG
-      , FFI.jtag_debug_resetOut <$> output
+      , FFI.jtag_ndmreset <$> output
+      , FFI.jtag_stoptime <$> output
       , FFI.jtag_TDO <$> output
       )
 {-# CLASH_OPAQUE vexRiscv# #-}
@@ -406,11 +403,12 @@ vexRiscv# dumpVcd !_sourcePath clk rst0
        , dBus_SEL
        , dBus_CTI
        , dBus_BTE
-       , debug_resetOut
+       , ndmreset
+       , stoptime
        , jtag_TDO
 
        , cpu
-       ) = vecToTuple $ indicesI @36
+       ) = vecToTuple $ indicesI @37
     in
       InlineYamlPrimitive [Verilog] [__i|
   BlackBox:
@@ -439,7 +437,8 @@ vexRiscv# dumpVcd !_sourcePath clk rst0
       wire [2:0] ~GENSYM[dBus_CTI][#{dBus_CTI}];
       wire [1:0] ~GENSYM[dBus_BTE][#{dBus_BTE}];
 
-      wire ~GENSYM[debug_resetOut][#{debug_resetOut}];
+      wire ~GENSYM[ndmreset][#{ndmreset}];
+      wire ~GENSYM[stoptime][#{stoptime}];
       wire ~GENSYM[jtag_TDO][#{jtag_TDO}];
 
       VexRiscv ~GENSYM[cpu][#{cpu}] (
@@ -476,7 +475,8 @@ vexRiscv# dumpVcd !_sourcePath clk rst0
         .jtag_tck       ( ~ARG[#{jtag_TCK}]),
         .jtag_tdo       ( ~SYM[#{jtag_TDO}] ),
 
-        .debug_resetOut ( ~SYM[#{debug_resetOut}] ),
+        .ndmreset ( ~SYM[#{ndmreset}] ),
+        .stoptime ( ~SYM[#{stoptime}] ),
 
         .clk   ( ~ARG[#{clk}] ),
         .reset ( ~ARG[#{rst}] )
@@ -499,7 +499,8 @@ vexRiscv# dumpVcd !_sourcePath clk rst0
         ~SYM[#{dBus_SEL}],
         ~SYM[#{dBus_CTI}],
         ~SYM[#{dBus_BTE}],
-        ~SYM[#{debug_resetOut}],
+        ~SYM[#{ndmreset}],
+        ~SYM[#{stoptime}],
         ~SYM[#{jtag_TDO}]
       };
 
