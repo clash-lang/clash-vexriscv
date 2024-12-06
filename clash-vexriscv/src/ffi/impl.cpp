@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: 2022 Google LLC
-//
 // SPDX-License-Identifier: Apache-2.0
 
 #include "VVexRiscv.h"
@@ -51,20 +49,24 @@ static void connection_reset(vexr_jtag_bridge_data *bridge_data);
 
 VVexRiscv* vexr_init()
 {
+	printf("[INIT] Initializing VVexRiscv\n");
 	contextp = new VerilatedContext;
 	VVexRiscv *v = new VVexRiscv(contextp);
 	v->clk = false;
+	printf("[INIT] VVexRiscv initialized\n");
 	return v;
 }
 
 VerilatedVcdC* vexr_init_vcd(VVexRiscv *top, const char* path)
 {
+	printf("[INIT VCD] Initializing VCD\n");
 	VerilatedVcdC* vcd = new VerilatedVcdC;
 	Verilated::traceEverOn(true);
 	// Trace 99 levels of the hierarchy. We only have one level AFAIK, so this
 	// should be enough :-).
 	top->trace(vcd, 99);
 	vcd->open(path);
+	printf("[INIT VCD] VCD initialized and opened at path: %s\n", path);
 	return vcd;
 }
 
@@ -114,38 +116,37 @@ void set_ouputs(VVexRiscv *top, OUTPUT *output)
 	output->dBusWishbone_CTI = top->dBusWishbone_CTI;
 	output->dBusWishbone_BTE = top->dBusWishbone_BTE;
 
-	output->jtag_debug_resetOut = top->debug_resetOut;
+	output->jtag_ndmreset = top->ndmreset;
 	output->jtag_TDO = top->jtag_tdo;
 }
 
 void vexr_init_stage1(VerilatedVcdC *vcd, VVexRiscv *top, const NON_COMB_INPUT *input, OUTPUT *output)
 {
-	// Set all inputs that cannot combinationaly depend on outputs. I.e., all inputs
-	// except the Wishbone buses.
+	printf("[INIT STAGE 1] Initializing stage 1\n");
 	set_non_comb_inputs(top, input);
-
-	// Combinatorially respond to the inputs
 	top->eval();
 	if (vcd != NULL) {
 		vcd->dump(contextp->time());
 	}
 	set_ouputs(top, output);
-
-	// Advance time by 50 nanoseconds. This is an arbitrary value. Ideally, we would
-	// do something similar to Clash's template tag "~LONGESTPERIOD".
 	contextp->timeInc(50000);
+	printf("[INIT STAGE 1] Stage 1 initialized\n");
 }
 
 void vexr_init_stage2(VVexRiscv *top, const COMB_INPUT *input)
 {
+	printf("[INIT STAGE 2] Initializing stage 2\n");
 	set_comb_inputs(top, input);
+	printf("[INIT STAGE 2] Stage 2 initialized\n");
 }
 
 void vexr_shutdown(VVexRiscv *top)
 {
+	printf("[SHUTDOWN] Shutting down VVexRiscv\n");
 	delete top;
 	delete contextp;
 	contextp = 0;
+	printf("[SHUTDOWN] VVexRiscv shut down\n");
 }
 
 
@@ -187,6 +188,7 @@ void vexr_step_falling_edge(VerilatedVcdC *vcd, VVexRiscv *top, uint64_t time_ad
 
 vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 {
+	// printf("[JTAG BRIDGE INIT] Initializing JTAG bridge on port %d\n", port);
 	vexr_jtag_bridge_data *d = new vexr_jtag_bridge_data;
 
 	d->prev_input = { 0, 0, 0 };
@@ -226,19 +228,22 @@ vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 	d->client_handle = -1;
 	d->addr_size = sizeof(d->server_storage);
 
+	// printf("[JTAG BRIDGE INIT] JTAG bridge initialized successfully\n");
 	return d;
 }
-
 void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input) {
+	// printf("[JTAG BRIDGE STEP] Stepping JTAG bridge\n");
     *input = d->prev_input;
 
     if (d->timer != 0) {
+		// printf("[JTAG BRIDGE STEP] Timer active, decrementing timer\n");
         d->timer -= 1;
         return;
     }
 
     d->check_new_connections_timer++;
     if (d->check_new_connections_timer == 200) {
+		// printf("[JTAG BRIDGE STEP] Checking for new connections\n");
         d->check_new_connections_timer = 0;
         int new_client_handle = accept(
             d->server_socket,
@@ -246,17 +251,21 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
             &d->addr_size
         );
         if (new_client_handle != -1) {
+			// printf("[JTAG BRIDGE STEP] New client handle received\n");
             if (d->client_handle != -1) {
+				// printf("[JTAG BRIDGE STEP] Existing client handle found, resetting connection\n");
                 connection_reset(d);
             }
             d->client_handle = new_client_handle;
-            printf("\n[REMOTE_BITBANG] New connection established\n");
+			// printf("\n[REMOTE_BITBANG] New connection established\n");
         } else if (d->client_handle == -1) {
+			// printf("[JTAG BRIDGE STEP] No client handle, setting self sleep\n");
             d->self_sleep = 200;
         }
     }
 
     if (d->self_sleep) {
+		// printf("[JTAG BRIDGE STEP] Self sleep active, decrementing self sleep\n");
         d->self_sleep--;
         return;
     }
@@ -265,46 +274,49 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
         int n;
 
         if (d->rx_buffer_remaining == 0) {
+			// printf("[JTAG BRIDGE STEP] No remaining data in RX buffer, checking for new data\n");
             if (ioctl(d->client_handle, FIONREAD, &n) != 0) {
-                printf("[REMOTE_BITBANG] ioctl failed\n");
+				// printf("[REMOTE_BITBANG] ioctl failed\n");
                 connection_reset(d);
                 return;
             }
             if (n >= 1) {
+				// printf("[JTAG BRIDGE STEP] Data available, reading into RX buffer\n");
                 d->rx_buffer_size = read(d->client_handle, &d->rx_buffer, sizeof(d->rx_buffer));
                 if (d->rx_buffer_size < 0) {
-                    printf("[REMOTE_BITBANG] read failed\n");
+					// printf("[REMOTE_BITBANG] read failed\n");
                     connection_reset(d);
                     return;
                 }
                 d->rx_buffer_remaining = d->rx_buffer_size;
             } else {
+				// printf("[JTAG BRIDGE STEP] No data available, setting self sleep\n");
                 d->self_sleep = 30;
                 return;
             }
         }
 
         if (d->rx_buffer_remaining != 0) {
+			// printf("[JTAG BRIDGE STEP] Processing command from RX buffer\n");
             char command = d->rx_buffer[d->rx_buffer_size - (d->rx_buffer_remaining--)];
             switch (command) {
                 case 'R': { // Read request
-										printf("[REMOTE_BITBANG] Read request command received, tdo=%d\n", output->tdo);
+					// printf("[REMOTE_BITBANG] Read request command received, tdo=%d\n", output->tdo);
                     char tdo_value = (output->tdo != 0) ? '1' : '0';
                     if (send(d->client_handle, &tdo_value, 1, 0) == -1) {
                         printf("[REMOTE_BITBANG] send failed\n");
                         connection_reset(d);
                     }
-
                     break;
                 }
                 case '0' ... '7': { // Write tck, tms, tdi
-										printf("[REMOTE_BITBANG] Write tck, tms, tdi command received: ");
+										// printf("[REMOTE_BITBANG] Write tck, tms, tdi command received: ");
                     uint8_t value = command - '0';
                     input->tck = (value & 4) != 0;
                     input->tms = (value & 2) != 0;
                     input->tdi = (value & 1) != 0;
                     d->prev_input = *input;
-										printf("tck=%d, tms=%d, tdi=%d\n", input->tck, input->tms, input->tdi);
+										// printf("tck=%d, tms=%d, tdi=%d\n", input->tck, input->tms, input->tdi);
                     break;
                 }
                 case 'Q': { // Quit
@@ -346,10 +358,12 @@ void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, 
     }
 
     d->timer = 3;
+	// printf("[JTAG BRIDGE STEP] JTAG bridge step completed\n");
 }
 
 void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data)
 {
+	// printf("[JTAG BRIDGE SHUTDOWN] Shutting down JTAG bridge\n");
 	if (bridge_data->client_handle != -1) {
 		shutdown(bridge_data->client_handle, SHUT_RDWR);
 		usleep(100);
@@ -358,10 +372,9 @@ void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data)
 		close(bridge_data->server_socket);
 		usleep(100);
 	}
+	// printf("[JTAG BRIDGE SHUTDOWN] JTAG bridge shut down\n");
 }
 
-
-/** Returns true on success, or false if there was an error */
 static bool set_socket_blocking_enabled(int fd, bool blocking)
 {
    if (fd < 0) return false;
@@ -378,7 +391,7 @@ static bool set_socket_blocking_enabled(int fd, bool blocking)
 }
 
 static void connection_reset(vexr_jtag_bridge_data *bridge_data) {
-	printf("[JTAG BRIDGE] closed connection\n");
+	// printf("[JTAG BRIDGE] closed connection\n");
 	shutdown(bridge_data->client_handle, SHUT_RDWR);
 	bridge_data->client_handle = -1;
 }
