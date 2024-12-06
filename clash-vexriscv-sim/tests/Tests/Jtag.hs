@@ -2,6 +2,7 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE NumericUnderscores #-}
 -- | Tests for the JTAG debug interface
 module Tests.Jtag where
 
@@ -16,6 +17,9 @@ import System.Directory (findExecutable)
 import System.Exit
 import System.IO
 import System.Process
+import GHC.IO.Handle
+import System.Timeout
+import Control.Concurrent
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -62,6 +66,7 @@ getGdb = do
 expectLine :: Bool -> Handle -> String -> Assertion
 expectLine debug h expected = do
   line <- hGetLine h
+  putStrLn $ "expectLine " <> expected <> ": " <> line
   when debug $ do
     hPutStr stderr "> "
     hPutStrLn stderr line
@@ -101,13 +106,15 @@ test debug = do
 
   let
     vexRiscvProc = (proc simulateExecPath [printElfPath]){
-        std_out = CreatePipe
-      , cwd = Just projectRoot
+        cwd = Just projectRoot
+      ,  std_out = CreatePipe
+
     }
 
-    openOcdProc = (proc "openocd-vexriscv" ["-f", openocdCfgPath]){
-        std_err = CreatePipe
-      , cwd = Just projectRoot
+    openOcdProc = (proc "openocd-riscv" ["-f", openocdCfgPath]){
+        cwd = Just projectRoot
+      , std_err = CreatePipe
+
     }
 
     gdbProc = (proc gdb ["--command", gdbCmdPath]){
@@ -115,22 +122,42 @@ test debug = do
       cwd = Just projectRoot
     }
 
+  putStrLn "Starting vex riscv"
   withCreateProcess vexRiscvProc $ \_ (fromJust -> vexRiscvStdOut) _ _ -> do
     hSetBuffering vexRiscvStdOut LineBuffering
-    expectLine debug vexRiscvStdOut "[CPU] a"
+    putStrLn "Waiting for CPU a"
+    waitForLine debug vexRiscvStdOut "[CPU] a"
 
     -- CPU has started, so we can start OpenOCD
+    -- threadDelay 2_000_000
+    putStrLn "Starting openocd"
     withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
       hSetBuffering openOcdStdErr LineBuffering
+      putStrLn "Waiting for halt"
       waitForLine debug openOcdStdErr "Halting processor"
 
       -- OpenOCD has started, so we can start GDB
+      -- threadDelay 2_000_000
+      putStrLn "Starting gdb"
       withCreateProcess gdbProc $ \_ _ _ gdbProcHandle -> do
-        expectLine debug vexRiscvStdOut "[CPU] a"
-        expectLine debug vexRiscvStdOut "[CPU] b"
 
+        putStrLn "Waiting for CPU a"
+        waitForLine debug vexRiscvStdOut "[CPU] a"
+
+        putStrLn "Waiting for CPU b"
+        waitForLine debug vexRiscvStdOut "[CPU] b"
+
+        putStrLn "Waiting for GDB to exit"
         gdbExitCode <- waitForProcess gdbProcHandle
         ExitSuccess @?= gdbExitCode
+        maybeGdbExitCode <- timeout 1_000_000 $ waitForProcess gdbProcHandle
+        case maybeGdbExitCode of
+          Nothing -> do
+            openOcdOut <- hGetContents openOcdStdErr
+            putStrLn openOcdOut
+            hClose openOcdStdErr
+            fail "GDB did not exit in time"
+          Just gdbExitCode -> ExitSuccess @?= gdbExitCode
 
 tests :: TestTree
 tests = askOption $ \(JtagDebug debug) ->
