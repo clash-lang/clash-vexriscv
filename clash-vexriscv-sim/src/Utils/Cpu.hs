@@ -65,7 +65,7 @@ cpu dumpVcd jtagIn0 bootIMem bootDMem =
 
     jtagReset =
       unsafeFromActiveHigh $ register False $
-        bitToBool . debugReset <$> jtagOut
+        bitToBool . ndmreset <$> jtagOut
 
     jtagIn1 = fromMaybe (pure JTag.defaultIn) jtagIn0
 
