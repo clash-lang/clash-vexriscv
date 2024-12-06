@@ -79,7 +79,7 @@ data OUTPUT = OUTPUT
   , dBusWishbone_CTI :: Word8
   , dBusWishbone_BTE :: Word8
 
-  , jtag_debug_resetOut :: Bit
+  , jtag_ndmreset :: Bit
   , jtag_TDO :: Bit
   }
   deriving (Show)
@@ -92,7 +92,7 @@ data JTAG_INPUT = JTAG_INPUT
   deriving (Show)
 
 data JTAG_OUTPUT = JTAG_OUTPUT
-  { debug_resetOut :: Bit
+  { ndmreset :: Bit
   , tdo :: Bit
   }
   deriving (Show)
@@ -174,7 +174,7 @@ instance Storable OUTPUT where
       <*> (#peek OUTPUT, dBusWishbone_CTI) ptr
       <*> (#peek OUTPUT, dBusWishbone_BTE) ptr
 
-      <*> (#peek OUTPUT, jtag_debug_resetOut) ptr
+      <*> (#peek OUTPUT, jtag_ndmreset) ptr
       <*> (#peek OUTPUT, jtag_TDO) ptr
 
     {-# INLINE poke #-}
@@ -197,7 +197,7 @@ instance Storable OUTPUT where
       (#poke OUTPUT, dBusWishbone_CTI) ptr (dBusWishbone_CTI this)
       (#poke OUTPUT, dBusWishbone_BTE) ptr (dBusWishbone_BTE this)
 
-      (#poke OUTPUT, jtag_debug_resetOut) ptr (jtag_debug_resetOut this)
+      (#poke OUTPUT, jtag_ndmreset) ptr (jtag_ndmreset this)
       (#poke OUTPUT, jtag_TDO) ptr (jtag_TDO this)
       return ()
 
@@ -206,12 +206,12 @@ instance Storable JTAG_OUTPUT where
     sizeOf _ = #size JTAG_OUTPUT
     {-# INLINE peek #-}
     peek ptr = const JTAG_OUTPUT <$> pure ()
-      <*> (#peek JTAG_OUTPUT, debug_resetOut) ptr
+      <*> (#peek JTAG_OUTPUT, ndmreset) ptr
       <*> (#peek JTAG_OUTPUT, tdo) ptr
 
     {-# INLINE poke #-}
     poke ptr this = do
-      (#poke JTAG_OUTPUT, debug_resetOut) ptr (debug_resetOut this)
+      (#poke JTAG_OUTPUT, ndmreset) ptr (ndmreset this)
       (#poke JTAG_OUTPUT, tdo) ptr (tdo this)
 
 instance Storable JTAG_INPUT where
