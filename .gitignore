@@ -74,3 +74,6 @@ verilog
 
 # Metals vscode extension
 .metals
+
+# Scala
+.scala-build
