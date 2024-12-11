@@ -22,8 +22,6 @@ pkgs.mkShell {
 
       (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
 
-      # VexRiscV needs a special openocd
-      pkgs.openocd-vexriscv
       pkgs.openocd-riscv
       pkgs.gdb
 
