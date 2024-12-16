@@ -114,7 +114,8 @@ void set_outputs(VVexRiscv *top, OUTPUT *output)
 	output->dBusWishbone_CTI = top->dBusWishbone_CTI;
 	output->dBusWishbone_BTE = top->dBusWishbone_BTE;
 
-	output->jtag_debug_resetOut = top->debug_resetOut;
+	output->jtag_ndmreset = top->ndmreset;
+	output->jtag_stoptime = top->stoptime;
 	output->jtag_TDO = top->jtag_tdo;
 }
 
@@ -229,78 +230,119 @@ vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port)
 	return d;
 }
 
-void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input)
-{
-	// We set the input values to their last here
-	// so that only the "successful" path has to update them
+void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output, JTAG_INPUT *input) {
+    *input = d->prev_input;
 
-	*input = d->prev_input;
+    if (d->timer != 0) {
+        d->timer -= 1;
+        return;
+    }
 
-	if(d->timer != 0) {
-		d->timer -= 1;
-		return;
-	}
-	d->check_new_connections_timer++;
-	if (d->check_new_connections_timer == 200) {
-		d->check_new_connections_timer = 0;
-		int new_client_handle = accept(
-			d->server_socket,
-			(struct sockaddr *) &d->server_storage,
-			&d->addr_size
-		);
-		if (new_client_handle != -1) {
-			if(d->client_handle != -1){
-				connection_reset(d);
-			}
-			d->client_handle = new_client_handle;
-			printf("\n[JTAG BRIDGE] got new connection\n");
-		} else {
-			if(d->client_handle == -1)
-				d->self_sleep = 200;
-		}
-	}
-	if (d->self_sleep) {
-		d->self_sleep--;
-	} else if (d->client_handle != -1) {
-		int n;
+    d->check_new_connections_timer++;
+    if (d->check_new_connections_timer == 200) {
+        d->check_new_connections_timer = 0;
+        int new_client_handle = accept(
+            d->server_socket,
+            (struct sockaddr *) &d->server_storage,
+            &d->addr_size
+        );
+        if (new_client_handle != -1) {
+            if (d->client_handle != -1) {
+                connection_reset(d);
+            }
+            d->client_handle = new_client_handle;
+        } else if (d->client_handle == -1) {
+            d->self_sleep = 200;
+        }
+    }
 
-		if (d->rx_buffer_remaining == 0) {
-			if (ioctl(d->client_handle, FIONREAD, &n) != 0) {
-				connection_reset(d);
-			} else if (n >= 1) {
-				d->rx_buffer_size = read(
-					d->client_handle,
-					&d->rx_buffer,
-					100
-				);
-				if (d->rx_buffer_size < 0) {
-					connection_reset(d);
-				} else {
-					d->rx_buffer_remaining = d->rx_buffer_size;
-				}
-			} else {
-				d->self_sleep = 30;
-			}
-		}
+    if (d->self_sleep) {
+        d->self_sleep--;
+        return;
+    }
 
-		if (d->rx_buffer_remaining != 0){
-			uint8_t buffer = d->rx_buffer[d->rx_buffer_size - (d->rx_buffer_remaining--)];
-			input->tms = (buffer & 1) != 0;
-			input->tdi = (buffer & 2) != 0;
-			input->tck = (buffer & 8) != 0;
+    if (d->client_handle != -1) {
+        int n;
 
+        if (d->rx_buffer_remaining == 0) {
+            if (ioctl(d->client_handle, FIONREAD, &n) != 0) {
+                connection_reset(d);
+                return;
+            }
+            if (n >= 1) {
+                d->rx_buffer_size = read(d->client_handle, &d->rx_buffer, sizeof(d->rx_buffer));
+                if (d->rx_buffer_size < 0) {
+                    connection_reset(d);
+                    return;
+                }
+                d->rx_buffer_remaining = d->rx_buffer_size;
+            } else {
+                d->self_sleep = 30;
+                return;
+            }
+        }
 
-			d->prev_input = *input;
-			if(buffer & 4){
-				buffer = (output->tdo != 0);
-				// printf("\n[JTAG_BRIDGE] [TDO] %d\n", buffer);
-				if (-1 == send(d->client_handle, &buffer, 1, 0)) {
-					connection_reset(d);
-				}
-			}
-		}
-	}
-	d->timer = 3;
+        if (d->rx_buffer_remaining != 0) {
+            char command = d->rx_buffer[d->rx_buffer_size - (d->rx_buffer_remaining--)];
+            switch (command) {
+                case 'R': { // Read request
+                    char tdo_value = (output->tdo != 0) ? '1' : '0';
+                    if (send(d->client_handle, &tdo_value, 1, 0) == -1) {
+                        printf("[REMOTE_BITBANG] send failed\n");
+                        connection_reset(d);
+                    }
+
+                    break;
+                }
+                case '0' ... '7': { // Write tck, tms, tdi
+                    uint8_t value = command - '0';
+                    input->tck = (value & 4) != 0;
+                    input->tms = (value & 2) != 0;
+                    input->tdi = (value & 1) != 0;
+                    d->prev_input = *input;
+                    break;
+                }
+                case 'Q': { // Quit
+										printf("[REMOTE_BITBANG] Received `Q`, closing socket.\n");
+                    connection_reset(d);
+										// Consider terminating the simulation here
+										printf("[REMOTE_BITBANG] Simulation will not be terminated.\n");
+                    break;
+                }
+								case 'B': { // Blink on
+									// Do not print anything, it will flood the output
+									break;
+								}
+								case 'b': { // Blink off
+									// Do not print anything, it will flood the output
+									break;
+								}
+								case 'r': { // Reset 0 0
+									printf("[REMOTE_BITBANG] Command 'r': Reset 0 0 not implemented\n");
+									break;
+								}
+								case 's': { // Reset 0 1
+									printf("[REMOTE_BITBANG] Command 's': Reset 0 1 not implemented\n");
+									break;
+								}
+								case 't': { // Reset 1 1
+									printf("[REMOTE_BITBANG] Command 't': Reset 1 1 not implemented\n");
+									break;
+								}
+								case 'u': { // Reset 1 0
+									printf("[REMOTE_BITBANG] Command 'u': Reset 1 0 not implemented\n");
+									break;
+								}
+                default: {
+                    printf("[REMOTE_BITBANG] Unknown command: %c\n", command);
+                    connection_reset(d);
+                    break;
+                }
+            }
+        }
+    }
+
+    d->timer = 3;
 }
 
 void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data)
