@@ -48,8 +48,6 @@ data JtagIn = JtagIn
 
 data JtagOut = JtagOut
   { testDataOut :: "TDO" ::: Bit
-  , ndmreset :: "RST" ::: Bit
-  , stoptime :: "STOPTIME" ::: Bit
   }
   deriving (Generic, NFDataX, ShowX, Eq, BitPack)
 
@@ -65,6 +63,10 @@ data CpuIn = CpuIn
 data CpuOut = CpuOut
   { iBusWbM2S :: "IBUS_OUT_" ::: WishboneM2S 30 4 (BitVector 32)
   , dBusWbM2S :: "DBUS_OUT_" ::: WishboneM2S 30 4 (BitVector 32)
+  -- | Peripheral reset produced by `EmbeddedRiscvJtag` plugin.
+  , ndmreset :: "RST" ::: Bit
+  -- | Seems to be some kind of debug signal produced by the `CsrPlugin`.
+  , stoptime :: "STOPTIME" ::: Bit
   }
   deriving (Generic, NFDataX, ShowX, Eq, BitPack)
 
@@ -79,7 +81,7 @@ instance Protocol (Jtag dom) where
 
 instance IdleCircuit (Jtag dom) where
   idleFwd _ = pure $ JtagIn 0 0 0
-  idleBwd _ = pure $ JtagOut 0 0 0
+  idleBwd _ = pure $ JtagOut 0
 
 vexRiscv ::
   forall dom .
@@ -118,7 +120,11 @@ vexRiscv dumpVcd clk rst cpuInput jtagInput =
       <*> (unpack <$> dBus_CTI)
       <*> (unpack <$> dBus_BTE)
     )
-  , JtagOut <$> jtag_TDO <*> ndmreset <*> stoptime
+    <*>
+    ndmreset
+    <*>
+    stoptime
+  , JtagOut <$> jtag_TDO
   )
 
   where
@@ -356,8 +362,8 @@ vexRiscv# dumpVcd !_sourcePath clk rst0
       , truncateB . pack <$> dBus_BTE
 
       -- JTAG
-      , FFI.jtag_ndmreset <$> output
-      , FFI.jtag_stoptime <$> output
+      , FFI.ndmreset <$> output
+      , FFI.stoptime <$> output
       , FFI.jtag_TDO <$> output
       )
 {-# CLASH_OPAQUE vexRiscv# #-}
