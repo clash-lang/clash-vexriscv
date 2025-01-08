@@ -101,6 +101,18 @@ jobs:
           name: vexriscv-test-binaries
           path: clash-vexriscv-sim/vexriscv-test-binaries.tar
 
+  c-checks:
+    name: C checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: clang-format check
+        uses: jidicula/clang-format-action@v4.14.0
+        with:
+          clang-format-version: 16
+          check-path: '.'
 
   vex-riscv:
     name: VexRiscv integration
