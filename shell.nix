@@ -28,6 +28,9 @@ pkgs.mkShell {
       # For Cabal to clone git repos
       pkgs.git
 
+      # C Tools
+      pkgs.clang
+
       # For upgrading Nix env. To update dependencies (within bounds of the currently
       # tracking NixOS version) use:
       #
