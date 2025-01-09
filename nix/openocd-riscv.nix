@@ -27,7 +27,7 @@ pkgs.stdenv.mkDerivation rec {
     deepClone = true;
     postFetch = ''
       # See: https://github.com/NixOS/nixpkgs/issues/8567#issuecomment-1846499599
-      find "$out/" -type d -name '.git' | xargs rm -rf
+      find "$out/" -type d -name '.git' -exec rm -rf {} ';'
     '';
   };
 
