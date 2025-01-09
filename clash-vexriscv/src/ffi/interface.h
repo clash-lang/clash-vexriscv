@@ -49,8 +49,8 @@ typedef struct {
   uint8_t dBusWishbone_CTI;
   uint8_t dBusWishbone_BTE;
 
-  bit jtag_ndmreset;
-  bit jtag_stoptime;
+  bit ndmreset;
+  bit stoptime;
   bit jtag_TDO;
 } OUTPUT;
 
@@ -61,8 +61,6 @@ typedef struct {
 } JTAG_INPUT;
 
 typedef struct {
-  bit ndmreset;
-  bit stoptime;
   bit tdo;
 } JTAG_OUTPUT;
 

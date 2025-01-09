@@ -114,8 +114,8 @@ void set_outputs(VVexRiscv *top, OUTPUT *output) {
   output->dBusWishbone_CTI = top->dBusWishbone_CTI;
   output->dBusWishbone_BTE = top->dBusWishbone_BTE;
 
-  output->jtag_ndmreset = top->ndmreset;
-  output->jtag_stoptime = top->stoptime;
+  output->ndmreset = top->ndmreset;
+  output->stoptime = top->stoptime;
   output->jtag_TDO = top->jtag_tdo;
 }
 
