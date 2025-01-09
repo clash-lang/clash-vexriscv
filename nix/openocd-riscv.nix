@@ -25,6 +25,10 @@ pkgs.stdenv.mkDerivation rec {
     sha256 = "sha256-cc4OebtCCsZyaMIlTfpUe26MwZ8WnrFt+IYQ+B2Hzww=";
     fetchSubmodules = true;
     deepClone = true;
+    postFetch = ''
+      # See: https://github.com/NixOS/nixpkgs/issues/8567#issuecomment-1846499599
+      find "$out/" -type d -name '.git' | xargs rm -rf
+    '';
   };
 
   installPhase = ''
