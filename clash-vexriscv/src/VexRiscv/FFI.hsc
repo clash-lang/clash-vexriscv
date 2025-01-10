@@ -24,7 +24,7 @@ data VerilatedVcdC
 data VexRiscvJtagBridge
 
 foreign import ccall unsafe "vexr_init" vexrInit :: IO (Ptr VexRiscv)
-foreign import ccall unsafe "vexr_init_vcd" vexrInitVcd :: Ptr VexRiscv -> CString -> IO (Ptr VerilatedVcdC)
+foreign import ccall unsafe "vexr_init_vcd" vexrInitVcd :: Ptr VexRiscv -> CString -> Int -> IO (Ptr VerilatedVcdC)
 foreign import ccall unsafe "vexr_shutdown" vexrShutdown :: Ptr VexRiscv -> IO ()
 
 foreign import ccall unsafe "vexr_init_stage1" vexrInitStage1 :: Ptr VerilatedVcdC -> Ptr VexRiscv -> Ptr NON_COMB_INPUT -> Ptr OUTPUT -> IO ()
