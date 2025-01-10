@@ -35,8 +35,9 @@ VVexRiscv *vexr_init();
 VerilatedVcdC *vexr_init_vcd(VVexRiscv *top, const char *path);
 void vexr_shutdown(VVexRiscv *top);
 
-void vexr_init_stage1(VerilatedVcdC *vcd, VVexRiscv *top,
-                      const NON_COMB_INPUT *input, OUTPUT *output);
+void vexr_init_stage1(VerilatedVcdC *vcd, uint64_t dom_period_fs,
+                      VVexRiscv *top, const NON_COMB_INPUT *input,
+                      OUTPUT *output);
 void vexr_init_stage2(VVexRiscv *top, const COMB_INPUT *input);
 void vexr_step_rising_edge(VerilatedVcdC *vcd, VVexRiscv *top,
                            uint64_t time_add, const NON_COMB_INPUT *input,
@@ -119,8 +120,9 @@ void set_outputs(VVexRiscv *top, OUTPUT *output) {
   output->jtag_TDO = top->jtag_tdo;
 }
 
-void vexr_init_stage1(VerilatedVcdC *vcd, VVexRiscv *top,
-                      const NON_COMB_INPUT *input, OUTPUT *output) {
+void vexr_init_stage1(VerilatedVcdC *vcd, uint64_t dom_period_fs,
+                      VVexRiscv *top, const NON_COMB_INPUT *input,
+                      OUTPUT *output) {
   // Set all inputs that cannot combinationaly depend on outputs. I.e., all
   // inputs except the Wishbone buses.
   set_non_comb_inputs(top, input);
@@ -132,9 +134,10 @@ void vexr_init_stage1(VerilatedVcdC *vcd, VVexRiscv *top,
   }
   set_outputs(top, output);
 
-  // Advance time by 50 nanoseconds. This is an arbitrary value. Ideally, we
-  // would do something similar to Clash's template tag "~LONGESTPERIOD".
-  contextp->timeInc(50000);
+  // Advance time by the period of the vexrisc clock in femtoseconds.
+  // Because verilator does not support femtosecond resolution, the simulation
+  // time is off by a factor of 1000.
+  contextp->timeInc(dom_period_fs);
 }
 
 void vexr_init_stage2(VVexRiscv *top, const COMB_INPUT *input) {

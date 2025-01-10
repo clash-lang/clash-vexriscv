@@ -185,7 +185,8 @@ vexRiscv dumpVcd clk rst cpuInput jtagInput =
 
 
 vexRiscv#
-  :: KnownDomain dom
+  :: forall dom .
+  KnownDomain dom
   => DumpVcd
   -> String
   -> Clock dom
@@ -250,7 +251,10 @@ vexRiscv# dumpVcd !_sourcePath clk rst0
   jtag_TCK0
   jtag_TMS0
   jtag_TDI0 = unsafePerformIO $ do
-    (v, initStage1, initStage2, stepRising, stepFalling, _shutDown) <- vexCPU dumpVcd
+    -- PeriodToHz imposes a minimum period of 1 Hz, but the KnownDomain constraint does
+    -- not supply this information.
+    let domPeriodFs = hzToFs (natToNum @(PeriodToHz (Max 1 (DomainPeriod dom))))
+    (v, initStage1, initStage2, stepRising, stepFalling, _shutDown) <- vexCPU dumpVcd domPeriodFs
 
     -- Make sure all the inputs are defined
     let
@@ -520,6 +524,7 @@ vexRiscv# dumpVcd !_sourcePath clk rst0
 -- the internal CPU state
 vexCPU ::
   DumpVcd ->
+  Femtoseconds ->
   IO
     ( Ptr VexRiscv
     , Ptr VexRiscv -> NON_COMB_INPUT -> IO OUTPUT           -- initStage1
@@ -528,7 +533,7 @@ vexCPU ::
     , Ptr VexRiscv -> Word64 -> COMB_INPUT -> IO ()         -- falling
     , Ptr VexRiscv -> IO ()
     )
-vexCPU dumpVcd = do
+vexCPU dumpVcd (fromIntegral . unFemtoseconds -> domPeriodFs :: Word64)  = do
   v <- vexrInit
   vcd <- case dumpVcd of
     NoDumpVcd -> pure nullPtr
@@ -541,7 +546,7 @@ vexCPU dumpVcd = do
     initStage1 vPtr nonCombInput =
       alloca $ \nonCombInputFFI -> alloca $ \outputFFI -> do
         poke nonCombInputFFI nonCombInput
-        vexrInitStage1 vcd vPtr nonCombInputFFI outputFFI
+        vexrInitStage1 vcd domPeriodFs vPtr nonCombInputFFI outputFFI
         peek outputFFI
 
     {-# NOINLINE initStage2 #-}
