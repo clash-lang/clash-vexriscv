@@ -70,7 +70,7 @@ data CpuOut = CpuOut
   }
   deriving (Generic, NFDataX, ShowX, Eq, BitPack)
 
-data DumpVcd = DumpVcd FilePath | NoDumpVcd
+data DumpVcd = DumpVcd { vcdPath :: FilePath, vcdLevels :: Int }  | NoDumpVcd
 
 
 data Jtag (dom :: Domain)
@@ -532,9 +532,9 @@ vexCPU dumpVcd = do
   v <- vexrInit
   vcd <- case dumpVcd of
     NoDumpVcd -> pure nullPtr
-    DumpVcd path -> do
+    DumpVcd path levels -> do
       vcdPath <- newCString path
-      vexrInitVcd v vcdPath
+      vexrInitVcd v vcdPath levels
 
   let
     {-# NOINLINE initStage1 #-}

@@ -32,7 +32,7 @@ typedef struct {
 
 extern "C" {
 VVexRiscv *vexr_init();
-VerilatedVcdC *vexr_init_vcd(VVexRiscv *top, const char *path);
+VerilatedVcdC *vexr_init_vcd(VVexRiscv *top, const char *path, int levels);
 void vexr_shutdown(VVexRiscv *top);
 
 void vexr_init_stage1(VerilatedVcdC *vcd, VVexRiscv *top,
@@ -61,12 +61,10 @@ VVexRiscv *vexr_init() {
   return v;
 }
 
-VerilatedVcdC *vexr_init_vcd(VVexRiscv *top, const char *path) {
+VerilatedVcdC *vexr_init_vcd(VVexRiscv *top, const char *path, int levels) {
   VerilatedVcdC *vcd = new VerilatedVcdC;
   Verilated::traceEverOn(true);
-  // Trace 99 levels of the hierarchy. We only have one level AFAIK, so this
-  // should be enough :-).
-  top->trace(vcd, 99);
+  top->trace(vcd, levels);
   vcd->open(path);
   return vcd;
 }
