@@ -124,12 +124,11 @@ jobs:
       matrix:
         ghc:
           - "9.0.2"
-          - "9.2.8"
-          - "9.4.8"
+          - "9.4.7"
           - "9.6.6"
 
     container:
-      image: ghcr.io/clash-lang/clash-vexriscv-ci:${{ matrix.ghc }}-20241214
+      image: ghcr.io/clash-lang/clash-vexriscv-ci:${{ matrix.ghc }}-20250110
 
     steps:
       - name: Checkout

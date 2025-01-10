@@ -27,7 +27,7 @@ foreign import ccall unsafe "vexr_init" vexrInit :: IO (Ptr VexRiscv)
 foreign import ccall unsafe "vexr_init_vcd" vexrInitVcd :: Ptr VexRiscv -> CString -> IO (Ptr VerilatedVcdC)
 foreign import ccall unsafe "vexr_shutdown" vexrShutdown :: Ptr VexRiscv -> IO ()
 
-foreign import ccall unsafe "vexr_init_stage1" vexrInitStage1 :: Ptr VerilatedVcdC -> Ptr VexRiscv -> Ptr NON_COMB_INPUT -> Ptr OUTPUT -> IO ()
+foreign import ccall unsafe "vexr_init_stage1" vexrInitStage1 :: Ptr VerilatedVcdC -> Word64 -> Ptr VexRiscv -> Ptr NON_COMB_INPUT -> Ptr OUTPUT -> IO ()
 foreign import ccall unsafe "vexr_init_stage2" vexrInitStage2 :: Ptr VexRiscv -> Ptr COMB_INPUT -> IO ()
 foreign import ccall unsafe "vexr_step_rising_edge" vexrStepRisingEdge :: Ptr VerilatedVcdC -> Ptr VexRiscv -> Word64 -> Ptr NON_COMB_INPUT -> Ptr OUTPUT -> IO ()
 foreign import ccall unsafe "vexr_step_falling_edge" vexrStepFallingEdge :: Ptr VerilatedVcdC -> Ptr VexRiscv -> Word64 -> Ptr COMB_INPUT -> IO ()

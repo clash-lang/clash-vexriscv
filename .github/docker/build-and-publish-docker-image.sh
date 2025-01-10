@@ -17,7 +17,7 @@ elif [[ "$1" != "" ]]; then
 fi
 
 UBUNTU_VERSION=jammy-20240125
-GHC_VERSIONS=( "9.10.1"  "9.8.4"  "9.6.6"  "9.4.8"  "9.2.8"   "9.0.2")
+GHC_VERSIONS=( "9.10.1"  "9.8.4"  "9.6.6"  "9.4.7"  "9.0.2")
 CABAL_VERSION="3.12.1.0"
 
 for i in "${!GHC_VERSIONS[@]}"

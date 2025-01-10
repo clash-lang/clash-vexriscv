@@ -15,9 +15,11 @@ pkgs.mkShell {
 
       # Haskell toolchain
       pkgs.cabal-install
+
       # pkgs.haskell.compiler.ghc90
-      # pkgs.haskell.compiler.ghc92
-      pkgs.haskell.compiler.ghc94
+
+      # Clash throws a slow start warning / error on 9.4.8, so we use 9.4.7
+      pkgs.haskell.compiler.ghc947
       # pkgs.haskell.compiler.ghc96
 
       (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
