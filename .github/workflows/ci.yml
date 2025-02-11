@@ -22,6 +22,41 @@ jobs:
     - name: REUSE Compliance Check
       uses: fsfe/reuse-action@v4
 
+  haskell-checks:
+    name: Haskell checks
+    runs-on: ubuntu-24.04
+    container:
+      image: ubuntu:24.04
+
+    steps:
+      - name: Install wget, git, python3
+        run: |
+          apt-get update
+          apt-get install python3 wget git -y
+
+      - name: Workaround GHA permission issues
+        run: |
+          git config --global --add safe.directory '*'
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install fourmolu
+        run: |
+          version="0.14.1.0"
+          wget -O fourmolu "https://github.com/fourmolu/fourmolu/releases/download/v${version}/fourmolu-${version}-linux-x86_64"
+          chmod +x fourmolu
+          mv fourmolu /usr/bin/fourmolu
+
+      - name: Run formatting..
+        run: |
+          git status
+          .github/scripts/fourmolu.sh
+          .github/scripts/fix_spdx_header.py
+
+      - name: Check for differences
+        run: |
+          git diff --exit-code
 
   rust-checks:
     name: Rust checks

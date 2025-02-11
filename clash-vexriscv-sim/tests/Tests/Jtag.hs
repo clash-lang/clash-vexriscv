@@ -5,8 +5,6 @@
 -- | Tests for the JTAG debug interface
 module Tests.Jtag where
 
-import Prelude
-
 import Control.Applicative ((<|>))
 import Control.Monad.Extra (ifM, when)
 import Data.List.Extra (trim)
@@ -16,21 +14,21 @@ import System.Directory (findExecutable)
 import System.Exit
 import System.IO
 import System.Process
-
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.Options
+import Prelude
 
 import Paths_clash_vexriscv_sim (getDataFileName)
 
 newtype JtagDebug = JtagDebug Bool
 
 instance IsOption JtagDebug where
-    defaultValue = JtagDebug False
-    parseValue = fmap JtagDebug . safeReadBool
-    optionName = return "jtag-debug"
-    optionHelp = return "While waiting for outputs of subprocesses, print them to stderr"
-    optionCLParser = flagCLParser Nothing (JtagDebug True)
+  defaultValue = JtagDebug False
+  parseValue = fmap JtagDebug . safeReadBool
+  optionName = return "jtag-debug"
+  optionHelp = return "While waiting for outputs of subprocesses, print them to stderr"
+  optionCLParser = flagCLParser Nothing (JtagDebug True)
 
 cabalListBin :: String -> IO FilePath
 cabalListBin name = do
@@ -51,7 +49,7 @@ getOpenOcdCfgPath = getDataFileName "data/vexriscv_sim.cfg"
 getGdbCmdPath :: IO FilePath
 getGdbCmdPath = getDataFileName "data/vexriscv_gdb.cfg"
 
-getGdb :: HasCallStack => IO String
+getGdb :: (HasCallStack) => IO String
 getGdb = do
   gdbMultiArch <- findExecutable "gdb-multiarch"
   gdb <- findExecutable "gdb"
@@ -80,13 +78,13 @@ waitForLine debug h expected = do
     then pure ()
     else waitForLine debug h expected
 
--- | Run three processes in parallel:
---
--- 1. The VexRiscv simulation. It opens a TCP socket for OpenOCD to connect to.
--- 2. OpenOCD. It connects to the VexRiscv simulation and exposes a GDB server.
--- 3. GDB. It connects to the OpenOCD GDB server and bunch of commands. See the
---    file produced by 'getGdbCmdPath' for the commands.
---
+{- | Run three processes in parallel:
+
+1. The VexRiscv simulation. It opens a TCP socket for OpenOCD to connect to.
+2. OpenOCD. It connects to the VexRiscv simulation and exposes a GDB server.
+3. GDB. It connects to the OpenOCD GDB server and bunch of commands. See the
+   file produced by 'getGdbCmdPath' for the commands.
+-}
 test ::
   -- | Print debug output of subprocesses
   Bool ->
@@ -100,20 +98,23 @@ test debug = do
   gdb <- getGdb
 
   let
-    vexRiscvProc = (proc simulateExecPath [printElfPath]){
-        std_out = CreatePipe
-      , cwd = Just projectRoot
-    }
+    vexRiscvProc =
+      (proc simulateExecPath [printElfPath])
+        { std_out = CreatePipe
+        , cwd = Just projectRoot
+        }
 
-    openOcdProc = (proc "openocd-riscv" ["-f", openocdCfgPath]){
-        std_err = CreatePipe
-      , cwd = Just projectRoot
-    }
+    openOcdProc =
+      (proc "openocd-riscv" ["-f", openocdCfgPath])
+        { std_err = CreatePipe
+        , cwd = Just projectRoot
+        }
 
-    gdbProc = (proc gdb ["--command", gdbCmdPath]){
-      std_out = CreatePipe, -- Comment this line to see GDB output
-      cwd = Just projectRoot
-    }
+    gdbProc =
+      (proc gdb ["--command", gdbCmdPath])
+        { std_out = CreatePipe -- Comment this line to see GDB output
+        , cwd = Just projectRoot
+        }
 
   withCreateProcess vexRiscvProc $ \_ (fromJust -> vexRiscvStdOut) _ _ -> do
     hSetBuffering vexRiscvStdOut LineBuffering
@@ -139,7 +140,8 @@ test debug = do
 
 tests :: TestTree
 tests = askOption $ \(JtagDebug debug) ->
-  testGroup "JTAG"
+  testGroup
+    "JTAG"
     [ testCase "Basic GDB commands, breakpoints, and program loading" (test debug)
     ]
 

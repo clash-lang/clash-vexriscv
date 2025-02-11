@@ -4,25 +4,25 @@
 
 module Tests.JtagChain where
 
+import Control.Monad (when)
+import Control.Monad.Extra (unlessM)
+import Data.Data (Proxy (Proxy))
+import Data.Maybe (fromJust)
+import GHC.Stack (HasCallStack)
+import System.Directory (doesPathExist)
+import System.Exit (ExitCode (ExitSuccess))
+import System.FilePath ((</>))
+import System.IO (IOMode (ReadMode, WriteMode), openFile, withFile)
+import System.Process
+import Test.Tasty (TestTree, askOption, defaultIngredients, defaultMainWithIngredients, includingOptions, testGroup)
+import Test.Tasty.HUnit (Assertion, testCase, (@=?))
+import Test.Tasty.Options (OptionDescription (Option))
 import Prelude
 
-import Test.Tasty.HUnit (Assertion, testCase, (@=?))
-import Tests.Jtag (cabalListBin, getGdb, JtagDebug (JtagDebug))
-import Utils.FilePath (findParentContaining, cabalProject, rustBinsDir, BuildType (Debug))
-import System.FilePath ((</>))
-import System.Process
-import Test.Tasty (TestTree, askOption, testGroup, defaultMainWithIngredients, includingOptions, defaultIngredients)
-import Data.Data (Proxy (Proxy))
-import Test.Tasty.Options (OptionDescription(Option))
-
 import qualified Streaming.Prelude as SP
-import System.IO (openFile, IOMode (ReadMode, WriteMode), withFile)
-import Data.Maybe (fromJust)
-import System.Directory (doesPathExist)
-import System.Exit (ExitCode(ExitSuccess))
-import Control.Monad (when)
-import GHC.Stack (HasCallStack)
-import Control.Monad.Extra (unlessM)
+
+import Tests.Jtag (JtagDebug (JtagDebug), cabalListBin, getGdb)
+import Utils.FilePath (BuildType (Debug), cabalProject, findParentContaining, rustBinsDir)
 
 getSimulateExecPath :: IO FilePath
 getSimulateExecPath = cabalListBin "clash-vexriscv-sim:clash-vexriscv-chain-bin"
@@ -58,24 +58,27 @@ test debug = do
           simulateExecPath
           ["-a", printAElfPath, "-b", printBElfPath, "-A", logAPath, "-B", logBPath]
       )
-      { std_out = CreatePipe
-      , cwd = Just projectRoot
-      }
+        { std_out = CreatePipe
+        , cwd = Just projectRoot
+        }
 
-    openOcdProc = (proc "openocd-riscv" ["-f", openocdCfgPath])
-      { std_err = CreatePipe
-      , cwd = Just projectRoot
-      }
+    openOcdProc =
+      (proc "openocd-riscv" ["-f", openocdCfgPath])
+        { std_err = CreatePipe
+        , cwd = Just projectRoot
+        }
 
-    gdbProcA = (proc gdb ["--command", gdbCmdPathA])
-      { cwd = Just projectRoot
-      , std_out = CreatePipe
-      }
+    gdbProcA =
+      (proc gdb ["--command", gdbCmdPathA])
+        { cwd = Just projectRoot
+        , std_out = CreatePipe
+        }
 
-    gdbProcB = (proc gdb ["--command", gdbCmdPathB])
-      { cwd = Just projectRoot
-      , std_out = CreatePipe
-      }
+    gdbProcB =
+      (proc gdb ["--command", gdbCmdPathB])
+        { cwd = Just projectRoot
+        , std_out = CreatePipe
+        }
 
   withCreateProcess vexRiscvProc $ \_ _ _ _ -> do
     logAHandle <- openFile logAPath ReadMode
@@ -103,15 +106,15 @@ test debug = do
           ExitSuccess @=? gdbAExitCode
           ExitSuccess @=? gdbBExitCode
 
-ensureExists :: HasCallStack => FilePath -> IO ()
+ensureExists :: (HasCallStack) => FilePath -> IO ()
 ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ -> pure ()))
 
-expectLineFromStream
-  :: HasCallStack
-  => Bool
-  -> SP.Stream (SP.Of String) IO ()
-  -> String
-  -> IO (SP.Stream (SP.Of String) IO ())
+expectLineFromStream ::
+  (HasCallStack) =>
+  Bool ->
+  SP.Stream (SP.Of String) IO () ->
+  String ->
+  IO (SP.Stream (SP.Of String) IO ())
 expectLineFromStream debug stream lookFor = do
   result <- SP.next stream
   case result of
@@ -122,12 +125,12 @@ expectLineFromStream debug stream lookFor = do
         else errorHelper lookFor out
     Left _ -> expectLineFromStream debug stream lookFor
 
-waitForLineInStream
-  :: HasCallStack
-  => Bool
-  -> SP.Stream (SP.Of String) IO ()
-  -> String
-  -> IO (SP.Stream (SP.Of String) IO ())
+waitForLineInStream ::
+  (HasCallStack) =>
+  Bool ->
+  SP.Stream (SP.Of String) IO () ->
+  String ->
+  IO (SP.Stream (SP.Of String) IO ())
 waitForLineInStream debug stream lookFor = do
   result <- SP.next stream
   case result of
@@ -138,7 +141,7 @@ waitForLineInStream debug stream lookFor = do
         else waitForLineInStream debug next lookFor
     Left _ -> expectLineFromStream debug stream lookFor
 
-errorHelper :: HasCallStack => String -> String -> m a
+errorHelper :: (HasCallStack) => String -> String -> m a
 errorHelper expected found = error ("expected `" <> expected <> "`, found `" <> found <> "`")
 
 tests :: TestTree
