@@ -14,15 +14,15 @@ import System.Process
 import Test.Tasty (TestTree, askOption, testGroup, defaultMainWithIngredients, includingOptions, defaultIngredients)
 import Data.Data (Proxy (Proxy))
 import Test.Tasty.Options (OptionDescription(Option))
-import Control.Exception (ErrorCall (ErrorCallWithLocation))
 
 import qualified Streaming.Prelude as SP
-import System.IO (openFile, IOMode (ReadMode, WriteMode), hClose)
-import GHC.Exception (throw, Exception (toException))
+import System.IO (openFile, IOMode (ReadMode, WriteMode), withFile)
 import Data.Maybe (fromJust)
-import System.Directory (doesPathExist, doesDirectoryExist)
+import System.Directory (doesPathExist)
 import System.Exit (ExitCode(ExitSuccess))
 import Control.Monad (when)
+import GHC.Stack (HasCallStack)
+import Control.Monad.Extra (unlessM)
 
 getSimulateExecPath :: IO FilePath
 getSimulateExecPath = cabalListBin "clash-vexriscv-sim:clash-vexriscv-chain-bin"
@@ -49,8 +49,8 @@ test debug = do
     gdbCmdPathB = simDataDir </> "vexriscv_chain_gdbb.cfg"
   gdb <- getGdb
 
-  ensureExists logAPath 46
-  ensureExists logBPath 47
+  ensureExists logAPath
+  ensureExists logBPath
 
   let
     vexRiscvProc =
@@ -84,80 +84,62 @@ test debug = do
       logA0 = SP.fromHandle logAHandle
       logB0 = SP.fromHandle logBHandle
 
-    logA1 <- expectLineFromStream debug logA0 "[CPU] a" 83
-    logB1 <- expectLineFromStream debug logB0 "[CPU] b" 84
+    logA1 <- expectLineFromStream debug logA0 "[CPU] a"
+    logB1 <- expectLineFromStream debug logB0 "[CPU] b"
 
     withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
       let openOcdStream = SP.fromHandle openOcdStdErr
-      _ <- waitForLineInStream debug openOcdStream "Halting processor" 88
+      _ <- waitForLineInStream debug openOcdStream "Halting processor"
 
       withCreateProcess gdbProcA $ \_ _ _ gdbProcHandleA -> do
         withCreateProcess gdbProcB $ \_ _ _ gdbProcHandleB -> do
-          _ <- expectLineFromStream debug logA1 "[CPU] a" 92
-          _ <- expectLineFromStream debug logB1 "[CPU] b" 93
-          _ <- expectLineFromStream debug logA1 "[CPU] b" 94
-          _ <- expectLineFromStream debug logB1 "[CPU] a" 95
+          _ <- expectLineFromStream debug logA1 "[CPU] a"
+          _ <- expectLineFromStream debug logB1 "[CPU] b"
+          _ <- expectLineFromStream debug logA1 "[CPU] b"
+          _ <- expectLineFromStream debug logB1 "[CPU] a"
 
           gdbAExitCode <- waitForProcess gdbProcHandleA
           gdbBExitCode <- waitForProcess gdbProcHandleB
           ExitSuccess @=? gdbAExitCode
           ExitSuccess @=? gdbBExitCode
 
-ensureExists :: FilePath -> Int -> IO ()
-ensureExists file line = do
-  pathExists <- doesPathExist file
-  if not pathExists
-    then touchFile
-    else do
-      pathIsDir <- doesDirectoryExist file
-      if pathIsDir
-        then throw . toException
-          $ ErrorCallWithLocation
-            ("log file path `" <> file <> "` points to existing directory")
-            ("at line " <> show line)
-        else touchFile
- where
-  touchFile = do
-    file' <- openFile file WriteMode
-    hClose file'
+ensureExists :: HasCallStack => FilePath -> IO ()
+ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ -> pure ()))
 
 expectLineFromStream
-  :: Bool
+  :: HasCallStack
+  => Bool
   -> SP.Stream (SP.Of String) IO ()
   -> String
-  -> Int
   -> IO (SP.Stream (SP.Of String) IO ())
-expectLineFromStream debug stream lookFor line = do
+expectLineFromStream debug stream lookFor = do
   result <- SP.next stream
   case result of
     Right (out, next) -> do
       when debug $ putStrLn $ "DBG(E): " <> out
       if out == lookFor
         then return next
-        else throw . toException $ errorHelper lookFor out line
-    Left _ -> expectLineFromStream debug stream lookFor line
+        else errorHelper lookFor out
+    Left _ -> expectLineFromStream debug stream lookFor
 
 waitForLineInStream
-  :: Bool
+  :: HasCallStack
+  => Bool
   -> SP.Stream (SP.Of String) IO ()
   -> String
-  -> Int
   -> IO (SP.Stream (SP.Of String) IO ())
-waitForLineInStream debug stream lookFor line = do
+waitForLineInStream debug stream lookFor = do
   result <- SP.next stream
   case result of
     Right (out, next) -> do
       when debug $ putStrLn $ "DBG(W): " <> out
       if out == lookFor
         then return next
-        else waitForLineInStream debug next lookFor line
-    Left _ -> expectLineFromStream debug stream lookFor line
+        else waitForLineInStream debug next lookFor
+    Left _ -> expectLineFromStream debug stream lookFor
 
-errorHelper :: String -> String -> Int -> ErrorCall
-errorHelper expected found loc =
-  ErrorCallWithLocation
-    ("expected `" <> expected <> "`, found `" <> found <> "`")
-    ("at line " <> show loc)
+errorHelper :: HasCallStack => String -> String -> m a
+errorHelper expected found = error ("expected `" <> expected <> "`, found `" <> found <> "`")
 
 tests :: TestTree
 tests = askOption $ \(JtagDebug debug) ->
