@@ -15,6 +15,7 @@ pkgs.mkShell {
 
       # Haskell toolchain
       pkgs.cabal-install
+      pkgs.haskellPackages.fourmolu
 
       # pkgs.haskell.compiler.ghc90
 
@@ -52,5 +53,8 @@ pkgs.mkShell {
 
     # Mixing Nix Cabal and non-Nix Cabal yields some weird linking errors.
     export CABAL_DIR="$HOME/.cabal-nix";
+
+    # Add repo utilities to path
+    export PATH="$(git rev-parse --show-toplevel)/nix/bin:$PATH";
   '';
 }
