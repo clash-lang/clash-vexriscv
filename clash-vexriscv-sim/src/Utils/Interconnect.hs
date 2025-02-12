@@ -16,7 +16,6 @@ import Protocols.Wishbone
   of the input and output vectors are the same.
 -}
 interconnectTwo ::
-  (HiddenClockResetEnable dom) =>
   Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
   -- | sorted by address
   Vec 2 (BitVector 32, Signal dom (WishboneS2M (BitVector 32))) ->
