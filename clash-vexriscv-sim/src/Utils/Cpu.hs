@@ -31,7 +31,8 @@ Address space
 -}
 cpu ::
   ( HasCallStack
-  , HiddenClockResetEnable dom
+  , HiddenClock dom
+  , HiddenReset dom
   -- XXX: VexRiscv responds asynchronously to the reset signal. Figure out how
   --      convenient it is to use this within a design with synchronous resets.
   -- , HasAsynchronousReset dom
@@ -61,6 +62,7 @@ cpu dumpVcd jtagIn0 bootIMem bootDMem =
 
   ndmReset =
     unsafeFromActiveHigh
+      $ withEnable enableGen
       $ register False
       $ bitToBool
       . ndmreset
@@ -141,7 +143,7 @@ Used for the character device. The character device address gets mapped to this
 component because if it were to be routed to the data memory (where this address is
 not in the valid space) it would return ERR and would halt execution.
 -}
-dummyWb :: (HiddenClockResetEnable dom) => Memory dom
+dummyWb :: (HiddenClock dom, HiddenReset dom) => Memory dom
 dummyWb m2s' = delayControls m2s' (reply <$> m2s')
  where
   reply WishboneM2S{..} =
@@ -151,7 +153,7 @@ dummyWb m2s' = delayControls m2s' (reply <$> m2s')
 
   -- \| Delays the output controls to align them with the actual read / write timing.
   delayControls ::
-    (HiddenClockResetEnable dom, NFDataX a) =>
+    (HiddenClock dom, HiddenReset dom, NFDataX a) =>
     Signal dom (WishboneM2S addressWidth selWidth a) -> -- current M2S signal
     Signal dom (WishboneS2M a) ->
     Signal dom (WishboneS2M a)
@@ -163,8 +165,8 @@ dummyWb m2s' = delayControls m2s' (reply <$> m2s')
     -- only process a request every other clock cycle.
     ack = (acknowledge <$> s2m0) .&&. (not <$> delayedAck) .&&. inCycle
     err1 = (err <$> s2m0) .&&. inCycle
-    delayedAck = register False ack
-    delayedErr1 = register False err1
+    delayedAck = withEnable enableGen $ register False ack
+    delayedErr1 = withEnable enableGen $ register False err1
     s2m1 =
       (\wb newAck newErr -> wb{acknowledge = newAck, err = newErr})
         <$> s2m0

@@ -108,13 +108,15 @@ main = do
   let
     jtagInA = jtagBridge jtagOutB
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
-      withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen
+      withClock @System clockGen
+        $ withReset @System (resetGenN (SNat @2))
         $ let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInA) iMemA dMemA
            in bundle (circ, jto, writes1, iBus, dBus)
 
     jtagInB = liftA2 jtagDaisyChain jtagInA jtagOutA
     cpuOutB@(unbundle -> (_circuitB, jtagOutB, _, _iBusB, _dBusB)) =
-      withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen
+      withClock @System clockGen
+        $ withReset @System (resetGenN (SNat @2))
         $ let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInB) iMemB dMemB
            in bundle (circ, jto, writes1, iBus, dBus)
     cpuOut = bundle (cpuOutA, cpuOutB)
