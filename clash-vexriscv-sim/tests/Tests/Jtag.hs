@@ -117,6 +117,8 @@ test debug = do
         }
 
   withCreateProcess vexRiscvProc $ \_ (fromJust -> vexRiscvStdOut) _ _ -> do
+    expectLine debug vexRiscvStdOut "JTAG bridge ready at port 7894"
+
     hSetBuffering vexRiscvStdOut LineBuffering
     putStrLn "Expecting \"[CPU] a\" on vexRiscvStdOut"
     expectLine debug vexRiscvStdOut "[CPU] a"

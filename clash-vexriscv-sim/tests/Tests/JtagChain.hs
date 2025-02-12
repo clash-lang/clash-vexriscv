@@ -80,12 +80,15 @@ test debug = do
         , std_out = CreatePipe
         }
 
-  withCreateProcess vexRiscvProc $ \_ _ _ _ -> do
+  withCreateProcess vexRiscvProc $ \_ (fromJust -> simStdOut) _ _ -> do
     logAHandle <- openFile logAPath ReadMode
     logBHandle <- openFile logBPath ReadMode
     let
       logA0 = SP.fromHandle logAHandle
       logB0 = SP.fromHandle logBHandle
+      simStdOut0 = SP.fromHandle simStdOut
+
+    _ <- waitForLineInStream debug simStdOut0 "JTAG bridge ready at port 7894"
 
     logA1 <- expectLineFromStream debug logA0 "[CPU] a"
     logB1 <- expectLineFromStream debug logB0 "[CPU] b"

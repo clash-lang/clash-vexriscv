@@ -50,8 +50,12 @@ main = do
     withClockResetEnable @System clockGen resetGen enableGen
       $ loadProgramDmem @System elfFile
 
+  let portNr = 7894
+  jtagBridge <- vexrJtagBridge portNr
+  putStrLn ("JTAG bridge ready at port " <> show portNr)
+
   let
-    jtagPort = vexrJtagBridge 7894 jtagOut
+    jtagPort = jtagBridge jtagOut
     cpuOut@(unbundle -> (_circuit, jtagOut, writes, _iBus, _dBus)) =
       withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen
         $ let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagPort) iMem dMem

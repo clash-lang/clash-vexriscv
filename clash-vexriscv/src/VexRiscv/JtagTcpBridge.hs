@@ -24,10 +24,10 @@ inner jtagBridgeStep (o :- outs) = unsafePerformIO $ do
   let ins' = inner jtagBridgeStep outs
   pure $ in' :- (in' `deepseqX` ins')
 
-vexrJtagBridge :: PortNumber -> Signal dom JtagOut -> Signal dom JtagIn
-vexrJtagBridge port out = inner jtagBridgeStep out
- where
-  (_, jtagBridgeStep) = unsafePerformIO $ vexrJtagBridge' port
+vexrJtagBridge :: PortNumber -> IO (Signal dom JtagOut -> Signal dom JtagIn)
+vexrJtagBridge port = do
+  (_, jtagBridgeStep) <- vexrJtagBridge' port
+  pure (inner jtagBridgeStep)
 
 vexrJtagBridge' ::
   PortNumber ->
