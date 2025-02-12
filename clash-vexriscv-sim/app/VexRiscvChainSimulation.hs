@@ -109,20 +109,14 @@ main = do
     jtagInA = jtagBridge jtagOutB
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
       withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen
-        $ let
-            (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInA) iMemA dMemA
-            dBus' = register emptyWishboneS2M dBus
-           in
-            bundle (circ, jto, writes1, iBus, dBus')
+        $ let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInA) iMemA dMemA
+           in bundle (circ, jto, writes1, iBus, dBus)
 
     jtagInB = liftA2 jtagDaisyChain jtagInA jtagOutA
     cpuOutB@(unbundle -> (_circuitB, jtagOutB, _, _iBusB, _dBusB)) =
       withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen
-        $ let
-            (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInB) iMemB dMemB
-            dBus' = register emptyWishboneS2M dBus
-           in
-            bundle (circ, jto, writes1, iBus, dBus')
+        $ let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInB) iMemB dMemB
+           in bundle (circ, jto, writes1, iBus, dBus)
     cpuOut = bundle (cpuOutA, cpuOutB)
 
   runSampling
