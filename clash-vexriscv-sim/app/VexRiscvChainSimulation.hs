@@ -13,7 +13,7 @@ import GHC.IO.Handle (Handle, hFlush, hPutStr)
 import Options.Applicative (Parser, execParser, fullDesc, header, help, helper, info, long, progDesc, short, strOption)
 import Protocols.Wishbone
 import System.Exit (exitFailure)
-import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile)
+import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile, stdout)
 import Text.Printf (hPrintf, printf)
 import VexRiscv (CpuOut (dBusWbM2S, iBusWbM2S), DumpVcd (NoDumpVcd), JtagIn (JtagIn), JtagOut (JtagOut))
 import VexRiscv.JtagTcpBridge (vexrJtagBridge)
@@ -100,8 +100,13 @@ main = do
   logFileA <- openFile logPathA WriteMode
   logFileB <- openFile logPathB WriteMode
 
+  let portNr = 7894
+  jtagBridge <- vexrJtagBridge portNr
+  putStrLn ("JTAG bridge ready at port " <> show portNr)
+  hFlush stdout
+
   let
-    jtagInA = vexrJtagBridge 7894 jtagOutB
+    jtagInA = jtagBridge jtagOutB
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
       withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen
         $ let
