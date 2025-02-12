@@ -59,8 +59,7 @@ main = do
     cpuOut@(unbundle -> (_circuit, jtagOut, writes, _iBus, _dBus)) =
       withClockResetEnable @System clockGen (resetGenN (SNat @2)) enableGen
         $ let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagPort) iMem dMem
-              dBus' = register emptyWishboneS2M dBus
-           in bundle (circ, jto, writes1, iBus, dBus')
+           in bundle (circ, jto, writes1, iBus, dBus)
 
   case debugConfig of
     RunCharacterDevice ->
