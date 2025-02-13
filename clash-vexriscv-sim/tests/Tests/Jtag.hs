@@ -11,6 +11,7 @@ import Data.List.Extra (trim)
 import Data.Maybe (fromJust)
 import Data.Proxy
 import System.Directory (findExecutable)
+import System.Environment (getEnvironment)
 import System.Exit
 import System.IO
 import System.Process
@@ -96,28 +97,50 @@ test debug = do
   openocdCfgPath <- getOpenOcdCfgPath
   gdbCmdPath <- getGdbCmdPath
   gdb <- getGdb
+  currentEnv <- getEnvironment
+
+  let
+    gdbPort = 3333 :: Integer
+    jtagBridgePort = 7894 :: Integer
 
   let
     vexRiscvProc =
       (proc simulateExecPath [printElfPath])
         { std_out = CreatePipe
         , cwd = Just projectRoot
+        , env = Just (("JTAG_BRIDGE_PORT", show jtagBridgePort) : currentEnv)
         }
 
     openOcdProc =
-      (proc "openocd-riscv" ["-f", openocdCfgPath])
+      ( proc
+          "openocd-riscv"
+          [ "-c"
+          , "gdb port " <> show gdbPort
+          , "-c"
+          , "set _REMOTE_BITBANG_PORT " <> show jtagBridgePort
+          , "-f"
+          , openocdCfgPath
+          ]
+      )
         { std_err = CreatePipe
         , cwd = Just projectRoot
         }
 
     gdbProc =
-      (proc gdb ["--command", gdbCmdPath])
+      ( proc
+          gdb
+          [ "--eval-command"
+          , "set $EXTENDED_REMOTE_PORT = " <> show gdbPort
+          , "--command"
+          , gdbCmdPath
+          ]
+      )
         { std_out = CreatePipe -- Comment this line to see GDB output
         , cwd = Just projectRoot
         }
 
   withCreateProcess vexRiscvProc $ \_ (fromJust -> vexRiscvStdOut) _ _ -> do
-    expectLine debug vexRiscvStdOut "JTAG bridge ready at port 7894"
+    expectLine debug vexRiscvStdOut ("JTAG bridge ready at port " <> show jtagBridgePort)
 
     hSetBuffering vexRiscvStdOut LineBuffering
     putStrLn "Expecting \"[CPU] a\" on vexRiscvStdOut"

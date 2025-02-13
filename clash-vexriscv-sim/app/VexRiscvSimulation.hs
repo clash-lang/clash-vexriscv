@@ -10,7 +10,7 @@ import Control.Monad (forM_, when)
 import Data.Char (chr)
 import Data.Maybe (catMaybes)
 import Protocols.Wishbone
-import System.Environment (getArgs)
+import System.Environment (getArgs, getEnv)
 import System.Exit (exitFailure)
 import System.IO (hFlush, putChar, stdout)
 import Text.Printf (printf)
@@ -50,7 +50,7 @@ main = do
     withClockResetEnable @System clockGen resetGen enableGen
       $ loadProgramDmem @System elfFile
 
-  let portNr = 7894
+  portNr <- read <$> getEnv "JTAG_BRIDGE_PORT"
   jtagBridge <- vexrJtagBridge portNr
   putStrLn ("JTAG bridge ready at port " <> show portNr)
 

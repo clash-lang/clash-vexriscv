@@ -12,6 +12,7 @@ import GHC.Char (chr)
 import GHC.IO.Handle (Handle, hFlush, hPutStr)
 import Options.Applicative (Parser, execParser, fullDesc, header, help, helper, info, long, progDesc, short, strOption)
 import Protocols.Wishbone
+import System.Environment (getEnv)
 import System.Exit (exitFailure)
 import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile, stdout)
 import Text.Printf (hPrintf, printf)
@@ -100,7 +101,7 @@ main = do
   logFileA <- openFile logPathA WriteMode
   logFileB <- openFile logPathB WriteMode
 
-  let portNr = 7894
+  portNr <- read <$> getEnv "JTAG_BRIDGE_PORT"
   jtagBridge <- vexrJtagBridge portNr
   putStrLn ("JTAG bridge ready at port " <> show portNr)
   hFlush stdout
