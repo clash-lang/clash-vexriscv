@@ -10,6 +10,7 @@ import Data.Data (Proxy (Proxy))
 import Data.Maybe (fromJust)
 import GHC.Stack (HasCallStack)
 import System.Directory (doesPathExist)
+import System.Environment (getEnvironment)
 import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>))
 import System.IO (IOMode (ReadMode, WriteMode), openFile, withFile)
@@ -40,19 +41,23 @@ test debug = do
   let
     rBD = rustBinsDir projectRoot "riscv32imc-unknown-none-elf" Debug
     printAElfPath = rBD </> "print_a"
-    logAPath = projectRoot </> "cpu_a.log"
+    logAPath = projectRoot </> "testBoth_cpu_a.log"
     printBElfPath = rBD </> "print_b"
-    logBPath = projectRoot </> "cpu_b.log"
+    logBPath = projectRoot </> "testBoth_cpu_b.log"
     simDataDir = projectRoot </> "clash-vexriscv-sim" </> "data"
     openocdCfgPath = simDataDir </> "vexriscv_chain_sim.cfg"
     gdbCmdPathA = simDataDir </> "vexriscv_chain_gdba.cfg"
     gdbCmdPathB = simDataDir </> "vexriscv_chain_gdbb.cfg"
   gdb <- getGdb
+  currentEnv <- getEnvironment
 
   ensureExists logAPath
   ensureExists logBPath
 
   let
+    gdbPort = 3334 :: Integer
+    jtagBridgePort = 7895 :: Integer
+
     vexRiscvProc =
       ( proc
           simulateExecPath
@@ -60,22 +65,46 @@ test debug = do
       )
         { std_out = CreatePipe
         , cwd = Just projectRoot
+        , env = Just (("JTAG_BRIDGE_PORT", show jtagBridgePort) : currentEnv)
         }
 
     openOcdProc =
-      (proc "openocd-riscv" ["-f", openocdCfgPath])
+      ( proc
+          "openocd-riscv"
+          [ "-c"
+          , "gdb port " <> show gdbPort
+          , "-c"
+          , "set _REMOTE_BITBANG_PORT " <> show jtagBridgePort
+          , "-f"
+          , openocdCfgPath
+          ]
+      )
         { std_err = CreatePipe
         , cwd = Just projectRoot
         }
 
     gdbProcA =
-      (proc gdb ["--command", gdbCmdPathA])
+      ( proc
+          gdb
+          [ "--eval-command"
+          , "set $EXTENDED_REMOTE_PORT = " <> show gdbPort
+          , "--command"
+          , gdbCmdPathA
+          ]
+      )
         { cwd = Just projectRoot
         , std_out = CreatePipe
         }
 
     gdbProcB =
-      (proc gdb ["--command", gdbCmdPathB])
+      ( proc
+          gdb
+          [ "--eval-command"
+          , "set $EXTENDED_REMOTE_PORT = " <> show (gdbPort + 1)
+          , "--command"
+          , gdbCmdPathB
+          ]
+      )
         { cwd = Just projectRoot
         , std_out = CreatePipe
         }
@@ -88,7 +117,7 @@ test debug = do
       logB0 = SP.fromHandle logBHandle
       simStdOut0 = SP.fromHandle simStdOut
 
-    _ <- waitForLineInStream debug simStdOut0 "JTAG bridge ready at port 7894"
+    _ <- waitForLineInStream debug simStdOut0 ("JTAG bridge ready at port " <> show jtagBridgePort)
 
     logA1 <- expectLineFromStream debug logA0 "[CPU] a"
     logB1 <- expectLineFromStream debug logB0 "[CPU] b"
@@ -109,6 +138,172 @@ test debug = do
           ExitSuccess @=? gdbAExitCode
           ExitSuccess @=? gdbBExitCode
 
+<<<<<<< Updated upstream
+||||||| Stash base
+testInResetA ::
+  -- | Print debug output of subprocesses
+  Bool ->
+  Assertion
+testInResetA debug = do
+  simulateExecPath <- getSimulateExecPath
+  projectRoot <- getProjectRoot
+  let
+    rBD = rustBinsDir projectRoot "riscv32imc-unknown-none-elf" Debug
+    printAElfPath = rBD </> "print_a"
+    logAPath = projectRoot </> "cpu_a.log"
+    printBElfPath = rBD </> "print_b"
+    logBPath = projectRoot </> "cpu_b.log"
+    simDataDir = projectRoot </> "clash-vexriscv-sim" </> "data"
+    openocdCfgPath = simDataDir </> "vexriscv_chain_sim.cfg"
+    gdbCmdPathB = simDataDir </> "vexriscv_chain_gdbb.cfg"
+  gdb <- getGdb
+
+  ensureExists logAPath
+  ensureExists logBPath
+
+  let
+    vexRiscvProc =
+      ( proc
+          simulateExecPath
+          ["-a", printAElfPath, "-b", printBElfPath, "-A", logAPath, "-B", logBPath, "--keep-cpu-a-in-reset"]
+      )
+        { std_out = CreatePipe
+        , cwd = Just projectRoot
+        }
+
+    openOcdProc =
+      (proc "openocd-riscv" ["-f", openocdCfgPath])
+        { std_err = CreatePipe
+        , cwd = Just projectRoot
+        }
+
+    gdbProcB =
+      (proc gdb ["--command", gdbCmdPathB])
+        { cwd = Just projectRoot
+        , std_out = CreatePipe
+        }
+
+  withCreateProcess vexRiscvProc $ \_ (fromJust -> simStdOut) _ _ -> do
+    logBHandle <- openFile logBPath ReadMode
+    let
+      logB0 = SP.fromHandle logBHandle
+      simStdOut0 = SP.fromHandle simStdOut
+
+    _ <- waitForLineInStream debug simStdOut0 "JTAG bridge ready at port 7894"
+
+    logB1 <- expectLineFromStream debug logB0 "[CPU] b"
+
+    withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
+      let openOcdStream = SP.fromHandle openOcdStdErr
+      _ <- waitForLineInStream debug openOcdStream "Error: [riscv.cpu0] Examination failed"
+      _ <- waitForLineInStream debug openOcdStream "[riscv.cpu1] Target successfully examined."
+      _ <- waitForLineInStream debug openOcdStream "Halting processor"
+
+      withCreateProcess gdbProcB $ \_ _ _ gdbProcHandleB -> do
+        _ <- expectLineFromStream debug logB1 "[CPU] b"
+        _ <- expectLineFromStream debug logB1 "[CPU] a"
+
+        gdbBExitCode <- waitForProcess gdbProcHandleB
+        ExitSuccess @=? gdbBExitCode
+
+=======
+testInResetA ::
+  -- | Print debug output of subprocesses
+  Bool ->
+  Assertion
+testInResetA debug = do
+  simulateExecPath <- getSimulateExecPath
+  projectRoot <- getProjectRoot
+  let
+    rBD = rustBinsDir projectRoot "riscv32imc-unknown-none-elf" Debug
+    printAElfPath = rBD </> "print_a"
+    logAPath = projectRoot </> "testInResetA_cpu_a.log"
+    printBElfPath = rBD </> "print_b"
+    logBPath = projectRoot </> "testInResetA_cpu_b.log"
+    simDataDir = projectRoot </> "clash-vexriscv-sim" </> "data"
+    openocdCfgPath = simDataDir </> "vexriscv_chain_sim.cfg"
+    gdbCmdPathB = simDataDir </> "vexriscv_chain_gdbb.cfg"
+  gdb <- getGdb
+  currentEnv <- getEnvironment
+
+  ensureExists logAPath
+  ensureExists logBPath
+
+  let
+    gdbPort = 3336 :: Integer
+    jtagBridgePort = 7896 :: Integer
+
+    vexRiscvProc =
+      ( proc
+          simulateExecPath
+          [ "-a"
+          , printAElfPath
+          , "-b"
+          , printBElfPath
+          , "-A"
+          , logAPath
+          , "-B"
+          , logBPath
+          , "--keep-cpu-a-in-reset"
+          ]
+      )
+        { std_out = CreatePipe
+        , cwd = Just projectRoot
+        , env = Just (("JTAG_BRIDGE_PORT", show jtagBridgePort) : currentEnv)
+        }
+
+    openOcdProc =
+      ( proc
+          "openocd-riscv"
+          [ "-c"
+          , "gdb port " <> show gdbPort
+          , "-c"
+          , "set _REMOTE_BITBANG_PORT " <> show jtagBridgePort
+          , "-f"
+          , openocdCfgPath
+          ]
+      )
+        { std_err = CreatePipe
+        , cwd = Just projectRoot
+        }
+
+    gdbProcB =
+      ( proc
+          gdb
+          [ "--eval-command"
+          , "set $EXTENDED_REMOTE_PORT = " <> show (gdbPort + 1)
+          , "--command"
+          , gdbCmdPathB
+          ]
+      )
+        { cwd = Just projectRoot
+        , std_out = CreatePipe
+        }
+
+  withCreateProcess vexRiscvProc $ \_ (fromJust -> simStdOut) _ _ -> do
+    logBHandle <- openFile logBPath ReadMode
+    let
+      logB0 = SP.fromHandle logBHandle
+      simStdOut0 = SP.fromHandle simStdOut
+
+    _ <- waitForLineInStream debug simStdOut0 ("JTAG bridge ready at port " <> show jtagBridgePort)
+
+    logB1 <- expectLineFromStream debug logB0 "[CPU] b"
+
+    withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
+      let openOcdStream = SP.fromHandle openOcdStdErr
+      _ <- waitForLineInStream debug openOcdStream "Error: [riscv.cpu0] Examination failed"
+      _ <- waitForLineInStream debug openOcdStream "[riscv.cpu1] Target successfully examined."
+      _ <- waitForLineInStream debug openOcdStream "Halting processor"
+
+      withCreateProcess gdbProcB $ \_ _ _ gdbProcHandleB -> do
+        _ <- expectLineFromStream debug logB1 "[CPU] b"
+        _ <- expectLineFromStream debug logB1 "[CPU] a"
+
+        gdbBExitCode <- waitForProcess gdbProcHandleB
+        ExitSuccess @=? gdbBExitCode
+
+>>>>>>> Stashed changes
 ensureExists :: (HasCallStack) => FilePath -> IO ()
 ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ -> pure ()))
 
