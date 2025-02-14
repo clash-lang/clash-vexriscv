@@ -26,7 +26,7 @@ pkgs.stdenv.mkDerivation rec {
     # submodule free branches).
     url = "https://github.com/martijnbastiaan/riscv-openocd";
     rev = "refs/heads/no-submodules-ea8f9d51954b979ff6b4d90afa70352763199b63";
-    sha256 = "sha256-5atDDeh06Z07b4Bd5WssEOiGIDmoO08OXpwtrmRdoBQ=";
+    sha256 = "sha256-9UmjCCvAWIUoczqqTtgEmoHSTcKLSbG3nLrPgwz1m9o=";
   };
 
   installPhase = ''
