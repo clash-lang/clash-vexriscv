@@ -41,8 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.local/state/cabal/store/
-            ~/.cabal/store
+            ~/.cabal-nix/store
           key: packages-cachebust-3-nix-${{ hashFiles('cabal.project.freeze', 'cabal.project', 'shell.nix', 'nix/**/*.nix', 'nix/**/*.json') }}
           restore-keys: packages-cachebust-3-nix
 
