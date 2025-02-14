@@ -1,6 +1,7 @@
 -- SPDX-FileCopyrightText: 2022-2024 Google LLC
 --
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE NumericUnderscores #-}
 
 module Tests.JtagChain where
 
@@ -22,7 +23,7 @@ import Test.Tasty.HUnit (Assertion, testCase, (@=?))
 import Test.Tasty.Options (OptionDescription (Option))
 import Prelude
 
-import Tests.Jtag (JtagDebug (JtagDebug), cabalListBin, expectLine, getGdb, waitForLine)
+import Tests.Jtag (JtagDebug (JtagDebug), cabalListBin, expectLineOrTimeout, getGdb, waitForLineOrTimeout)
 import Utils.FilePath (BuildType (Debug), cabalProject, findParentContaining, rustBinsDir)
 
 getSimulateExecPath :: IO FilePath
@@ -32,6 +33,7 @@ getProjectRoot :: IO FilePath
 getProjectRoot = findParentContaining cabalProject
 
 test ::
+  (HasCallStack) =>
   -- | Print debug output of subprocesses
   Bool ->
   Assertion
@@ -54,6 +56,10 @@ test debug = do
   ensureExists logBPath
 
   let
+    -- Timeout after 120 seconds
+    expectLine = expectLineOrTimeout 120_000_000
+    waitForLine = waitForLineOrTimeout 120_000_000
+
     vexRiscvProc =
       ( proc
           simulateExecPath
@@ -120,7 +126,7 @@ ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ ->
 errorHelper :: (HasCallStack) => String -> String -> m a
 errorHelper expected found = error ("expected `" <> expected <> "`, found `" <> found <> "`")
 
-tests :: TestTree
+tests :: (HasCallStack) => TestTree
 tests = askOption $ \(JtagDebug debug) ->
   testGroup
     "JTAG chaining"
