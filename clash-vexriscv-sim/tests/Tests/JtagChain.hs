@@ -4,7 +4,10 @@
 
 module Tests.JtagChain where
 
-import Control.Monad (when)
+import Clash.Prelude (KnownNat, Vec (Nil, (:>)), toList)
+import Clash.Sized.Vector (unsafeFromList)
+import Clash.Sized.Vector.ToTuple (vecToTuple)
+
 import Control.Monad.Extra (unlessM)
 import Data.Data (Proxy (Proxy))
 import Data.Maybe (fromJust)
@@ -12,16 +15,14 @@ import GHC.Stack (HasCallStack)
 import System.Directory (doesPathExist)
 import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>))
-import System.IO (IOMode (ReadMode, WriteMode), openFile, withFile)
+import System.IO (Handle, IOMode (WriteMode), withFile)
 import System.Process
 import Test.Tasty (TestTree, askOption, defaultIngredients, defaultMainWithIngredients, includingOptions, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase, (@=?))
 import Test.Tasty.Options (OptionDescription (Option))
 import Prelude
 
-import qualified Streaming.Prelude as SP
-
-import Tests.Jtag (JtagDebug (JtagDebug), cabalListBin, getGdb)
+import Tests.Jtag (JtagDebug (JtagDebug), cabalListBin, expectLine, getGdb, waitForLine)
 import Utils.FilePath (BuildType (Debug), cabalProject, findParentContaining, rustBinsDir)
 
 getSimulateExecPath :: IO FilePath
@@ -80,69 +81,41 @@ test debug = do
         , std_out = CreatePipe
         }
 
-  withCreateProcess vexRiscvProc $ \_ (fromJust -> simStdOut) _ _ -> do
-    logAHandle <- openFile logAPath ReadMode
-    logBHandle <- openFile logBPath ReadMode
-    let
-      logA0 = SP.fromHandle logAHandle
-      logB0 = SP.fromHandle logBHandle
-      simStdOut0 = SP.fromHandle simStdOut
+  withStreamingFiles (logAPath :> logBPath :> Nil) $ \(vecToTuple -> (logA, logB)) -> do
+    withCreateProcess vexRiscvProc $ \_ (fromJust -> simStdOut) _ _ -> do
+      waitForLine debug simStdOut "JTAG bridge ready at port 7894"
 
-    _ <- waitForLineInStream debug simStdOut0 "JTAG bridge ready at port 7894"
+      expectLine debug logA "[CPU] a"
+      expectLine debug logB "[CPU] b"
 
-    logA1 <- expectLineFromStream debug logA0 "[CPU] a"
-    logB1 <- expectLineFromStream debug logB0 "[CPU] b"
+      withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
+        waitForLine debug openOcdStdErr "Halting processor"
 
-    withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
-      let openOcdStream = SP.fromHandle openOcdStdErr
-      _ <- waitForLineInStream debug openOcdStream "Halting processor"
+        withCreateProcess gdbProcA $ \_ _ _ gdbProcHandleA -> do
+          withCreateProcess gdbProcB $ \_ _ _ gdbProcHandleB -> do
+            expectLine debug logA "[CPU] a"
+            expectLine debug logB "[CPU] b"
+            expectLine debug logA "[CPU] b"
+            expectLine debug logB "[CPU] a"
 
-      withCreateProcess gdbProcA $ \_ _ _ gdbProcHandleA -> do
-        withCreateProcess gdbProcB $ \_ _ _ gdbProcHandleB -> do
-          _ <- expectLineFromStream debug logA1 "[CPU] a"
-          _ <- expectLineFromStream debug logB1 "[CPU] b"
-          _ <- expectLineFromStream debug logA1 "[CPU] b"
-          _ <- expectLineFromStream debug logB1 "[CPU] a"
+            gdbAExitCode <- waitForProcess gdbProcHandleA
+            gdbBExitCode <- waitForProcess gdbProcHandleB
+            ExitSuccess @=? gdbAExitCode
+            ExitSuccess @=? gdbBExitCode
 
-          gdbAExitCode <- waitForProcess gdbProcHandleA
-          gdbBExitCode <- waitForProcess gdbProcHandleB
-          ExitSuccess @=? gdbAExitCode
-          ExitSuccess @=? gdbBExitCode
+withStreamingFile :: FilePath -> (Handle -> IO a) -> IO a
+withStreamingFile path f =
+  let tailProc = (proc "tail" ["-n", "0", "-f", path]){std_out = CreatePipe}
+   in withCreateProcess tailProc (\_ (fromJust -> h) _ _ -> f h)
+
+withStreamingFiles :: (KnownNat n) => Vec n FilePath -> (Vec n Handle -> IO a) -> IO a
+withStreamingFiles paths f = go (toList paths) []
+ where
+  go [] hs = f (unsafeFromList (reverse hs))
+  go (p : ps) hs = withStreamingFile p (\h -> go ps (h : hs))
 
 ensureExists :: (HasCallStack) => FilePath -> IO ()
 ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ -> pure ()))
-
-expectLineFromStream ::
-  (HasCallStack) =>
-  Bool ->
-  SP.Stream (SP.Of String) IO () ->
-  String ->
-  IO (SP.Stream (SP.Of String) IO ())
-expectLineFromStream debug stream lookFor = do
-  result <- SP.next stream
-  case result of
-    Right (out, next) -> do
-      when debug $ putStrLn $ "DBG(E): " <> out
-      if out == lookFor
-        then return next
-        else errorHelper lookFor out
-    Left _ -> expectLineFromStream debug stream lookFor
-
-waitForLineInStream ::
-  (HasCallStack) =>
-  Bool ->
-  SP.Stream (SP.Of String) IO () ->
-  String ->
-  IO (SP.Stream (SP.Of String) IO ())
-waitForLineInStream debug stream lookFor = do
-  result <- SP.next stream
-  case result of
-    Right (out, next) -> do
-      when debug $ putStrLn $ "DBG(W): " <> out
-      if out == lookFor
-        then return next
-        else waitForLineInStream debug next lookFor
-    Left _ -> expectLineFromStream debug stream lookFor
 
 errorHelper :: (HasCallStack) => String -> String -> m a
 errorHelper expected found = error ("expected `" <> expected <> "`, found `" <> found <> "`")
