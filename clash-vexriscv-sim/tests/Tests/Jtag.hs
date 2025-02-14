@@ -145,10 +145,10 @@ test debug = do
   let
     -- Timeout after 60 seconds. Warning: removing the type signature breaks
     -- stack traces.
-    expectLine :: HasCallStack => Bool -> Handle -> String -> Assertion
+    expectLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
     expectLine = expectLineOrTimeout 60_000_000
 
-    waitForLine :: HasCallStack => Bool -> Handle -> String -> Assertion
+    waitForLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
     waitForLine = waitForLineOrTimeout 60_000_000
 
     vexRiscvProc =
@@ -180,6 +180,7 @@ test debug = do
     withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
       hSetBuffering openOcdStdErr LineBuffering
       putStrLn "Waiting for \"Halting processor\" on openOcdStdErr"
+      waitForLine debug openOcdStdErr "[riscv.cpu0] Target successfully examined."
       waitForLine debug openOcdStdErr "Halting processor"
 
       -- OpenOCD has started, so we can start GDB

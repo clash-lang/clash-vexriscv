@@ -1,6 +1,7 @@
 -- SPDX-FileCopyrightText: 2022-2024 Google LLC
 --
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 
 module Tests.JtagChain where
@@ -32,42 +33,36 @@ getSimulateExecPath = cabalListBin "clash-vexriscv-sim:clash-vexriscv-chain-bin"
 getProjectRoot :: IO FilePath
 getProjectRoot = findParentContaining cabalProject
 
-test ::
-  (HasCallStack) =>
-  -- | Print debug output of subprocesses
-  Bool ->
-  Assertion
-test debug = do
+data Args = Args
+  { vexRiscvProc :: CreateProcess
+  , openOcdProc :: CreateProcess
+  , gdbProcA :: CreateProcess
+  , gdbProcB :: CreateProcess
+  , logPathA :: FilePath
+  , logPathB :: FilePath
+  }
+
+createArgs :: IO Args
+createArgs = do
   simulateExecPath <- getSimulateExecPath
   projectRoot <- getProjectRoot
+  gdb <- getGdb
+
   let
     rBD = rustBinsDir projectRoot "riscv32imc-unknown-none-elf" Debug
     printAElfPath = rBD </> "print_a"
-    logAPath = projectRoot </> "cpu_a.log"
+    logPathA = projectRoot </> "cpu_a.log"
     printBElfPath = rBD </> "print_b"
-    logBPath = projectRoot </> "cpu_b.log"
+    logPathB = projectRoot </> "cpu_b.log"
     simDataDir = projectRoot </> "clash-vexriscv-sim" </> "data"
     openocdCfgPath = simDataDir </> "vexriscv_chain_sim.cfg"
     gdbCmdPathA = simDataDir </> "vexriscv_chain_gdba.cfg"
     gdbCmdPathB = simDataDir </> "vexriscv_chain_gdbb.cfg"
-  gdb <- getGdb
-
-  ensureExists logAPath
-  ensureExists logBPath
-
-  let
-    -- Timeout after 120 seconds. Warning: removing the type signature breaks
-    -- stack traces.
-    expectLine :: HasCallStack => Bool -> Handle -> String -> Assertion
-    expectLine = expectLineOrTimeout 120_000_000
-
-    waitForLine :: HasCallStack => Bool -> Handle -> String -> Assertion
-    waitForLine = waitForLineOrTimeout 120_000_000
 
     vexRiscvProc =
       ( proc
           simulateExecPath
-          ["-a", printAElfPath, "-b", printBElfPath, "-A", logAPath, "-B", logBPath]
+          ["-a", printAElfPath, "-b", printBElfPath, "-A", logPathA, "-B", logPathB]
       )
         { std_out = CreatePipe
         , cwd = Just projectRoot
@@ -91,7 +86,37 @@ test debug = do
         , std_out = CreatePipe
         }
 
-  withStreamingFiles (logAPath :> logBPath :> Nil) $ \(vecToTuple -> (logA, logB)) -> do
+  ensureExists logPathA
+  ensureExists logPathB
+
+  pure $
+    Args
+      { vexRiscvProc
+      , openOcdProc
+      , gdbProcA
+      , gdbProcB
+      , logPathA
+      , logPathB
+      }
+
+testBoth ::
+  (HasCallStack) =>
+  -- | Print debug output of subprocesses
+  Bool ->
+  Assertion
+testBoth debug = do
+  let
+    -- Timeout after 120 seconds. Warning: removing the type signature breaks
+    -- stack traces.
+    expectLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
+    expectLine = expectLineOrTimeout 120_000_000
+
+    waitForLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
+    waitForLine = waitForLineOrTimeout 120_000_000
+
+  Args{vexRiscvProc, openOcdProc, gdbProcA, gdbProcB, logPathA, logPathB} <- createArgs
+
+  withStreamingFiles (logPathA :> logPathB :> Nil) $ \(vecToTuple -> (logA, logB)) -> do
     withCreateProcess vexRiscvProc $ \_ (fromJust -> simStdOut) _ _ -> do
       waitForLine debug simStdOut "JTAG bridge ready at port 7894"
 
@@ -99,6 +124,8 @@ test debug = do
       expectLine debug logB "[CPU] b"
 
       withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
+        waitForLine debug openOcdStdErr "[riscv.cpu0] Target successfully examined."
+        waitForLine debug openOcdStdErr "[riscv.cpu1] Target successfully examined."
         waitForLine debug openOcdStdErr "Halting processor"
 
         withCreateProcess gdbProcA $ \_ _ _ gdbProcHandleA -> do
@@ -124,6 +151,51 @@ withStreamingFiles paths f = go (toList paths) []
   go [] hs = f (unsafeFromList (reverse hs))
   go (p : ps) hs = withStreamingFile p (\h -> go ps (h : hs))
 
+addArgs :: CreateProcess -> [String] -> CreateProcess
+addArgs cp newArgs = cp{cmdspec = addArgsCmdSpec (cmdspec cp)}
+ where
+  addArgsCmdSpec (RawCommand cmd args) = RawCommand cmd (args <> newArgs)
+  addArgsCmdSpec (ShellCommand cmd) = ShellCommand (cmd <> " " <> unwords newArgs)
+
+testInResetA ::
+  (HasCallStack) =>
+  -- | Print debug output of subprocesses
+  Bool ->
+  Assertion
+testInResetA debug = do
+  Args{vexRiscvProc, openOcdProc, gdbProcB, logPathB} <- createArgs
+
+  let
+    -- Timeout after 240 seconds. These tests are extremely slow, because a lot
+    -- of bandwidth is reserved to keep examining the CPU in reset (?).
+    --
+    -- Warning: removing the type signature breaks stack traces.
+    expectLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
+    expectLine = expectLineOrTimeout 240_000_000
+
+    waitForLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
+    waitForLine = waitForLineOrTimeout 240_000_000
+
+  let vexRiscvProc1 = addArgs vexRiscvProc ["--keep-cpu-a-in-reset"]
+
+  withStreamingFile logPathB $ \logB -> do
+    withCreateProcess vexRiscvProc1 $ \_ (fromJust -> simStdOut) _ _ -> do
+      waitForLine debug simStdOut "JTAG bridge ready at port 7894"
+
+      expectLine debug logB "[CPU] b"
+
+      withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
+        waitForLine debug openOcdStdErr "Error: [riscv.cpu0] Examination failed"
+        waitForLine debug openOcdStdErr "[riscv.cpu1] Target successfully examined."
+        waitForLine debug openOcdStdErr "Halting processor"
+
+        withCreateProcess gdbProcB $ \_ _ _ gdbProcHandleB -> do
+          expectLine debug logB "[CPU] b"
+          expectLine debug logB "[CPU] a"
+
+          gdbBExitCode <- waitForProcess gdbProcHandleB
+          ExitSuccess @=? gdbBExitCode
+
 ensureExists :: (HasCallStack) => FilePath -> IO ()
 ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ -> pure ()))
 
@@ -134,7 +206,8 @@ tests :: (HasCallStack) => TestTree
 tests = askOption $ \(JtagDebug debug) ->
   testGroup
     "JTAG chaining"
-    [ testCase "Basic GDB commands, breakpoints, and program loading" (test debug)
+    [ testCase "Basic GDB commands, breakpoints, and program loading" (testBoth debug)
+    , testCase "Program loading with CPU A held in reset" (testInResetA debug)
     ]
 
 main :: IO ()
