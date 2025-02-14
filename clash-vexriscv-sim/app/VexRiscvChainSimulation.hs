@@ -10,7 +10,7 @@ import Clash.Prelude
 import Control.Monad (forM_, when)
 import GHC.Char (chr)
 import GHC.IO.Handle (Handle, hFlush, hPutStr)
-import Options.Applicative (Parser, execParser, fullDesc, header, help, helper, info, long, progDesc, short, strOption, option, auto)
+import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, option, progDesc, short, strOption)
 import Protocols.Wishbone
 import System.Exit (exitFailure)
 import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile, stdout)
@@ -101,7 +101,7 @@ type CpuSignals =
   , WishboneS2M (BitVector 32)
   )
 
-toReset :: KnownDomain dom => Maybe Int -> Reset dom
+toReset :: (KnownDomain dom) => Maybe Int -> Reset dom
 toReset Nothing = resetGenN d2
 toReset (Just n) = unsafeFromActiveHigh $ fromList (L.replicate n True <> L.repeat False)
 

@@ -196,6 +196,49 @@ testInResetA debug = do
           gdbBExitCode <- waitForProcess gdbProcHandleB
           ExitSuccess @=? gdbBExitCode
 
+testResetDeassertion ::
+  (HasCallStack) =>
+  -- | Print debug output of subprocesses
+  Bool ->
+  Assertion
+testResetDeassertion debug = do
+  Args{vexRiscvProc, openOcdProc, gdbProcB, gdbProcA, logPathA, logPathB} <- createArgs
+
+  let
+    -- Timeout after 120 seconds. Warning: removing the type signature breaks
+    -- stack traces.
+    expectLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
+    expectLine = expectLineOrTimeout 120_000_000
+
+    waitForLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
+    waitForLine = waitForLineOrTimeout 120_000_000
+
+  let vexRiscvProc1 = addArgs vexRiscvProc ["--keep-cpu-a-in-reset", show @Int 50_000]
+
+  withStreamingFiles (logPathA :> logPathB :> Nil) $ \(vecToTuple -> (logA, logB)) -> do
+    withCreateProcess vexRiscvProc1 $ \_ (fromJust -> simStdOut) _ _ -> do
+      waitForLine debug simStdOut "JTAG bridge ready at port 7894"
+
+      expectLine debug logB "[CPU] b" -- first load
+      withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
+        waitForLine debug openOcdStdErr "Error: [riscv.cpu0] Examination failed"
+        waitForLine debug openOcdStdErr "[riscv.cpu1] Target successfully examined."
+        waitForLine debug openOcdStdErr "Halting processor"
+
+        withCreateProcess gdbProcB $ \_ _ _ gdbProcHandleB -> do
+          waitForLine debug openOcdStdErr "[riscv.cpu0] Target successfully examined."
+
+          withCreateProcess gdbProcA $ \_ _ _ gdbProcHandleA -> do
+            expectLine debug logA "[CPU] a" -- first load
+            expectLine debug logA "[CPU] a" -- breakpoint
+            expectLine debug logA "[CPU] b" -- new binary loaded
+            expectLine debug logB "[CPU] b" -- breakpoint
+            expectLine debug logB "[CPU] a" -- new binary loaded
+            gdbAExitCode <- waitForProcess gdbProcHandleA
+            gdbBExitCode <- waitForProcess gdbProcHandleB
+            ExitSuccess @=? gdbAExitCode
+            ExitSuccess @=? gdbBExitCode
+
 ensureExists :: (HasCallStack) => FilePath -> IO ()
 ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ -> pure ()))
 
@@ -208,6 +251,7 @@ tests = askOption $ \(JtagDebug debug) ->
     "JTAG chaining"
     [ testCase "Basic GDB commands, breakpoints, and program loading" (testBoth debug)
     , testCase "Program loading with CPU A held in reset" (testInResetA debug)
+    , testCase "CPU A should recover after reset deassertion" (testResetDeassertion debug)
     ]
 
 main :: IO ()
