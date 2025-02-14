@@ -32,6 +32,7 @@ getProjectRoot :: IO FilePath
 getProjectRoot = findParentContaining cabalProject
 
 test ::
+  (HasCallStack) =>
   -- | Print debug output of subprocesses
   Bool ->
   Assertion
@@ -120,7 +121,7 @@ ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ ->
 errorHelper :: (HasCallStack) => String -> String -> m a
 errorHelper expected found = error ("expected `" <> expected <> "`, found `" <> found <> "`")
 
-tests :: TestTree
+tests :: (HasCallStack) => TestTree
 tests = askOption $ \(JtagDebug debug) ->
   testGroup
     "JTAG chaining"

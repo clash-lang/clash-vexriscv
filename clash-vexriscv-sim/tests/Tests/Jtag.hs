@@ -10,6 +10,7 @@ import Control.Monad.Extra (ifM, when)
 import Data.List.Extra (trim)
 import Data.Maybe (fromJust)
 import Data.Proxy
+import GHC.Stack (callStack, prettyCallStack)
 import System.Directory (findExecutable)
 import System.Exit
 import System.IO
@@ -57,7 +58,7 @@ getGdb = do
     Nothing -> fail "Neither gdb-multiarch nor gdb found in PATH"
     Just x -> pure x
 
-expectLine :: Bool -> Handle -> String -> Assertion
+expectLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
 expectLine debug h expected = do
   line <- hGetLine h
   when debug $ do
@@ -66,9 +67,9 @@ expectLine debug h expected = do
   ifM
     (pure $ null line)
     (expectLine debug h expected)
-    (expected @?= line)
+    (assertEqual (prettyCallStack callStack) expected line)
 
-waitForLine :: Bool -> Handle -> String -> IO ()
+waitForLine :: (HasCallStack) => Bool -> Handle -> String -> IO ()
 waitForLine debug h expected = do
   line <- hGetLine h
   when debug $ do
