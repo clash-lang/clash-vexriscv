@@ -1,6 +1,7 @@
 -- SPDX-FileCopyrightText: 2024 Google LLC
 --
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE NumericUnderscores #-}
 
 -- | Tests for the JTAG debug interface
 module Tests.Jtag where
@@ -10,11 +11,12 @@ import Control.Monad.Extra (ifM, when)
 import Data.List.Extra (trim)
 import Data.Maybe (fromJust)
 import Data.Proxy
-import GHC.Stack (callStack, prettyCallStack)
+import GHC.Stack (CallStack, callStack, prettyCallStack)
 import System.Directory (findExecutable)
 import System.Exit
 import System.IO
 import System.Process
+import System.Timeout (timeout)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.Options
@@ -58,26 +60,64 @@ getGdb = do
     Nothing -> fail "Neither gdb-multiarch nor gdb found in PATH"
     Just x -> pure x
 
-expectLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
-expectLine debug h expected = do
-  line <- hGetLine h
-  when debug $ do
-    hPutStr stderr "> "
-    hPutStrLn stderr line
-  ifM
-    (pure $ null line)
-    (expectLine debug h expected)
-    (assertEqual (prettyCallStack callStack) expected line)
+expectLineOrTimeout ::
+  (HasCallStack) =>
+  -- | Number of microseconds to wait. I.e., 1_000_000 is 1 second.
+  Int ->
+  -- | Debug mode. Print output to stderr.
+  Bool ->
+  -- | Handle to read from.
+  Handle ->
+  -- | Expected line. Skips empty lines.
+  String ->
+  Assertion
+expectLineOrTimeout us debug h expected = do
+  result <- timeout us go
+  case result of
+    Just () -> pure ()
+    Nothing -> expectError callStack expected
+ where
+  go = do
+    line <- hGetLine h
 
-waitForLine :: (HasCallStack) => Bool -> Handle -> String -> IO ()
-waitForLine debug h expected = do
-  line <- hGetLine h
-  when debug $ do
-    hPutStr stderr "> "
-    hPutStrLn stderr line
-  if line == expected
-    then pure ()
-    else waitForLine debug h expected
+    when debug $ do
+      hPutStr stderr "> "
+      hPutStrLn stderr line
+
+    ifM
+      (pure $ null line)
+      go
+      (assertEqual (prettyCallStack callStack) expected line)
+
+waitForLineOrTimeout ::
+  (HasCallStack) =>
+  -- | Number of microseconds to wait. I.e., 1_000_000 is 1 second.
+  Int ->
+  -- | Debug mode. Print output to stderr.
+  Bool ->
+  -- | Handle to read from.
+  Handle ->
+  -- | Expected line. Skips any lines that do not match.
+  String ->
+  Assertion
+waitForLineOrTimeout us debug h expected = do
+  result <- timeout us go
+  case result of
+    Just () -> pure ()
+    Nothing -> expectError callStack expected
+ where
+  go = do
+    line <- hGetLine h
+    when debug $ do
+      hPutStr stderr "> "
+      hPutStrLn stderr line
+    if line == expected
+      then pure ()
+      else go
+
+expectError :: CallStack -> String -> Assertion
+expectError cs expected = do
+  assertFailure ("Timed out waiting for " <> expected <> "\n\n" <> prettyCallStack cs)
 
 {- | Run three processes in parallel:
 
@@ -99,6 +139,10 @@ test debug = do
   gdb <- getGdb
 
   let
+    -- Timeout after 60 seconds
+    expectLine = expectLineOrTimeout 60_000_000
+    waitForLine = waitForLineOrTimeout 60_000_000
+
     vexRiscvProc =
       (proc simulateExecPath [printElfPath])
         { std_out = CreatePipe
