@@ -72,6 +72,8 @@ expectLineOrTimeout ::
   String ->
   Assertion
 expectLineOrTimeout us debug h expected = do
+  when debug $
+    hPutStrLn stderr (">>> Expecting: " <> expected)
   result <- timeout us go
   case result of
     Just () -> pure ()
@@ -81,7 +83,7 @@ expectLineOrTimeout us debug h expected = do
     line <- hGetLine h
 
     when debug $ do
-      hPutStr stderr "> "
+      hPutStr stderr (if line == expected then "[✓] " else "[ ] ")
       hPutStrLn stderr line
 
     ifM
@@ -101,6 +103,8 @@ waitForLineOrTimeout ::
   String ->
   Assertion
 waitForLineOrTimeout us debug h expected = do
+  when debug $
+    hPutStrLn stderr (">>> Waiting for: " <> expected)
   result <- timeout us go
   case result of
     Just () -> pure ()
@@ -109,7 +113,7 @@ waitForLineOrTimeout us debug h expected = do
   go = do
     line <- hGetLine h
     when debug $ do
-      hPutStr stderr "> "
+      hPutStr stderr (if line == expected then "[✓] " else "[ ] ")
       hPutStrLn stderr line
     if line == expected
       then pure ()
