@@ -143,8 +143,12 @@ test debug = do
   gdb <- getGdb
 
   let
-    -- Timeout after 60 seconds
+    -- Timeout after 60 seconds. Warning: removing the type signature breaks
+    -- stack traces.
+    expectLine :: HasCallStack => Bool -> Handle -> String -> Assertion
     expectLine = expectLineOrTimeout 60_000_000
+
+    waitForLine :: HasCallStack => Bool -> Handle -> String -> Assertion
     waitForLine = waitForLineOrTimeout 60_000_000
 
     vexRiscvProc =

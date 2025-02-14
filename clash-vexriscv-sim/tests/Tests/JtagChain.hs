@@ -56,8 +56,12 @@ test debug = do
   ensureExists logBPath
 
   let
-    -- Timeout after 120 seconds
+    -- Timeout after 120 seconds. Warning: removing the type signature breaks
+    -- stack traces.
+    expectLine :: HasCallStack => Bool -> Handle -> String -> Assertion
     expectLine = expectLineOrTimeout 120_000_000
+
+    waitForLine :: HasCallStack => Bool -> Handle -> String -> Assertion
     waitForLine = waitForLineOrTimeout 120_000_000
 
     vexRiscvProc =
