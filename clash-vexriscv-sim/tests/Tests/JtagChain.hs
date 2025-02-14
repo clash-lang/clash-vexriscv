@@ -176,7 +176,7 @@ testInResetA debug = do
     waitForLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
     waitForLine = waitForLineOrTimeout 240_000_000
 
-  let vexRiscvProc1 = addArgs vexRiscvProc ["--keep-cpu-a-in-reset"]
+  let vexRiscvProc1 = addArgs vexRiscvProc ["--keep-cpu-a-in-reset", show (maxBound :: Int)]
 
   withStreamingFile logPathB $ \logB -> do
     withCreateProcess vexRiscvProc1 $ \_ (fromJust -> simStdOut) _ _ -> do

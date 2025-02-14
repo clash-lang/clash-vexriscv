@@ -10,7 +10,7 @@ import Clash.Prelude
 import Control.Monad (forM_, when)
 import GHC.Char (chr)
 import GHC.IO.Handle (Handle, hFlush, hPutStr)
-import Options.Applicative (Parser, execParser, fullDesc, header, help, helper, info, long, progDesc, short, strOption, switch)
+import Options.Applicative (Parser, execParser, fullDesc, header, help, helper, info, long, progDesc, short, strOption, option, auto)
 import Protocols.Wishbone
 import System.Exit (exitFailure)
 import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile, stdout)
@@ -48,8 +48,8 @@ data RunOpts = RunOpts
   , execPathB :: FilePath
   , logPathA :: FilePath
   , logPathB :: FilePath
-  , keepInResetA :: Bool
-  , keepInResetB :: Bool
+  , keepInResetA :: Maybe Int
+  , keepInResetB :: Maybe Int
   }
 
 getRunOpts :: Parser RunOpts
@@ -75,13 +75,19 @@ getRunOpts =
           <> long "b-log"
           <> help "Path to the log file for CPU B"
       )
-    <*> switch
-      ( long "keep-cpu-a-in-reset"
-          <> help "Keep CPU A in reset"
+    <*> optional
+      ( option
+          auto
+          ( long "keep-cpu-a-in-reset"
+              <> help "Keep CPU A in reset"
+          )
       )
-    <*> switch
-      ( long "keep-cpu-b-in-reset"
-          <> help "Keep CPU B in reset"
+    <*> optional
+      ( option
+          auto
+          ( long "keep-cpu-b-in-reset"
+              <> help "Keep CPU B in reset"
+          )
       )
 
 jtagDaisyChain :: JtagIn -> JtagOut -> JtagIn
@@ -94,6 +100,10 @@ type CpuSignals =
   , WishboneS2M (BitVector 32)
   , WishboneS2M (BitVector 32)
   )
+
+toReset :: KnownDomain dom => Maybe Int -> Reset dom
+toReset Nothing = resetGenN d2
+toReset (Just n) = unsafeFromActiveHigh $ fromList (L.replicate n True <> L.repeat False)
 
 main :: IO ()
 main = do
@@ -117,9 +127,7 @@ main = do
 
   let
     jtagInA = jtagBridge jtagOutB
-    resetA
-      | keepInResetA = unsafeFromActiveHigh (pure True)
-      | otherwise = resetGenN d2
+    resetA = toReset keepInResetA
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
       withClock @System clockGen
         $ withReset @System resetA
@@ -127,9 +135,7 @@ main = do
            in bundle (circ, jto, writes1, iBus, dBus)
 
     jtagInB = liftA2 jtagDaisyChain jtagInA jtagOutA
-    resetB
-      | keepInResetB = unsafeFromActiveHigh (pure True)
-      | otherwise = resetGenN d2
+    resetB = toReset keepInResetB
     cpuOutB@(unbundle -> (_circuitB, jtagOutB, _, _iBusB, _dBusB)) =
       withClock @System clockGen
         $ withReset @System resetB
