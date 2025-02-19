@@ -10,7 +10,7 @@ import Clash.Prelude
 import Control.Monad (forM_, when)
 import GHC.Char (chr)
 import GHC.IO.Handle (Handle, hFlush, hPutStr)
-import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, option, progDesc, short, showDefault, strOption, value)
+import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, option, progDesc, short, showDefault, strOption, switch, value)
 import Protocols.Wishbone
 import System.Exit (exitFailure)
 import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile, stdout)
@@ -52,6 +52,7 @@ data RunOpts = RunOpts
   , b_assertResetFor :: Int
   , a_assertResetAfter :: Int
   , b_assertResetAfter :: Int
+  , printClockCycles :: Bool
   }
 
 getRunOpts :: Parser RunOpts
@@ -104,6 +105,10 @@ getRunOpts =
           <> help "Assert CPU B reset after N cycles"
           <> value 0
           <> showDefault
+      )
+    <*> switch
+      ( long "print-clock-cycles"
+          <> help "Print number of clock cycles passed after each printed"
       )
 
 jtagDaisyChain :: JtagIn -> JtagOut -> JtagIn
@@ -164,6 +169,7 @@ main = do
     cpuOut = bundle (cpuOutA, cpuOutB)
 
   runSampling
+    printClockCycles
     debugConfig
     (logFileA, logFileB)
     cpuOut
@@ -177,18 +183,20 @@ main = do
       )
 
 runSampling ::
+  -- | Print clock cycles whenever a line is printed
+  Bool ->
   DebugConfiguration ->
   (Handle, Handle) ->
   Signal System (CpuSignals, CpuSignals) ->
   IO ()
-runSampling dbg (handleA, handleB) cpusOutputs = do
+runSampling printClockCycles dbg (handleA, handleB) cpusOutputs = do
   case dbg of
     RunCharacterDevice ->
       forM_
-        (sample_lazy @System (bundle (register @System (unpack 0) cpusOutputs, cpusOutputs)))
-        $ \((a1, b1), (a0, b0)) -> do
-          runCharacterDevice handleA a1 a0
-          runCharacterDevice handleB b1 b0
+        (L.zip [(0 :: Int) ..] (sample_lazy @System (bundle (register @System (unpack 0) cpusOutputs, cpusOutputs))))
+        $ \(nCycle, ((a1, b1), (a0, b0))) -> do
+          runCharacterDevice printClockCycles nCycle handleA a1 a0
+          runCharacterDevice printClockCycles nCycle handleB b1 b0
     InspectBusses initCycles uninteresting interesting iEnabled dEnabled -> do
       let
         skipTotal = initCycles + uninteresting
@@ -213,11 +221,14 @@ runSampling dbg (handleA, handleB) cpusOutputs = do
             _ -> pure ()
 
 runCharacterDevice ::
+  -- | Print clock cycles whenever a line is printed
+  Bool ->
+  Int ->
   Handle ->
   CpuSignals ->
   CpuSignals ->
   IO ()
-runCharacterDevice logFile (_, _, write, dS2M, iS2M) (out1, _, _, _, _) = do
+runCharacterDevice printClockCycles nCycle logFile (_, _, write, dS2M, iS2M) (out1, _, _, _, _) = do
   when (err dS2M) $ do
     let dBusM2S = dBusWbM2S out1
     let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
@@ -245,7 +256,10 @@ runCharacterDevice logFile (_, _, write, dS2M, iS2M) (out1, _, _, _, _) = do
         (_ :: BitVector 24, b :: BitVector 8) = unpack val
         char = chr (fromEnum b)
       hPutChar logFile char
-      when (char == '\n') (hFlush logFile)
+      when (char == '\n') $ do
+        when printClockCycles $ do
+          hPutStrLn logFile ("[CPU] clock cycle: " <> show nCycle)
+        hFlush logFile
     _ -> pure ()
 
 runInspectBusses ::
