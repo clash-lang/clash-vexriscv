@@ -158,6 +158,7 @@ addArgs cp newArgs = cp{cmdspec = addArgsCmdSpec (cmdspec cp)}
   addArgsCmdSpec (RawCommand cmd args) = RawCommand cmd (args <> newArgs)
   addArgsCmdSpec (ShellCommand cmd) = ShellCommand (cmd <> " " <> unwords newArgs)
 
+-- | Test that we can communicate with CPU B when CPU A is held in reset.
 testInResetA ::
   (HasCallStack) =>
   -- | Print debug output of subprocesses
@@ -198,6 +199,9 @@ testInResetA debug = do
           gdbBExitCode <- waitForProcess gdbProcHandleB
           ExitSuccess @=? gdbBExitCode
 
+{- | Test that we can communicate with CPU B when CPU A is held in reset, and
+that CPU A recovers after the reset is deasserted.
+-}
 testResetDeassertion ::
   (HasCallStack) =>
   -- | Print debug output of subprocesses
@@ -242,6 +246,87 @@ testResetDeassertion debug = do
             ExitSuccess @=? gdbAExitCode
             ExitSuccess @=? gdbBExitCode
 
+{- | Test that we can communicate with CPU A and B when neither is held in reset. Then,
+test that CPU A can recover after its reset is asserted (and deasserted) during GDB
+execution.
+-}
+testResetAssertion ::
+  (HasCallStack) =>
+  -- | Print debug output of subprocesses
+  Bool ->
+  Assertion
+testResetAssertion debug = do
+  Args{vexRiscvProc, openOcdProc, gdbProcA, gdbProcB, logPathA, logPathB} <- createArgs
+
+  let
+    -- Timeout after 120 seconds. Warning: removing the type signature breaks
+    -- stack traces.
+    waitForLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
+    waitForLine = waitForLineOrTimeout 120_000_000
+
+    vexRiscvProc1 =
+      addArgs
+        vexRiscvProc
+        [ "--print-clock-cycles"
+        , "--assert-cpu-a-reset-after"
+        , show @Int 1_000_000
+        , "--assert-cpu-a-reset-for"
+        , show @Int 2
+        ]
+
+  withStreamingFiles (logPathA :> logPathB :> Nil) $ \(vecToTuple -> (logA, logB)) -> do
+    withCreateProcess vexRiscvProc1 $ \_ (fromJust -> simStdOut) _ _ -> do
+      when debug $ hPutStrLn stderr ""
+      waitForLine debug simStdOut "JTAG bridge ready at port 7894"
+
+      waitForLine debug logA "[CPU] a"
+      waitForLine debug logB "[CPU] b"
+
+      withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
+        waitForLine debug openOcdStdErr "[riscv.cpu0] Target successfully examined."
+        waitForLine debug openOcdStdErr "[riscv.cpu1] Target successfully examined."
+        waitForLine debug openOcdStdErr "Halting processor"
+
+        withCreateProcess gdbProcA $ \_ _ _ gdbProcHandleA -> do
+          withCreateProcess gdbProcB $ \_ _ _ gdbProcHandleB -> do
+            -- The logs show that this happens around 1M cycles. The exact number is
+            -- unreliable: it depends on the speed of the host machine / thread
+            -- scheduling.
+            waitForLine debug logB "[CPU] b"
+            waitForLine debug logB "[CPU] a"
+
+            waitForLine debug openOcdStdErr "Info : [riscv.cpu0] Hart unexpectedly reset!"
+
+            terminateProcess gdbProcHandleA
+            gdbAExitCode <- waitForProcess gdbProcHandleA
+            gdbBExitCode <- waitForProcess gdbProcHandleB
+            ExitSuccess @=? gdbAExitCode
+            ExitSuccess @=? gdbBExitCode
+
+        -- Both GDB connections should be dropped before we try to set up a new
+        -- connection. (Really, only the GDB connection of CPU A should be dropped,
+        -- but we don't have a way to distinguish between the two.)
+        waitForLine debug openOcdStdErr "Info : dropped 'gdb' connection"
+        waitForLine debug openOcdStdErr "Info : dropped 'gdb' connection"
+
+        withCreateProcess gdbProcA $ \_ _ _ gdbProcHandleA -> do
+          waitForLine debug openOcdStdErr "riscv.cpu0 halted due to debug-request."
+
+          -- XXX: This _might_ still get residue from the previous GDB session. To
+          --      make this test more trustworthy, we should add a way to "flush"
+          --      the log. Alternatively, we can load a different binary.
+
+          -- XXX: We don't wait for the first "a" to appear, because we might have
+          --      interrupted a write line with the reset. This may have caused
+          --      partial lines to have been written, in turn making us read something
+          --      like "[CP[CPU] a" instead of "[CPU] a".
+          -- waitForLine debug logA "[CPU] a" -- first load
+
+          waitForLine debug logA "[CPU] a" -- breakpoint
+          waitForLine debug logA "[CPU] b" -- new binary loaded
+          gdbAExitCode <- waitForProcess gdbProcHandleA
+          ExitSuccess @=? gdbAExitCode
+
 ensureExists :: (HasCallStack) => FilePath -> IO ()
 ensureExists path = unlessM (doesPathExist path) (withFile path WriteMode (\_ -> pure ()))
 
@@ -255,6 +340,8 @@ tests = askOption $ \(JtagDebug debug) ->
     [ testCase "Basic GDB commands, breakpoints, and program loading" (testBoth debug)
     , testCase "Program loading with CPU A held in reset" (testInResetA debug)
     , testCase "CPU A should recover after reset deassertion" (testResetDeassertion debug)
+    -- XXX: This test is unreliable -- whether it succeeds depends on the moment of reset....
+    -- , testCase "CPU A should recover after reset assertion/deassertion in middle of execution" (testResetAssertion debug)
     ]
 
 main :: IO ()
