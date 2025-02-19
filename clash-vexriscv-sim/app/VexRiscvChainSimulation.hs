@@ -48,8 +48,8 @@ data RunOpts = RunOpts
   , b_execPath :: FilePath
   , a_logPath :: FilePath
   , b_logPath :: FilePath
-  , a_keepInReset :: Maybe Int
-  , b_keepInReset :: Maybe Int
+  , a_assertResetFor :: Maybe Int
+  , b_assertResetFor :: Maybe Int
   }
 
 getRunOpts :: Parser RunOpts
@@ -78,15 +78,15 @@ getRunOpts =
     <*> optional
       ( option
           auto
-          ( long "keep-cpu-a-in-reset"
-              <> help "Keep CPU A in reset"
+          ( long "assert-cpu-a-reset-for"
+              <> help "Assert CPU A in reset for N cycles"
           )
       )
     <*> optional
       ( option
           auto
-          ( long "keep-cpu-b-in-reset"
-              <> help "Keep CPU B in reset"
+          ( long "assert-cpu-b-reset-for"
+              <> help "Assert CPU B in reset for N cycles"
           )
       )
 
@@ -127,7 +127,7 @@ main = do
 
   let
     jtagInA = jtagBridge jtagOutB
-    resetA = toReset a_keepInReset
+    resetA = toReset a_assertResetFor
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
       withClock @System clockGen
         $ withReset @System resetA
@@ -135,7 +135,7 @@ main = do
            in bundle (circ, jto, writes1, iBus, dBus)
 
     jtagInB = liftA2 jtagDaisyChain jtagInA jtagOutA
-    resetB = toReset b_keepInReset
+    resetB = toReset b_assertResetFor
     cpuOutB@(unbundle -> (_circuitB, jtagOutB, _, _iBusB, _dBusB)) =
       withClock @System clockGen
         $ withReset @System resetB
