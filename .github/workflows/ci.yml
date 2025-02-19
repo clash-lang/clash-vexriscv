@@ -56,7 +56,7 @@ jobs:
 
       - run: nix-shell --run "cabal build all"
       - run: nix-shell --run "cabal run clash-vexriscv:unittests"
-      - run: nix-shell --run "cabal run clash-vexriscv-sim:unittests -- -j1"
+      - run: nix-shell --run "cabal run clash-vexriscv-sim:unittests -- -j1 --jtag-debug"
       - run: nix-shell --run "cabal run clash-vexriscv-sim:hdl-test"
 
   license-check:
@@ -266,7 +266,7 @@ jobs:
       - name: Run `clash-vexriscv-sim` unittests
         run: |
           # Can't run the unit tests with multiple threads because of the common use of port 7894.
-          cabal run clash-vexriscv-sim:unittests -- -j1
+          cabal run clash-vexriscv-sim:unittests -- -j1 --jtag-debug
 
       - name: Run `clash-vexriscv-sim` HDL test
         run: |

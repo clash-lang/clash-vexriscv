@@ -60,6 +60,12 @@ getGdb = do
     Nothing -> fail "Neither gdb-multiarch nor gdb found in PATH"
     Just x -> pure x
 
+bold :: String -> String
+bold s = "\ESC[1m" <> s <> "\ESC[0m"
+
+green :: String -> String
+green s = "\ESC[32m" <> s <> "\ESC[0m"
+
 expectLineOrTimeout ::
   (HasCallStack) =>
   -- | Number of microseconds to wait. I.e., 1_000_000 is 1 second.
@@ -72,6 +78,8 @@ expectLineOrTimeout ::
   String ->
   Assertion
 expectLineOrTimeout us debug h expected = do
+  when debug $
+    hPutStrLn stderr (bold (">>> Expecting: " <> expected))
   result <- timeout us go
   case result of
     Just () -> pure ()
@@ -81,8 +89,10 @@ expectLineOrTimeout us debug h expected = do
     line <- hGetLine h
 
     when debug $ do
-      hPutStr stderr "> "
-      hPutStrLn stderr line
+      hPutStrLn stderr $
+        if line == expected
+          then bold $ green $ "[✓] " <> line
+          else "[ ] " <> line
 
     ifM
       (pure $ null line)
@@ -101,6 +111,8 @@ waitForLineOrTimeout ::
   String ->
   Assertion
 waitForLineOrTimeout us debug h expected = do
+  when debug $
+    hPutStrLn stderr (bold (">>> Waiting for: " <> expected))
   result <- timeout us go
   case result of
     Just () -> pure ()
@@ -109,8 +121,10 @@ waitForLineOrTimeout us debug h expected = do
   go = do
     line <- hGetLine h
     when debug $ do
-      hPutStr stderr "> "
-      hPutStrLn stderr line
+      hPutStrLn stderr $
+        if line == expected
+          then bold $ green $ "[✓] " <> line
+          else "[ ] " <> line
     if line == expected
       then pure ()
       else go
@@ -139,8 +153,12 @@ test debug = do
   gdb <- getGdb
 
   let
-    -- Timeout after 60 seconds
+    -- Timeout after 60 seconds. Warning: removing the type signature breaks
+    -- stack traces.
+    expectLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
     expectLine = expectLineOrTimeout 60_000_000
+
+    waitForLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
     waitForLine = waitForLineOrTimeout 60_000_000
 
     vexRiscvProc =
@@ -172,6 +190,7 @@ test debug = do
     withCreateProcess openOcdProc $ \_ _ (fromJust -> openOcdStdErr) _ -> do
       hSetBuffering openOcdStdErr LineBuffering
       putStrLn "Waiting for \"Halting processor\" on openOcdStdErr"
+      waitForLine debug openOcdStdErr "[riscv.cpu0] Target successfully examined."
       waitForLine debug openOcdStdErr "Halting processor"
 
       -- OpenOCD has started, so we can start GDB

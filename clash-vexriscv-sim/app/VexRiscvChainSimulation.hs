@@ -10,7 +10,7 @@ import Clash.Prelude
 import Control.Monad (forM_, when)
 import GHC.Char (chr)
 import GHC.IO.Handle (Handle, hFlush, hPutStr)
-import Options.Applicative (Parser, execParser, fullDesc, header, help, helper, info, long, progDesc, short, strOption)
+import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, option, progDesc, short, showDefault, strOption, switch, value)
 import Protocols.Wishbone
 import System.Exit (exitFailure)
 import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile, stdout)
@@ -44,10 +44,15 @@ debugConfig =
 --------------------------------------
 
 data RunOpts = RunOpts
-  { execPathA :: FilePath
-  , execPathB :: FilePath
-  , logPathA :: FilePath
-  , logPathB :: FilePath
+  { a_execPath :: FilePath
+  , b_execPath :: FilePath
+  , a_logPath :: FilePath
+  , b_logPath :: FilePath
+  , a_assertResetFor :: Int
+  , b_assertResetFor :: Int
+  , a_assertResetAfter :: Int
+  , b_assertResetAfter :: Int
+  , printClockCycles :: Bool
   }
 
 getRunOpts :: Parser RunOpts
@@ -73,6 +78,38 @@ getRunOpts =
           <> long "b-log"
           <> help "Path to the log file for CPU B"
       )
+    <*> option
+      auto
+      ( long "assert-cpu-a-reset-for"
+          <> help "Assert CPU A in reset for N cycles. Must be at least 2 for a proper reset. Note that this reset gets asserted after 'assert-cpu-reset-after' cycles. Simulation will always start with a 2-cycle reset."
+          <> value 0
+          <> showDefault
+      )
+    <*> option
+      auto
+      ( long "assert-cpu-b-reset-for"
+          <> help "Assert CPU B in reset for N cycles. Must be at least 2 for a proper reset. Note that this reset gets asserted after 'assert-cpu-reset-after' cycles. Simulation will always start with a 2-cycle reset."
+          <> value 0
+          <> showDefault
+      )
+    <*> option
+      auto
+      ( long "assert-cpu-a-reset-after"
+          <> help "Assert CPU A reset after N cycles"
+          <> value 0
+          <> showDefault
+      )
+    <*> option
+      auto
+      ( long "assert-cpu-b-reset-after"
+          <> help "Assert CPU B reset after N cycles"
+          <> value 0
+          <> showDefault
+      )
+    <*> switch
+      ( long "print-clock-cycles"
+          <> help "Print number of clock cycles passed after each printed"
+      )
 
 jtagDaisyChain :: JtagIn -> JtagOut -> JtagIn
 jtagDaisyChain (JtagIn tc ms _) (JtagOut to) = JtagIn tc ms to
@@ -85,20 +122,28 @@ type CpuSignals =
   , WishboneS2M (BitVector 32)
   )
 
+toReset :: (KnownDomain dom) => Int -> Int -> Reset dom
+toReset assertForN assertAfterN =
+  unsafeFromActiveHigh $ fromList (asserted0 <> deasserted <> asserted1 <> L.repeat False)
+ where
+  asserted0 = L.replicate 2 True
+  deasserted = L.replicate assertAfterN False
+  asserted1 = L.replicate assertForN True
+
 main :: IO ()
 main = do
   RunOpts{..} <- execParser opts
 
   (iMemA, dMemA) <-
     withClockResetEnable @System clockGen resetGen enableGen
-      $ loadProgramDmem @System execPathA
+      $ loadProgramDmem @System a_execPath
 
   (iMemB, dMemB) <-
     withClockResetEnable @System clockGen resetGen enableGen
-      $ loadProgramDmem @System execPathB
+      $ loadProgramDmem @System b_execPath
 
-  logFileA <- openFile logPathA WriteMode
-  logFileB <- openFile logPathB WriteMode
+  logFileA <- openFile a_logPath WriteMode
+  logFileB <- openFile b_logPath WriteMode
 
   let portNr = 7894
   jtagBridge <- vexrJtagBridge portNr
@@ -107,21 +152,24 @@ main = do
 
   let
     jtagInA = jtagBridge jtagOutB
+    resetA = toReset a_assertResetFor a_assertResetAfter
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
       withClock @System clockGen
-        $ withReset @System (resetGenN (SNat @2))
+        $ withReset @System resetA
         $ let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInA) iMemA dMemA
            in bundle (circ, jto, writes1, iBus, dBus)
 
     jtagInB = liftA2 jtagDaisyChain jtagInA jtagOutA
+    resetB = toReset b_assertResetFor b_assertResetAfter
     cpuOutB@(unbundle -> (_circuitB, jtagOutB, _, _iBusB, _dBusB)) =
       withClock @System clockGen
-        $ withReset @System (resetGenN (SNat @2))
+        $ withReset @System resetB
         $ let (circ, jto, writes1, iBus, dBus) = cpu NoDumpVcd (Just jtagInB) iMemB dMemB
            in bundle (circ, jto, writes1, iBus, dBus)
     cpuOut = bundle (cpuOutA, cpuOutB)
 
   runSampling
+    printClockCycles
     debugConfig
     (logFileA, logFileB)
     cpuOut
@@ -135,18 +183,20 @@ main = do
       )
 
 runSampling ::
+  -- | Print clock cycles whenever a line is printed
+  Bool ->
   DebugConfiguration ->
   (Handle, Handle) ->
   Signal System (CpuSignals, CpuSignals) ->
   IO ()
-runSampling dbg (handleA, handleB) cpusOutputs = do
+runSampling printClockCycles dbg (handleA, handleB) cpusOutputs = do
   case dbg of
     RunCharacterDevice ->
       forM_
-        (sample_lazy @System (bundle (register @System (unpack 0) cpusOutputs, cpusOutputs)))
-        $ \((a1, b1), (a0, b0)) -> do
-          runCharacterDevice handleA a1 a0
-          runCharacterDevice handleB b1 b0
+        (L.zip [(0 :: Int) ..] (sample_lazy @System (bundle (register @System (unpack 0) cpusOutputs, cpusOutputs))))
+        $ \(nCycle, ((a1, b1), (a0, b0))) -> do
+          runCharacterDevice printClockCycles nCycle handleA a1 a0
+          runCharacterDevice printClockCycles nCycle handleB b1 b0
     InspectBusses initCycles uninteresting interesting iEnabled dEnabled -> do
       let
         skipTotal = initCycles + uninteresting
@@ -171,11 +221,14 @@ runSampling dbg (handleA, handleB) cpusOutputs = do
             _ -> pure ()
 
 runCharacterDevice ::
+  -- | Print clock cycles whenever a line is printed
+  Bool ->
+  Int ->
   Handle ->
   CpuSignals ->
   CpuSignals ->
   IO ()
-runCharacterDevice logFile (_, _, write, dS2M, iS2M) (out1, _, _, _, _) = do
+runCharacterDevice printClockCycles nCycle logFile (_, _, write, dS2M, iS2M) (out1, _, _, _, _) = do
   when (err dS2M) $ do
     let dBusM2S = dBusWbM2S out1
     let dAddr = toInteger (addr dBusM2S) -- `shiftL` 2
@@ -198,12 +251,15 @@ runCharacterDevice logFile (_, _, write, dS2M, iS2M) (out1, _, _, _, _) = do
     exitFailure
 
   case write of
-    Just (address, value) | address == 0x0000_1000 -> do
+    Just (address, val) | address == 0x0000_1000 -> do
       let
-        (_ :: BitVector 24, b :: BitVector 8) = unpack value
+        (_ :: BitVector 24, b :: BitVector 8) = unpack val
         char = chr (fromEnum b)
       hPutChar logFile char
-      when (char == '\n') (hFlush logFile)
+      when (char == '\n') $ do
+        when printClockCycles $ do
+          hPutStrLn logFile ("[CPU] clock cycle: " <> show nCycle)
+        hFlush logFile
     _ -> pure ()
 
 runInspectBusses ::
