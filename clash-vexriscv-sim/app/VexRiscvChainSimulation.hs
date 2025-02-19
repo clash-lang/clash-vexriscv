@@ -44,12 +44,12 @@ debugConfig =
 --------------------------------------
 
 data RunOpts = RunOpts
-  { execPathA :: FilePath
-  , execPathB :: FilePath
-  , logPathA :: FilePath
-  , logPathB :: FilePath
-  , keepInResetA :: Maybe Int
-  , keepInResetB :: Maybe Int
+  { a_execPath :: FilePath
+  , b_execPath :: FilePath
+  , a_logPath :: FilePath
+  , b_logPath :: FilePath
+  , a_keepInReset :: Maybe Int
+  , b_keepInReset :: Maybe Int
   }
 
 getRunOpts :: Parser RunOpts
@@ -111,14 +111,14 @@ main = do
 
   (iMemA, dMemA) <-
     withClockResetEnable @System clockGen resetGen enableGen
-      $ loadProgramDmem @System execPathA
+      $ loadProgramDmem @System a_execPath
 
   (iMemB, dMemB) <-
     withClockResetEnable @System clockGen resetGen enableGen
-      $ loadProgramDmem @System execPathB
+      $ loadProgramDmem @System b_execPath
 
-  logFileA <- openFile logPathA WriteMode
-  logFileB <- openFile logPathB WriteMode
+  logFileA <- openFile a_logPath WriteMode
+  logFileB <- openFile b_logPath WriteMode
 
   let portNr = 7894
   jtagBridge <- vexrJtagBridge portNr
@@ -127,7 +127,7 @@ main = do
 
   let
     jtagInA = jtagBridge jtagOutB
-    resetA = toReset keepInResetA
+    resetA = toReset a_keepInReset
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
       withClock @System clockGen
         $ withReset @System resetA
@@ -135,7 +135,7 @@ main = do
            in bundle (circ, jto, writes1, iBus, dBus)
 
     jtagInB = liftA2 jtagDaisyChain jtagInA jtagOutA
-    resetB = toReset keepInResetB
+    resetB = toReset b_keepInReset
     cpuOutB@(unbundle -> (_circuitB, jtagOutB, _, _iBusB, _dBusB)) =
       withClock @System clockGen
         $ withReset @System resetB
