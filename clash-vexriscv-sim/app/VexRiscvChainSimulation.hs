@@ -10,7 +10,7 @@ import Clash.Prelude
 import Control.Monad (forM_, when)
 import GHC.Char (chr)
 import GHC.IO.Handle (Handle, hFlush, hPutStr)
-import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, option, progDesc, short, strOption)
+import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, option, progDesc, short, showDefault, strOption, value)
 import Protocols.Wishbone
 import System.Exit (exitFailure)
 import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile, stdout)
@@ -48,8 +48,10 @@ data RunOpts = RunOpts
   , b_execPath :: FilePath
   , a_logPath :: FilePath
   , b_logPath :: FilePath
-  , a_assertResetFor :: Maybe Int
-  , b_assertResetFor :: Maybe Int
+  , a_assertResetFor :: Int
+  , b_assertResetFor :: Int
+  , a_assertResetAfter :: Int
+  , b_assertResetAfter :: Int
   }
 
 getRunOpts :: Parser RunOpts
@@ -75,19 +77,33 @@ getRunOpts =
           <> long "b-log"
           <> help "Path to the log file for CPU B"
       )
-    <*> optional
-      ( option
-          auto
-          ( long "assert-cpu-a-reset-for"
-              <> help "Assert CPU A in reset for N cycles"
-          )
+    <*> option
+      auto
+      ( long "assert-cpu-a-reset-for"
+          <> help "Assert CPU A in reset for N cycles. Must be at least 2 for a proper reset. Note that this reset gets asserted after 'assert-cpu-reset-after' cycles. Simulation will always start with a 2-cycle reset."
+          <> value 0
+          <> showDefault
       )
-    <*> optional
-      ( option
-          auto
-          ( long "assert-cpu-b-reset-for"
-              <> help "Assert CPU B in reset for N cycles"
-          )
+    <*> option
+      auto
+      ( long "assert-cpu-b-reset-for"
+          <> help "Assert CPU B in reset for N cycles. Must be at least 2 for a proper reset. Note that this reset gets asserted after 'assert-cpu-reset-after' cycles. Simulation will always start with a 2-cycle reset."
+          <> value 0
+          <> showDefault
+      )
+    <*> option
+      auto
+      ( long "assert-cpu-a-reset-after"
+          <> help "Assert CPU A reset after N cycles"
+          <> value 0
+          <> showDefault
+      )
+    <*> option
+      auto
+      ( long "assert-cpu-b-reset-after"
+          <> help "Assert CPU B reset after N cycles"
+          <> value 0
+          <> showDefault
       )
 
 jtagDaisyChain :: JtagIn -> JtagOut -> JtagIn
@@ -101,9 +117,13 @@ type CpuSignals =
   , WishboneS2M (BitVector 32)
   )
 
-toReset :: (KnownDomain dom) => Maybe Int -> Reset dom
-toReset Nothing = resetGenN d2
-toReset (Just n) = unsafeFromActiveHigh $ fromList (L.replicate n True <> L.repeat False)
+toReset :: (KnownDomain dom) => Int -> Int -> Reset dom
+toReset assertForN assertAfterN =
+  unsafeFromActiveHigh $ fromList (asserted0 <> deasserted <> asserted1 <> L.repeat False)
+ where
+  asserted0 = L.replicate 2 True
+  deasserted = L.replicate assertAfterN False
+  asserted1 = L.replicate assertForN True
 
 main :: IO ()
 main = do
@@ -127,7 +147,7 @@ main = do
 
   let
     jtagInA = jtagBridge jtagOutB
-    resetA = toReset a_assertResetFor
+    resetA = toReset a_assertResetFor a_assertResetAfter
     cpuOutA@(unbundle -> (_circuitA, jtagOutA, _, _iBusA, _dBusA)) =
       withClock @System clockGen
         $ withReset @System resetA
@@ -135,7 +155,7 @@ main = do
            in bundle (circ, jto, writes1, iBus, dBus)
 
     jtagInB = liftA2 jtagDaisyChain jtagInA jtagOutA
-    resetB = toReset b_assertResetFor
+    resetB = toReset b_assertResetFor b_assertResetAfter
     cpuOutB@(unbundle -> (_circuitB, jtagOutB, _, _iBusB, _dBusB)) =
       withClock @System clockGen
         $ withReset @System resetB
@@ -220,9 +240,9 @@ runCharacterDevice logFile (_, _, write, dS2M, iS2M) (out1, _, _, _, _) = do
     exitFailure
 
   case write of
-    Just (address, value) | address == 0x0000_1000 -> do
+    Just (address, val) | address == 0x0000_1000 -> do
       let
-        (_ :: BitVector 24, b :: BitVector 8) = unpack value
+        (_ :: BitVector 24, b :: BitVector 8) = unpack val
         char = chr (fromEnum b)
       hPutChar logFile char
       when (char == '\n') (hFlush logFile)
