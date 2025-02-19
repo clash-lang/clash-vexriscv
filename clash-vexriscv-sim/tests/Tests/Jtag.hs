@@ -60,6 +60,12 @@ getGdb = do
     Nothing -> fail "Neither gdb-multiarch nor gdb found in PATH"
     Just x -> pure x
 
+bold :: String -> String
+bold s = "\ESC[1m" <> s <> "\ESC[0m"
+
+green :: String -> String
+green s = "\ESC[32m" <> s <> "\ESC[0m"
+
 expectLineOrTimeout ::
   (HasCallStack) =>
   -- | Number of microseconds to wait. I.e., 1_000_000 is 1 second.
@@ -73,7 +79,7 @@ expectLineOrTimeout ::
   Assertion
 expectLineOrTimeout us debug h expected = do
   when debug $
-    hPutStrLn stderr (">>> Expecting: " <> expected)
+    hPutStrLn stderr (bold (">>> Expecting: " <> expected))
   result <- timeout us go
   case result of
     Just () -> pure ()
@@ -83,8 +89,10 @@ expectLineOrTimeout us debug h expected = do
     line <- hGetLine h
 
     when debug $ do
-      hPutStr stderr (if line == expected then "[✓] " else "[ ] ")
-      hPutStrLn stderr line
+      hPutStrLn stderr $
+        if line == expected
+          then bold $ green $ "[✓] " <> line
+          else "[ ] " <> line
 
     ifM
       (pure $ null line)
@@ -104,7 +112,7 @@ waitForLineOrTimeout ::
   Assertion
 waitForLineOrTimeout us debug h expected = do
   when debug $
-    hPutStrLn stderr (">>> Waiting for: " <> expected)
+    hPutStrLn stderr (bold (">>> Waiting for: " <> expected))
   result <- timeout us go
   case result of
     Just () -> pure ()
@@ -113,8 +121,10 @@ waitForLineOrTimeout us debug h expected = do
   go = do
     line <- hGetLine h
     when debug $ do
-      hPutStr stderr (if line == expected then "[✓] " else "[ ] ")
-      hPutStrLn stderr line
+      hPutStrLn stderr $
+        if line == expected
+          then bold $ green $ "[✓] " <> line
+          else "[ ] " <> line
     if line == expected
       then pure ()
       else go

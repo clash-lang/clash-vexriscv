@@ -10,14 +10,14 @@ import Clash.Prelude (KnownNat, Vec (Nil, (:>)), toList)
 import Clash.Sized.Vector (unsafeFromList)
 import Clash.Sized.Vector.ToTuple (vecToTuple)
 
-import Control.Monad.Extra (unlessM)
+import Control.Monad.Extra (unlessM, when)
 import Data.Data (Proxy (Proxy))
 import Data.Maybe (fromJust)
 import GHC.Stack (HasCallStack)
 import System.Directory (doesPathExist)
 import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>))
-import System.IO (Handle, IOMode (WriteMode), withFile)
+import System.IO (Handle, IOMode (WriteMode), hPutStrLn, stderr, withFile)
 import System.Process
 import Test.Tasty (TestTree, askOption, defaultIngredients, defaultMainWithIngredients, includingOptions, testGroup)
 import Test.Tasty.HUnit (Assertion, testCase, (@=?))
@@ -118,6 +118,7 @@ testBoth debug = do
 
   withStreamingFiles (logPathA :> logPathB :> Nil) $ \(vecToTuple -> (logA, logB)) -> do
     withCreateProcess vexRiscvProc $ \_ (fromJust -> simStdOut) _ _ -> do
+      when debug $ hPutStrLn stderr ""
       waitForLine debug simStdOut "JTAG bridge ready at port 7894"
 
       expectLine debug logA "[CPU] a"
@@ -180,6 +181,7 @@ testInResetA debug = do
 
   withStreamingFile logPathB $ \logB -> do
     withCreateProcess vexRiscvProc1 $ \_ (fromJust -> simStdOut) _ _ -> do
+      when debug $ hPutStrLn stderr ""
       waitForLine debug simStdOut "JTAG bridge ready at port 7894"
 
       expectLine debug logB "[CPU] b"
@@ -217,6 +219,7 @@ testResetDeassertion debug = do
 
   withStreamingFiles (logPathA :> logPathB :> Nil) $ \(vecToTuple -> (logA, logB)) -> do
     withCreateProcess vexRiscvProc1 $ \_ (fromJust -> simStdOut) _ _ -> do
+      when debug $ hPutStrLn stderr ""
       waitForLine debug simStdOut "JTAG bridge ready at port 7894"
 
       expectLine debug logB "[CPU] b" -- first load
