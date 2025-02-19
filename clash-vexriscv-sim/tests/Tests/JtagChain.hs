@@ -33,7 +33,7 @@ getSimulateExecPath = cabalListBin "clash-vexriscv-sim:clash-vexriscv-chain-bin"
 getProjectRoot :: IO FilePath
 getProjectRoot = findParentContaining cabalProject
 
-data Args = Args
+data TestContext = TestContext
   { vexRiscvProc :: CreateProcess
   , openOcdProc :: CreateProcess
   , gdbProcA :: CreateProcess
@@ -42,8 +42,8 @@ data Args = Args
   , logPathB :: FilePath
   }
 
-createArgs :: IO Args
-createArgs = do
+createTestContext :: IO TestContext
+createTestContext = do
   simulateExecPath <- getSimulateExecPath
   projectRoot <- getProjectRoot
   gdb <- getGdb
@@ -90,7 +90,7 @@ createArgs = do
   ensureExists logPathB
 
   pure $
-    Args
+    TestContext
       { vexRiscvProc
       , openOcdProc
       , gdbProcA
@@ -114,7 +114,7 @@ testBoth debug = do
     waitForLine :: (HasCallStack) => Bool -> Handle -> String -> Assertion
     waitForLine = waitForLineOrTimeout 120_000_000
 
-  Args{vexRiscvProc, openOcdProc, gdbProcA, gdbProcB, logPathA, logPathB} <- createArgs
+  TestContext{vexRiscvProc, openOcdProc, gdbProcA, gdbProcB, logPathA, logPathB} <- createTestContext
 
   withStreamingFiles (logPathA :> logPathB :> Nil) $ \(vecToTuple -> (logA, logB)) -> do
     withCreateProcess vexRiscvProc $ \_ (fromJust -> simStdOut) _ _ -> do
@@ -165,7 +165,7 @@ testInResetA ::
   Bool ->
   Assertion
 testInResetA debug = do
-  Args{vexRiscvProc, openOcdProc, gdbProcB, logPathB} <- createArgs
+  TestContext{vexRiscvProc, openOcdProc, gdbProcB, logPathB} <- createTestContext
 
   let
     -- Timeout after 240 seconds. These tests are extremely slow, because a lot
@@ -208,7 +208,7 @@ testResetDeassertion ::
   Bool ->
   Assertion
 testResetDeassertion debug = do
-  Args{vexRiscvProc, openOcdProc, gdbProcB, gdbProcA, logPathA, logPathB} <- createArgs
+  TestContext{vexRiscvProc, openOcdProc, gdbProcB, gdbProcA, logPathA, logPathB} <- createTestContext
 
   let
     -- Timeout after 120 seconds. Warning: removing the type signature breaks
@@ -256,7 +256,7 @@ testResetAssertion ::
   Bool ->
   Assertion
 testResetAssertion debug = do
-  Args{vexRiscvProc, openOcdProc, gdbProcA, gdbProcB, logPathA, logPathB} <- createArgs
+  TestContext{vexRiscvProc, openOcdProc, gdbProcA, gdbProcB, logPathA, logPathB} <- createTestContext
 
   let
     -- Timeout after 120 seconds. Warning: removing the type signature breaks
