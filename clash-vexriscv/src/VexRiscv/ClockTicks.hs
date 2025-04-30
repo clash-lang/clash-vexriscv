@@ -236,7 +236,7 @@ clockTicksEitherRelative ::
   [(Int64, ClockAB)]
 clockTicksEitherRelative clkA clkB = zip relativeTimestamps ticks
  where
-  relativeTimestamps = 0 : zipWith (-) (tail timestamps) timestamps
+  relativeTimestamps = 0 : zipWith (-) (drop 1 timestamps) timestamps
   (timestamps, ticks) = unzip (clockTicksEitherAbsolute clkA clkB)
 
 -- | Flip edge from rising to falling, and vice versa
@@ -353,7 +353,7 @@ clockEdgesEitherRelative ::
   [(Int64, ClockEdgeAB)]
 clockEdgesEitherRelative firstEdgeA firstEdgeB clkA clkB = zip relativeTimestamps ticks
  where
-  relativeTimestamps = 0 : zipWith (-) (tail timestamps) timestamps
+  relativeTimestamps = 0 : zipWith (-) (drop 1 timestamps) timestamps
   (timestamps, ticks) = unzip (clockEdgesEitherAbsolute firstEdgeA firstEdgeB clkA clkB)
 
 {- | Given the clock periods of a single clock, produce a list of clock edges
@@ -408,5 +408,5 @@ singleClockEdgesEitherRelative ::
   [(Int64, ActiveEdge)]
 singleClockEdgesEitherRelative firstEdge clk = zip relativeTimestamps edges
  where
-  relativeTimestamps = 0 : zipWith (-) (tail timestamps) timestamps
+  relativeTimestamps = 0 : zipWith (-) (drop 1 timestamps) timestamps
   (timestamps, edges) = unzip (singleClockEdgesEitherAbsolute firstEdge clk)
