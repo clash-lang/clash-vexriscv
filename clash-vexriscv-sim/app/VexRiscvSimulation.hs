@@ -44,7 +44,10 @@ debugConfig =
 
 main :: IO ()
 main = do
-  elfFile <- L.head <$> getArgs
+  args <- getArgs
+  let elfFile = case args of
+        [f] -> f
+        _ -> error "Usage: vexriscv-sim <elf-file>"
 
   (iMem, dMem) <-
     withClockResetEnable @System clockGen resetGen enableGen

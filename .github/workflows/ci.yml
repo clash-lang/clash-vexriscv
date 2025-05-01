@@ -42,8 +42,8 @@ jobs:
         with:
           path: |
             ~/.cabal-nix/store
-          key: packages-cachebust-3-nix-${{ hashFiles('cabal.project.freeze', 'cabal.project', 'shell.nix', 'nix/**/*.nix', 'nix/**/*.json') }}
-          restore-keys: packages-cachebust-3-nix
+          key: packages-cachebust-4-nix-${{ hashFiles('cabal.project.freeze', 'cabal.project', 'shell.nix', 'nix/**/*.nix', 'nix/**/*.json') }}
+          restore-keys: packages-cachebust-4-nix
 
       - name: Download VexRiscv Integration Tests
         uses: actions/download-artifact@v4
@@ -204,9 +204,9 @@ jobs:
       fail-fast: false
       matrix:
         ghc:
-          - "9.0.2"
-          - "9.4.7"
           - "9.6.6"
+          - "9.8.4"
+          - "9.10.1"
 
     container:
       image: ghcr.io/clash-lang/clash-vexriscv-ci:${{ matrix.ghc }}-20250211
@@ -225,8 +225,8 @@ jobs:
         with:
           path: |
             ~/.local/state/cabal/store/
-          key: packages-cachebust-3-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze', 'cabal.project') }}
-          restore-keys: packages-cachebust-3-${{ matrix.ghc }}
+          key: packages-cachebust-4-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze', 'cabal.project') }}
+          restore-keys: packages-cachebust-4-${{ matrix.ghc }}
 
       - name: Stash existing VexRiscv.v
         run: |
