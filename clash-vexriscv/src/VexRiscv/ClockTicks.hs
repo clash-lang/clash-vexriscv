@@ -357,7 +357,7 @@ clockEdgesEitherRelative firstEdgeA firstEdgeB clkA clkB = zip relativeTimestamp
   (timestamps, ticks) = unzip (clockEdgesEitherAbsolute firstEdgeA firstEdgeB clkA clkB)
 
 {- | Given the clock periods of a single clock, produce a list of clock edges
-and the (absolute) times when these edges are occuring.
+and the (absolute) times when these edges are occurring.
 
 Same as 'singleClockEdgesEitherRelative', but produces absolute times
 (in /femotseconds/).
@@ -397,7 +397,7 @@ singleClockEdgesEitherAbsolute firstEdge clk =
     (absTime, currentEdge) : goDynamic (absTime + t) (oppositeEdge currentEdge) ts1
 
 {- | Given the clock periods of a single clock, produce a list of clock edges
-and the (relative) times since the last edge occured.
+and the (relative) times since the last edge occurred.
 
 Same as 'singleClockEdgesEitherAbsolute', but produces relative times
 (in /femotseconds/).
