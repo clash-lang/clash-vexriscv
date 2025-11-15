@@ -8,7 +8,9 @@ module Utils.Instance where
 
 import Clash.Annotations.TH
 import Clash.Prelude
-import VexRiscv
+import VexRiscv (CpuIn, CpuOut, DumpVcd (NoDumpVcd), JtagIn, JtagOut)
+import VexRiscv_Example
+
 import qualified VexRiscv.Reset as MinReset
 
 circuit ::

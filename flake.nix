@@ -41,11 +41,13 @@
             pkgs.sbt
             pkgs.scala
             pkgs.verilator
+            pkgs.flock
 
             # Haskell toolchain
             pkgs.cabal-install
             pkgs.haskellPackages.fourmolu
             pkgs.ghc
+            pkgs.haskell-language-server
 
             rustToolchain
 

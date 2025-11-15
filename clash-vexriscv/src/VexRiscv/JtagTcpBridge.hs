@@ -11,8 +11,8 @@ import Foreign
 import Network.Socket (PortNumber)
 import System.IO.Unsafe (unsafePerformIO)
 
-import VexRiscv
 import VexRiscv.FFI
+import VexRiscv.Internal
 
 defaultIn :: JtagIn
 defaultIn = JtagIn{testClock = low, testModeSelect = low, testDataIn = low}

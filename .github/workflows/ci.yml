@@ -209,7 +209,7 @@ jobs:
           - "9.10.1"
 
     container:
-      image: ghcr.io/clash-lang/clash-vexriscv-ci:${{ matrix.ghc }}-20250211
+      image: ghcr.io/clash-lang/clash-vexriscv-ci:${{ matrix.ghc }}-20251116
 
     steps:
       - name: Checkout
@@ -228,18 +228,12 @@ jobs:
           key: packages-cachebust-4-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze', 'cabal.project') }}
           restore-keys: packages-cachebust-4-${{ matrix.ghc }}
 
-      - name: Stash existing VexRiscv.v
-        run: |
-          cp clash-vexriscv/example-cpu/VexRiscv.v clash-vexriscv/example-cpu/VexRiscv.v.comitted
       - name: Build clash-vexriscv
         run: |
-          export PKG_CONFIG_PATH=/opt/share/pkgconfig/:${PKG_CONFIG_PATH}
           cabal build clash-vexriscv
-      - name: Check whether committed VexRiscv.v corresponds to generated one
-        run: |
-          diff -u clash-vexriscv/example-cpu/VexRiscv.v clash-vexriscv/example-cpu/VexRiscv.v.comitted
       - name: Build clash-vexriscv-sim
         run: |
+          export PKG_CONFIG_PATH=/opt/share/pkgconfig/:${PKG_CONFIG_PATH}
           cabal build clash-vexriscv-sim
 
       - name: Download VexRiscv Integration Tests

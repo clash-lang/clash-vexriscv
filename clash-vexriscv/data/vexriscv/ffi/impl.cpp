@@ -2,18 +2,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "VVexRiscv.h"
 #include "interface.h"
-#include "verilated.h"
-#include <verilated_vcd_c.h>
 
 #include <arpa/inet.h>
+#include <cassert>
+#include <cstdio>
+#include <cstring>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <unistd.h>
 
 typedef struct {
   int server_socket, client_handle;
@@ -31,163 +31,14 @@ typedef struct {
 } vexr_jtag_bridge_data;
 
 extern "C" {
-VVexRiscv *vexr_init();
-VerilatedVcdC *vexr_init_vcd(VVexRiscv *top, const char *path);
-void vexr_shutdown(VVexRiscv *top);
-
-void vexr_init_stage1(VerilatedVcdC *vcd, uint64_t dom_period_fs,
-                      VVexRiscv *top, const NON_COMB_INPUT *input,
-                      OUTPUT *output);
-void vexr_init_stage2(VVexRiscv *top, const COMB_INPUT *input);
-void vexr_step_rising_edge(VerilatedVcdC *vcd, VVexRiscv *top,
-                           uint64_t time_add, const NON_COMB_INPUT *input,
-                           OUTPUT *output);
-void vexr_step_falling_edge(VerilatedVcdC *vcd, VVexRiscv *top,
-                            uint64_t time_add, const COMB_INPUT *input);
-
 vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port);
 void vexr_jtag_bridge_step(vexr_jtag_bridge_data *d, const JTAG_OUTPUT *output,
                            JTAG_INPUT *input);
 void vexr_jtag_bridge_shutdown(vexr_jtag_bridge_data *bridge_data);
 }
 
-static VerilatedContext *contextp = 0;
 static bool set_socket_blocking_enabled(int fd, bool blocking);
 static void connection_reset(vexr_jtag_bridge_data *bridge_data);
-
-VVexRiscv *vexr_init() {
-  contextp = new VerilatedContext;
-  VVexRiscv *v = new VVexRiscv(contextp);
-  v->clk = false;
-  return v;
-}
-
-VerilatedVcdC *vexr_init_vcd(VVexRiscv *top, const char *path) {
-  VerilatedVcdC *vcd = new VerilatedVcdC;
-  Verilated::traceEverOn(true);
-  // Trace 99 levels of the hierarchy. We only have one level AFAIK, so this
-  // should be enough :-).
-  top->trace(vcd, 99);
-  vcd->open(path);
-  return vcd;
-}
-
-// Set all inputs that cannot combinationaly depend on outputs. I.e., all inputs
-// except the Wishbone buses.
-void set_non_comb_inputs(VVexRiscv *top, const NON_COMB_INPUT *input) {
-  top->reset = input->reset;
-  top->timerInterrupt = input->timerInterrupt;
-  top->externalInterrupt = input->externalInterrupt;
-  top->softwareInterrupt = input->softwareInterrupt;
-}
-
-// Set all inputs that can combinationaly depend on outputs. I.e., the Wishbone
-// buses.
-void set_comb_inputs(VVexRiscv *top, const COMB_INPUT *input) {
-  top->iBusWishbone_ACK = input->iBusWishbone_ACK;
-  top->iBusWishbone_DAT_MISO = input->iBusWishbone_DAT_MISO;
-  top->iBusWishbone_ERR = input->iBusWishbone_ERR;
-  top->dBusWishbone_ACK = input->dBusWishbone_ACK;
-  top->dBusWishbone_DAT_MISO = input->dBusWishbone_DAT_MISO;
-  top->dBusWishbone_ERR = input->dBusWishbone_ERR;
-
-  top->jtag_tck = input->jtag_TCK;
-  top->jtag_tms = input->jtag_TMS;
-  top->jtag_tdi = input->jtag_TDI;
-}
-
-// Set all outputs
-void set_outputs(VVexRiscv *top, OUTPUT *output) {
-  output->iBusWishbone_CYC = top->iBusWishbone_CYC;
-  output->iBusWishbone_STB = top->iBusWishbone_STB;
-  output->iBusWishbone_WE = top->iBusWishbone_WE;
-  output->iBusWishbone_ADR = top->iBusWishbone_ADR;
-  output->iBusWishbone_DAT_MOSI = top->iBusWishbone_DAT_MOSI;
-  output->iBusWishbone_SEL = top->iBusWishbone_SEL;
-  output->iBusWishbone_CTI = top->iBusWishbone_CTI;
-  output->iBusWishbone_BTE = top->iBusWishbone_BTE;
-  output->dBusWishbone_CYC = top->dBusWishbone_CYC;
-  output->dBusWishbone_STB = top->dBusWishbone_STB;
-  output->dBusWishbone_WE = top->dBusWishbone_WE;
-  output->dBusWishbone_ADR = top->dBusWishbone_ADR;
-  output->dBusWishbone_DAT_MOSI = top->dBusWishbone_DAT_MOSI;
-  output->dBusWishbone_SEL = top->dBusWishbone_SEL;
-  output->dBusWishbone_CTI = top->dBusWishbone_CTI;
-  output->dBusWishbone_BTE = top->dBusWishbone_BTE;
-
-  output->ndmreset = top->ndmreset;
-  output->stoptime = top->stoptime;
-  output->jtag_TDO = top->jtag_tdo;
-}
-
-void vexr_init_stage1(VerilatedVcdC *vcd, uint64_t dom_period_fs,
-                      VVexRiscv *top, const NON_COMB_INPUT *input,
-                      OUTPUT *output) {
-  // Set all inputs that cannot combinationaly depend on outputs. I.e., all
-  // inputs except the Wishbone buses.
-  set_non_comb_inputs(top, input);
-
-  // Combinatorially respond to the inputs
-  top->eval();
-  if (vcd != NULL) {
-    vcd->dump(contextp->time());
-  }
-  set_outputs(top, output);
-
-  // Advance time by the period of the vexrisc clock in femtoseconds.
-  // Because verilator does not support femtosecond resolution, the simulation
-  // time is off by a factor of 1000.
-  contextp->timeInc(dom_period_fs);
-}
-
-void vexr_init_stage2(VVexRiscv *top, const COMB_INPUT *input) {
-  set_comb_inputs(top, input);
-}
-
-void vexr_shutdown(VVexRiscv *top) {
-  delete top;
-  delete contextp;
-  contextp = 0;
-}
-
-void vexr_step_rising_edge(VerilatedVcdC *vcd, VVexRiscv *top,
-                           uint64_t time_add, const NON_COMB_INPUT *input,
-                           OUTPUT *output) {
-  // Advance time since last event. Note that this is 0 for the first call to
-  // this function. To get a sensisble waveform, vexr_init has already advanced
-  // time.
-  contextp->timeInc(time_add); // XXX: time_add is in femtoseconds, timeinc
-                               // expects picoseconds
-
-  // docssss
-  set_non_comb_inputs(top, input);
-
-  top->clk = true;
-  top->eval();
-  if (vcd != NULL) {
-    vcd->dump(contextp->time());
-  }
-
-  // Set all outputs
-  set_outputs(top, output);
-}
-
-void vexr_step_falling_edge(VerilatedVcdC *vcd, VVexRiscv *top,
-                            uint64_t time_add, const COMB_INPUT *input) {
-  // advance time since last event
-  contextp->timeInc(
-      time_add); // time_add is in femtoseconds, timeinc expects picoseconds
-
-  // Update inputs
-  top->clk = false;
-  set_comb_inputs(top, input);
-
-  // Evaluate the simulation
-  top->eval();
-  if (vcd != NULL) {
-    vcd->dump(contextp->time());
-  }
-}
 
 vexr_jtag_bridge_data *vexr_jtag_bridge_init(uint16_t port) {
   vexr_jtag_bridge_data *d = new vexr_jtag_bridge_data;
