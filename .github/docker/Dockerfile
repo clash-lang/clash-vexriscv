@@ -70,7 +70,7 @@ FROM builder AS run
 LABEL vendor="QBayLogic B.V." maintainer="devops@qbaylogic.com"
 ENV DEBIAN_FRONTEND=noninteractive LANG=C.UTF-8 LC_ALL=C.UTF-8 PATH="$PATH:/opt/bin:/root/.ghcup/bin"
 
-ARG DEPS_RUNTIME="gnupg pkg-config openjdk-8-jdk gdb-multiarch picocom libtinfo5 libtinfo-dev build-essential curl libc6-dev libgmp10-dev python3 ccache libftdi1 libhidapi-hidraw0 libusb-1.0-0 libyaml-0-2"
+ARG DEPS_RUNTIME="gnupg pkg-config openjdk-8-jdk gdb-multiarch picocom libtinfo6 libtinfo-dev build-essential curl libc6-dev libgmp10-dev python3 ccache libftdi1 libhidapi-hidraw0 libusb-1.0-0 libyaml-0-2"
 RUN apt-get update \
   && apt-get install -y --no-install-recommends $DEPS_RUNTIME \
   && echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/apt/sources.list.d/sbt.list \

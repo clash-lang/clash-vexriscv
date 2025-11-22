@@ -16,9 +16,9 @@ elif [[ "$1" != "" ]]; then
   exit 1
 fi
 
-UBUNTU_VERSION=jammy-20240125
+UBUNTU_VERSION=noble-20251013
 GHC_VERSIONS=( "9.10.1"  "9.8.4"  "9.6.6")
-CABAL_VERSION="3.12.1.0"
+CABAL_VERSION="3.16.0.0"
 
 for i in "${!GHC_VERSIONS[@]}"
 do

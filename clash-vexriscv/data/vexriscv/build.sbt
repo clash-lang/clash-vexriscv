@@ -13,7 +13,7 @@ ThisBuild / organizationName := "Google"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "example-cpu",
+    name := "vexriscv-generator",
     libraryDependencies ++= Seq(
       "com.github.spinalhdl" %% "spinalhdl-core" % spinalVersion,
       "com.github.spinalhdl" %% "spinalhdl-lib" % spinalVersion,

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package example
+package cpu
 
 import spinal.core._
 import spinal.lib._
@@ -13,7 +13,7 @@ import vexriscv.{VexRiscv, VexRiscvConfig, plugin}
 import vexriscv.ip.{DataCacheConfig}
 import vexriscv.ip.fpu.FpuParameter
 
-object ExampleCpu extends App {
+object Example extends App {
   def cpu() : VexRiscv = {
     val config = VexRiscvConfig(
       plugins = List(
@@ -142,6 +142,9 @@ object ExampleCpu extends App {
 
     return cpu
   }
+  val prefix = getClass.getSimpleName.replace("$", "")
 
-  SpinalVerilog(cpu())
+  SpinalConfig(
+    globalPrefix = prefix
+  ).generateVerilog(cpu())
 }

@@ -1,0 +1,96 @@
+cabal-version:       3.8
+name:                clash-vexriscv-example
+version:             0.1
+License:             CC0-1.0
+author:              QBayLogic B.V.
+maintainer:          devops@qbaylogic.com
+Copyright:           Copyright © 2025 Google LLC
+build-type:          Custom
+
+extra-source-files:
+  data/*.scala
+
+custom-setup
+  setup-depends:
+    base,
+    Cabal,
+    clash-vexriscv
+
+common common-options
+  default-extensions:
+    BangPatterns
+    BinaryLiterals
+    ConstraintKinds
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DeriveDataTypeable
+    DeriveFoldable
+    DeriveFunctor
+    DeriveGeneric
+    DeriveLift
+    DeriveTraversable
+    DerivingStrategies
+    InstanceSigs
+    KindSignatures
+    LambdaCase
+    NoStarIsType
+    PolyKinds
+    RankNTypes
+    ScopedTypeVariables
+    StandaloneDeriving
+    TupleSections
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+    ViewPatterns
+
+    -- TemplateHaskell is used to support convenience functions such as
+    -- 'listToVecTH' and 'bLit'.
+    TemplateHaskell
+    QuasiQuotes
+
+    -- Prelude isn't imported by default as Clash offers Clash.Prelude
+    NoImplicitPrelude
+
+  ghc-options:
+    -Wall -Wcompat
+
+    -- Plugins to support type-level constraint solving on naturals
+    -fplugin GHC.TypeLits.Extra.Solver
+    -fplugin GHC.TypeLits.Normalise
+    -fplugin GHC.TypeLits.KnownNat.Solver
+
+    -- Clash needs access to the source code in compiled modules
+    -fexpose-all-unfoldings
+
+    -- Worker wrappers introduce unstable names for functions that might have
+    -- blackboxes attached for them. You can disable this, but be sure to add
+    -- a no-specialize pragma to every function with a blackbox.
+    -fno-worker-wrapper
+
+  build-depends:
+    base >= 4.16 && < 4.21,
+    clash-prelude >= 1.9.0,
+    containers >= 0.6 && < 0.8,
+    ghc-typelits-natnormalise,
+    ghc-typelits-extra,
+    ghc-typelits-knownnat,
+
+library
+  import: common-options
+  hs-source-dirs: src
+  default-language: Haskell2010
+
+  exposed-modules:
+    MyProject
+
+  other-modules:
+    VexRiscv_MyProject
+
+  autogen-modules:
+    VexRiscv_MyProject
+
+  build-depends:
+    clash-prelude,
+    clash-vexriscv,

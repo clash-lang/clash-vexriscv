@@ -13,13 +13,15 @@ import Clash.Prelude
 import Data.Maybe (fromMaybe)
 import GHC.Stack (HasCallStack)
 import Protocols.Wishbone
-import VexRiscv
+import VexRiscv (CpuIn (..), CpuOut (dBusWbM2S, iBusWbM2S, ndmreset), DumpVcd, JtagIn, JtagOut)
 import VexRiscv.JtagTcpBridge as JTag
-import qualified VexRiscv.Reset as MinReset
 import VexRiscv.VecToTuple (vecToTuple)
+import VexRiscv_Example
 
 import Utils.Interconnect (interconnectTwo)
 import Utils.ProgramLoad (DMemory, Memory)
+
+import qualified VexRiscv.Reset as MinReset
 
 createDomain vXilinxSystem{vName = "Basic50", vPeriod = hzToPeriod 50_000_000}
 

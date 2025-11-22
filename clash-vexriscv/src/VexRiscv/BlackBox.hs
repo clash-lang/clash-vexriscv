@@ -4,22 +4,20 @@
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PostfixOperators #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_HADDOCK hide #-}
 
 module VexRiscv.BlackBox where
 
 import Prelude
 
+import Clash.Core.TermLiteral (TermLiteral (termToData))
 import Control.Monad.State (State)
+import Data.Either (lefts)
 import Data.List.Infinite (Infinite (..), (...))
 import Data.String (fromString)
 import Data.Text (Text)
 import Data.Text.Prettyprint.Doc.Extra (Doc)
 import GHC.Stack (HasCallStack)
-import Paths_clash_vexriscv (getDataFileName)
-import System.IO.Unsafe (unsafePerformIO)
 import Text.Show.Pretty (ppShow)
 
 import Clash.Backend (Backend)
@@ -39,39 +37,44 @@ listToTup3 [a, b, c] = (a, b, c)
 listToTup3 _ = error "listToTup3: list must have 3 elements"
 
 vexRiscvBBF :: (HasCallStack) => N.BlackBoxFunction
-vexRiscvBBF _isD _primName _args _resTys = pure $ Right (bbMeta, bb)
+vexRiscvBBF _isD _primName args _resTys
+  | moduleNameTerm : verilogTerm : _ <- lefts args =
+      case (termToData moduleNameTerm, termToData verilogTerm) of
+        (Left term, _) -> pure $ Left $ "vexRiscvBBF: expected module name as string literal, got: " ++ show term
+        (_, Left term) -> pure $ Left $ "vexRiscvBBF: expected verilog source as string literal, got: " ++ show term
+        (Right moduleName, Right verilog) ->
+          pure $ Right (bbMeta moduleName verilog, bb)
  where
-  bbMeta =
+  bbMeta moduleName verilog =
     N.emptyBlackBoxMeta
       { N.bbKind = N.TDecl
-      , N.bbIncludes = [(("VexRiscv", "v"), BBFunction (show 'vexRiscvVerilogTF) 0 vexRiscvVerilogTF)]
+      , N.bbIncludes = [((moduleName, "v"), BBFunction (show 'vexRiscvVerilogTF) 0 (vexRiscvVerilogTF verilog))]
       }
 
   bb :: N.BlackBox
   bb = N.BBFunction (show 'vexRiscvTF) 0 vexRiscvTF
+vexRiscvBBF _isD _primName _args _resTys = pure $ Left "vexRiscvBBF: unexpected arguments"
 
-vexRiscvVerilogTF :: TemplateFunction
-vexRiscvVerilogTF = TemplateFunction [] (const True) $ \_bbCtx -> do
-  -- Note that we cannot make this file an argument to the black box, as we
-  -- this file is also used by the (hardcoded) part of clash-vexriscv that
-  -- generates the C++ and links against it at compile time.
-  pure $ fromString $ unsafePerformIO $ readFile =<< getDataFileName "example-cpu/VexRiscv.v"
+vexRiscvVerilogTF :: String -> TemplateFunction
+vexRiscvVerilogTF verilog = TemplateFunction [] (const True) $ \_bbCtx -> do
+  pure $ fromString verilog
 
 vexRiscvTF :: TemplateFunction
 vexRiscvTF =
-  let _hasCallStack :< _knownDomain :< _dumpVcd :< clk :< rst :< cpuIn :< jtagIn :< _ = (0 ...)
-   in TemplateFunction [clk, rst, cpuIn, jtagIn] (const True) vexRiscvTF#
+  let moduleName :< verilog :< clk :< rst :< cpuIn :< jtagIn :< _ = (0 ...)
+   in TemplateFunction [moduleName, verilog, clk, rst, cpuIn, jtagIn] (const True) vexRiscvTF#
 
 vexRiscvTF# :: (Backend backend) => BlackBoxContext -> State backend Doc
 vexRiscvTF# bbCtx
-  | [_hasCallStack, _knownDomain, _dumpVcd, clk, rst, cpuIn, jtagIn] <- map fst (DSL.tInputs bbCtx)
+  | [moduleNameExpr, _verilog, clk, rst, cpuIn, jtagIn] <- map fst (DSL.tInputs bbCtx)
+  , Just moduleName <- DSL.getStr moduleNameExpr
   , [outTy@(N.Product _ _ [cpuOutTy, jtagOutTy])] <- map snd (N.bbResults bbCtx)
   , N.Product _ _ [iWishboneM2Sty, dWishboneM2Sty, ndmresetTy, stoptimeTy] <- cpuOutTy
   , N.Product _ _ [adrTy, datMosiTy, selTy, _lockTy, cycTy, stbTy, weTy, ctiTy, bteTy] <- iWishboneM2Sty
   , tdoTy <- jtagOutTy = do
       let
         compName :: Text
-        compName = "VexRiscv"
+        compName = fromString moduleName
 
       instName <- Id.make (compName <> "_inst")
       DSL.declarationReturn bbCtx (compName <> "_block") $ do

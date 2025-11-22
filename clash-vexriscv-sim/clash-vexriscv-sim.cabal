@@ -6,9 +6,17 @@ license-file:        LICENSE
 author:              QBayLogic B.V.
 maintainer:          devops@qbaylogic.com
 Copyright:           Copyright © 2022 Google LLC
+build-type:          Custom
 
 extra-source-files:
+  data/*.Scala
   data/*.cfg
+
+custom-setup
+  setup-depends:
+    base,
+    Cabal,
+    clash-vexriscv
 
 common common-options
   default-extensions:
@@ -90,6 +98,12 @@ library
     Utils.ProgramLoad
     Utils.ReadElf
     Utils.Storage
+  other-modules:
+    VexRiscv_Example
+    VexRiscv_Example2
+  autogen-modules:
+    VexRiscv_Example
+    VexRiscv_Example2
   build-depends:
     base,
     bytestring >= 0.10 && < 0.13,

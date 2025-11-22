@@ -4,6 +4,7 @@
 
 packages:
   clash-vexriscv/
+  clash-vexriscv-example/
   clash-vexriscv-sim/
 
 write-ghc-environment-files: always
@@ -16,7 +17,7 @@ package clash-prelude
 -- index state, to go along with the cabal.project.freeze file. update the index
 -- state by running `cabal update` twice and looking at the index state it
 -- displays to you (as the second update will be a no-op)
-index-state: 2025-04-30T07:38:32Z
+index-state: 2025-10-19T07:46:42Z
 
 -- Needed to simulate dynamic clocks.
 source-repository-package

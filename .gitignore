@@ -77,3 +77,4 @@ verilog
 
 # Scala
 .scala-build
+.direnv
