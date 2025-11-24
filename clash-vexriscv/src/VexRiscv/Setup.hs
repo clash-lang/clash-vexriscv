@@ -289,6 +289,8 @@ generateHaskellModule cpuName verilogSource =
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
 
+{-# OPTIONS_GHC -fexpose-all-unfoldings #-}
+
 module VexRiscv_#{cpuName} (
   vexRiscv,
 ) where
@@ -300,7 +302,7 @@ import Foreign.C.String (CString)
 import Foreign.Ptr (Ptr)
 import GHC.Stack (HasCallStack)
 import VexRiscv (CpuIn, CpuOut, DumpVcd, JtagIn, JtagOut)
-import VexRiscv.Internal (vexRiscvSim, vexRiscvSynth, VexRiscv, VerilatedVcdC)
+import VexRiscv.Internal (VexRiscv, VerilatedVcdC, vexRiscvSim, vexRiscvSynth)
 import VexRiscv.FFI (COMB_INPUT, NON_COMB_INPUT, OUTPUT)
 import VexRiscv.Reset (MinCyclesReset)
 
@@ -340,5 +342,5 @@ vexRiscv ::
 vexRiscv dumpVcd clk rst cpuIn jtagIn
   | clashSimulation = vexRiscvSim c_init c_init_vcd c_init_stage1 c_init_stage2 c_step_rising c_step_falling dumpVcd clk rst cpuIn jtagIn
   | otherwise = vexRiscvSynth "#{cpuName}VexRiscv" #{show verilogSource} clk rst cpuIn jtagIn
-{-# INLINE vexRiscv #-}
+{-# OPAQUE vexRiscv #-}
 |]
