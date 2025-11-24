@@ -44,7 +44,10 @@ src/main/scala/cpu/%: $(SCALA_CONFIG_DIR)/% $(CLASH_VEXRISCV_DATA_DIR)/Makefile
 	cp $< $@
 
 $(CPU_NAME)VexRiscv.v: src/main/scala/cpu/$(CPU_NAME).scala lib/vexriscv.jar build.sbt project/build.properties project/Dependencies.scala $(CLASH_VEXRISCV_DATA_DIR)/Makefile
-	flock $(HOME)/.sbt-lock sbt "runMain cpu.$(CPU_NAME)"
+	# XXX: SBT cannot build in parallel without issues, so we separate the compile
+	#      and runMain steps and guard the former with a lock file.
+	flock $(HOME)/.sbt-lock sbt compile
+	sbt "runMain cpu.$(CPU_NAME)"
 	sed -i -E '/\/\/ Git hash  :.*$$/d' $(CPU_NAME)VexRiscv.v
 
 $(VERILATOR_DIR)/V$(CPU_NAME)VexRiscv.mk $(VERILATOR_DIR)/V$(CPU_NAME)VexRiscv.h: $(CPU_NAME)VexRiscv.v $(CLASH_VEXRISCV_DATA_DIR)/Makefile
