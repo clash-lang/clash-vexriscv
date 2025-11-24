@@ -1,11 +1,14 @@
 -- SPDX-FileCopyrightText: 2025 Google LLC
 --
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE NoFieldSelectors #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module VexRiscv.Setup (
   addVexRiscvHooks,
+  VexRiscvSource (..),
 ) where
 
 import Prelude
@@ -36,28 +39,68 @@ import Distribution.Utils.Path (makeSymbolicPath)
 import Distribution.Verbosity (Verbosity)
 import GHC.Stack (HasCallStack)
 import System.Directory (
+  copyFile,
   createDirectoryIfMissing,
+  doesFileExist,
+  getHomeDirectory,
   makeAbsolute,
  )
 import System.Exit (ExitCode (ExitSuccess))
 import System.FilePath ((</>))
+import System.FilePath.Glob (glob)
 import System.Process (
   CreateProcess (cwd),
   proc,
   readCreateProcessWithExitCode,
+  readProcess,
  )
+import "extra" Data.List.Extra (trim)
 
 import qualified VexRiscv.Paths as Paths_clash_vexriscv
+
+{- | Specifies how to obtain the VexRiscv JAR file.
+
+The JAR file contains the compiled VexRiscv Scala classes needed to generate
+Verilog from Scala CPU configurations.
+-}
+data VexRiscvSource
+  = -- | Use the bundled VexRiscv JAR included with @clash-vexriscv@
+    VexRiscvBundled
+  | VexRiscvJar
+      { path :: FilePath
+      -- ^ Path to pre-built VexRiscv JAR file
+      }
+  | -- | Build from a Git repository at the specified commit/tag/branch
+    VexRiscvGit
+      { url :: String
+      , ref :: String
+      -- ^ Commit hash, tag, or branch name
+      }
 
 {- | Add VexRiscv build hooks to existing UserHooks.
 
 This function modifies the confHook to build VexRiscv libraries and update
 the package build configuration.
 
-Example usage:
+Example usage with a Git source:
 
 > main :: IO ()
-> main = defaultMainWithHooks (addVexRiscvHooks simpleUserHooks "data" ["MyProject"])
+> main = defaultMainWithHooks $
+>   addVexRiscvHooks simpleUserHooks "data" ["MyProject"] $
+>     VexRiscvGit "https://github.com/SpinalHDL/VexRiscv.git" "7f2bccbef256b3ad40fb8dc8ba08a266f9c6256b"
+
+Example usage with a pre-built JAR:
+
+> main :: IO ()
+> main = defaultMainWithHooks $
+>   addVexRiscvHooks simpleUserHooks "data" ["MyProject"] $
+>     VexRiscvJar "path/to/vexriscv.jar"
+
+Finally, usage with the bundled JAR:
+
+> main :: IO ()
+> main = defaultMainWithHooks $
+>   addVexRiscvHooks simpleUserHooks "data" ["MyProject"] VexRiscvBundled
 -}
 addVexRiscvHooks ::
   UserHooks ->
@@ -65,12 +108,14 @@ addVexRiscvHooks ::
   FilePath ->
   -- | List of CPU names to build
   [FilePath] ->
+  -- | Source for VexRiscv JAR
+  VexRiscvSource ->
   UserHooks
-addVexRiscvHooks hooks configDir cpuNames =
+addVexRiscvHooks hooks configDir cpuNames vexriscvSource =
   hooks
     { confHook = \(genericPkgDesc, hookedBuildInfo) configFlags -> do
         lbi <- confHook hooks (genericPkgDesc, hookedBuildInfo) configFlags
-        makeVexRiscvFromLocalBuildInfo lbi configFlags configDir cpuNames
+        makeVexRiscvFromLocalBuildInfo lbi configFlags configDir cpuNames vexriscvSource
     }
 
 makeVexRiscvFromLocalBuildInfo ::
@@ -79,8 +124,9 @@ makeVexRiscvFromLocalBuildInfo ::
   ConfigFlags ->
   FilePath ->
   [FilePath] ->
+  VexRiscvSource ->
   IO LocalBuildInfo
-makeVexRiscvFromLocalBuildInfo lbi configFlags configDir cpuNames = do
+makeVexRiscvFromLocalBuildInfo lbi configFlags configDir cpuNames vexriscvSource = do
   let
     pkg = localPkgDescr lbi
     verbosity = fromFlag (setupVerbosity (configCommonFlags configFlags))
@@ -106,6 +152,8 @@ makeVexRiscvFromLocalBuildInfo lbi configFlags configDir cpuNames = do
         --      pick the static ones. I dunno man..
         staticLibsDirSymbolic = makeSymbolicPath (libsDir </> "static")
 
+      createDirectoryIfMissing True autogenDir
+      prepareVexRiscvJar verbosity autogenDir vexriscvSource
       mapConcurrently_ (makeVexRiscv verbosity autogenDir configDir) cpuNames
 
       return $
@@ -115,6 +163,44 @@ makeVexRiscvFromLocalBuildInfo lbi configFlags configDir cpuNames = do
               { extraLibDirs = staticLibsDirSymbolic : extraLibDirs buildInfo
               , extraLibs = map (++ "VexRiscvFFI") cpuNames ++ extraLibs buildInfo
               }
+
+prepareVexRiscvJar :: (HasCallStack) => Verbosity -> FilePath -> VexRiscvSource -> IO ()
+prepareVexRiscvJar verbosity autogenDir vexriscvSource = do
+  buildVexRiscvPy <- Paths_clash_vexriscv.getDataFileName ("data" </> "vexriscv" </> "lib" </> "build-vexriscv.py")
+  homeDir <- getHomeDirectory
+
+  jarPath <- case vexriscvSource of
+    VexRiscvBundled -> do
+      dataDir <- Paths_clash_vexriscv.getDataFileName ("data" </> "vexriscv" </> "lib")
+      jarPaths <- glob (dataDir </> "vexriscv_*.jar")
+      jarPath <- case jarPaths of
+        [p] -> pure p
+        [] -> error "No bundled VexRiscv JAR found"
+        _ -> error "Multiple bundled VexRiscv JARs found"
+      info verbosity $ "Using bundled VexRiscv JAR: " ++ jarPath
+      return jarPath
+    VexRiscvJar p -> do
+      info verbosity $ "Using pre-built VexRiscv JAR: " ++ p
+      return p
+    VexRiscvGit url ref -> do
+      runCommand
+        verbosity
+        autogenDir
+        "flock"
+        [ homeDir </> ".sbt-lock"
+        , "python3"
+        , buildVexRiscvPy
+        , url
+        , ref
+        ]
+
+      jars <- glob (autogenDir </> "vexriscv_*-" <> ref <> ".jar")
+      case jars of
+        [p] -> return p
+        [] -> error $ "No JAR file found for VexRiscv Git ref: " ++ ref
+        _ -> error $ "Multiple JAR files found for VexRiscv Git ref: " ++ ref
+
+  copyIfChanged jarPath (autogenDir </> "vexriscv.jar")
 
 makeVexRiscv :: (HasCallStack) => Verbosity -> FilePath -> FilePath -> FilePath -> IO ()
 makeVexRiscv verbosity autogenDir configDir cpuName = do
@@ -161,6 +247,25 @@ updateLibBuildInfo lbi f =
   pkg = localPkgDescr lbi
   lib = fromMaybe (error "updateLibBuildInfo: unexpected empty library in package description") (library pkg)
   libBuild = libBuildInfo lib
+
+copyIfChanged :: FilePath -> FilePath -> IO ()
+copyIfChanged src dst = do
+  dstExists <- doesFileExist dst
+  if dstExists
+    then do
+      sha512Src <- sha512 src
+      sha512Dst <- sha512 dst
+      when (sha512Src /= sha512Dst) $ do
+        copyFile src dst
+    else do
+      copyFile src dst
+
+sha512 :: FilePath -> IO String
+sha512 path = do
+  out <- trim <$> readProcess "sha512sum" [path] ""
+  case words out of
+    (digest : _) -> return digest
+    _ -> error $ "sha512: unexpected output from sha512sum for file: " ++ path ++ ": " ++ out
 
 runCommand :: Verbosity -> FilePath -> String -> [String] -> IO ()
 runCommand verbosity workDir cmd args = do
