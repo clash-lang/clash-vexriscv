@@ -13,6 +13,7 @@ data-files:
   data/vexriscv/ffi/*.cpp
   data/vexriscv/ffi/*.h
   data/vexriscv/lib/*.jar
+  data/vexriscv/lib/*.py
   data/vexriscv/Makefile
   data/vexriscv/project/build.properties
   data/vexriscv/project/Dependencies.scala
@@ -120,6 +121,7 @@ library
     containers,
     deepseq,
     directory >= 1.3 && < 1.4,
+    extra,
     filepath,
     Glob,
     hashable,

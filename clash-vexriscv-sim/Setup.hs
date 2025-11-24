@@ -3,7 +3,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 import Distribution.Simple
-import VexRiscv.Setup (addVexRiscvHooks)
+import VexRiscv.Setup (VexRiscvSource (VexRiscvBundled), addVexRiscvHooks)
 
 main :: IO ()
-main = defaultMainWithHooks (addVexRiscvHooks simpleUserHooks "data" ["Example", "Example2"])
+main = defaultMainWithHooks (addVexRiscvHooks simpleUserHooks "data" ["Example", "Example2"] VexRiscvBundled)

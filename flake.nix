@@ -42,6 +42,7 @@
             pkgs.scala
             pkgs.verilator
             pkgs.flock
+            pkgs.jre8
 
             # Haskell toolchain
             pkgs.cabal-install

@@ -30,9 +30,9 @@ project/%: $(CLASH_VEXRISCV_DATA_DIR)/project/% $(CLASH_VEXRISCV_DATA_DIR)/Makef
 	mkdir -p project
 	cp $< $@
 
-lib/vexriscv.jar: $(wildcard $(CLASH_VEXRISCV_DATA_DIR)/lib/vexriscv_*.jar) $(CLASH_VEXRISCV_DATA_DIR)/Makefile
+lib/vexriscv.jar: ../../vexriscv.jar $(CLASH_VEXRISCV_DATA_DIR)/Makefile
 	mkdir -p lib
-	cp $< $@
+	cp ../../vexriscv.jar $@
 
 ffi/%: $(CLASH_VEXRISCV_DATA_DIR)/ffi/% $(CLASH_VEXRISCV_DATA_DIR)/Makefile
 	mkdir -p ffi
