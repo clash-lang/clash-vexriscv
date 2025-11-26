@@ -211,6 +211,9 @@ jobs:
     container:
       image: ghcr.io/clash-lang/clash-vexriscv-ci:${{ matrix.ghc }}-20251116
 
+    env:
+      PKG_CONFIG_PATH: /opt/share/pkgconfig/:$PKG_CONFIG_PATH
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -233,7 +236,6 @@ jobs:
           cabal build clash-vexriscv
       - name: Build clash-vexriscv-sim
         run: |
-          export PKG_CONFIG_PATH=/opt/share/pkgconfig/:${PKG_CONFIG_PATH}
           cabal build clash-vexriscv-sim
 
       - name: Download VexRiscv Integration Tests
@@ -265,6 +267,19 @@ jobs:
       - name: Run `clash-vexriscv-sim` HDL test
         run: |
           cabal run clash-vexriscv-sim:hdl-test
+
+      - name: Test whether REPL works
+        run: |
+          echo ':quit' | cabal repl clash-vexriscv-sim
+
+      - name: Test whether running tests in REPL works
+        run: |
+          echo 'import System.Environment' >> script
+          echo 'import System.Directory' >> script
+          echo 'setCurrentDirectory ".."' >> script
+          echo 'withArgs ["-p", "release"] main' >> script
+          cat script | cabal repl clash-vexriscv-sim:unittests 2> stderr_log
+          grep "*** Exception: ExitSuccess" stderr_log
 
   all:
     name: All jobs finished

@@ -146,11 +146,10 @@ makeVexRiscvFromLocalBuildInfo lbi configFlags configDir cpuNames vexriscvSource
         autogenDir = buildDir </> "autogen"
         libsDir = autogenDir </> "libs"
 
-        -- XXX: Include static libraries only, as Cabal prefers dynamic libraries, but
-        --      dynamic libraries break at runtime. REPL only works with dynamic libraries,
-        --      but it seems that adding them in the preREPL hook will still make Cabal
-        --      pick the static ones. I dunno man..
+        -- XXX: Be very careful about the order of these directories. If the dynamic
+        --      one appears first, the REPL will break.
         staticLibsDirSymbolic = makeSymbolicPath (libsDir </> "static")
+        dynamicLibsDirSymbolic = makeSymbolicPath (libsDir </> "dynamic")
 
       createDirectoryIfMissing True autogenDir
       prepareVexRiscvJar verbosity autogenDir vexriscvSource
@@ -160,7 +159,7 @@ makeVexRiscvFromLocalBuildInfo lbi configFlags configDir cpuNames vexriscvSource
         updateLibBuildInfo lbi $
           \buildInfo ->
             buildInfo
-              { extraLibDirs = staticLibsDirSymbolic : extraLibDirs buildInfo
+              { extraLibDirs = staticLibsDirSymbolic : dynamicLibsDirSymbolic : extraLibDirs buildInfo
               , extraLibs = map (++ "VexRiscvFFI") cpuNames ++ extraLibs buildInfo
               }
 
