@@ -17,13 +17,13 @@ package clash-prelude
 -- index state, to go along with the cabal.project.freeze file. update the index
 -- state by running `cabal update` twice and looking at the index state it
 -- displays to you (as the second update will be a no-op)
-index-state: 2025-10-19T07:46:42Z
+index-state: 2026-01-18T10:54:12Z
 
 -- Needed to simulate dynamic clocks.
 source-repository-package
   type: git
   location: https://github.com/clash-lang/clash-compiler.git
-  tag: 5ec337c04139f74dd706db77ccb25f92ad5dc3dc
+  tag: d0f65c47fe946699cb7818d24ae16dd8e7aff286
   subdir:
     clash-prelude
     clash-lib
@@ -33,12 +33,12 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/clash-lang/clash-cores.git
-  tag: 200f6384d87f92947adb99d1a0a25abb4dd6f815
+  tag: 59118b1369ebdb3df424931c500e1a92567fdaac
 
 source-repository-package
   type: git
   location: https://github.com/clash-lang/clash-protocols.git
-  tag: a40880ca77f40f2b7c2b3400623fce0c063db47e
+  tag: 9b12c63dabaaa5a8228286bf9406b58c44a48359
   subdir:
     clash-protocols
     clash-protocols-base
@@ -46,4 +46,10 @@ source-repository-package
 source-repository-package
   type: git
   location: https://github.com/cchalmers/circuit-notation.git
-  tag: 564769c52aa05b90f81bbc898b7af7087d96613d
+  tag: a99969b79df6752532792fd30482b83cf3285f52
+
+source-repository-package
+  type: git
+  location: https://github.com/clash-lang/ghc-typelits-natnormalise.git
+  tag: a4fdc5bf17f678e74a47bf3b8924c6a35e214fb2
+

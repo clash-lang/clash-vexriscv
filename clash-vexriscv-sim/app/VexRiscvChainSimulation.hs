@@ -118,8 +118,8 @@ type CpuSignals =
   ( CpuOut
   , JtagOut
   , Maybe (BitVector 32, BitVector 32)
-  , WishboneS2M (BitVector 32)
-  , WishboneS2M (BitVector 32)
+  , WishboneS2M 4
+  , WishboneS2M 4
   )
 
 toReset :: (KnownDomain dom) => Int -> Int -> Reset dom

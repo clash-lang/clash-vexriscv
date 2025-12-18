@@ -49,9 +49,9 @@ cpu ::
   , -- writes
     Signal dom (Maybe (BitVector 32, BitVector 32))
   , -- iBus responses
-    Signal dom (WishboneS2M (BitVector 32))
+    Signal dom (WishboneS2M 4)
   , -- dBus responses
-    Signal dom (WishboneS2M (BitVector 32))
+    Signal dom (WishboneS2M 4)
   )
 cpu dumpVcd jtagIn0 bootIMem bootDMem =
   ( cpuOut
@@ -139,7 +139,7 @@ cpu dumpVcd jtagIn0 bootIMem bootDMem =
       )
       (pure Nothing)
 
-mapAddr :: (BitVector aw1 -> BitVector aw2) -> WishboneM2S aw1 selWidth a -> WishboneM2S aw2 selWidth a
+mapAddr :: (BitVector aw1 -> BitVector aw2) -> WishboneM2S aw1 dataWidth -> WishboneM2S aw2 dataWidth
 mapAddr f wb = wb{addr = f (addr wb)}
 
 {- | Wishbone circuit that always acknowledges every request
@@ -152,16 +152,16 @@ dummyWb :: (HiddenClock dom, HiddenReset dom) => Memory dom
 dummyWb m2s' = delayControls m2s' (reply <$> m2s')
  where
   reply WishboneM2S{..} =
-    (emptyWishboneS2M @(BitVector 32)){acknowledge = acknowledge, readData = 0}
+    (emptyWishboneS2M @0){acknowledge = acknowledge, readData = 0}
    where
     acknowledge = busCycle && strobe
 
   -- \| Delays the output controls to align them with the actual read / write timing.
   delayControls ::
-    (HiddenClock dom, HiddenReset dom, NFDataX a) =>
-    Signal dom (WishboneM2S addressWidth selWidth a) -> -- current M2S signal
-    Signal dom (WishboneS2M a) ->
-    Signal dom (WishboneS2M a)
+    (HiddenClock dom, HiddenReset dom, KnownNat dataWidth) =>
+    Signal dom (WishboneM2S addressWidth dataWidth) -> -- current M2S signal
+    Signal dom (WishboneS2M dataWidth) ->
+    Signal dom (WishboneS2M dataWidth)
   delayControls m2s s2m0 = mux inCycle s2m1 (pure emptyWishboneS2M)
    where
     inCycle = (busCycle <$> m2s) .&&. (strobe <$> m2s)

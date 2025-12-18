@@ -17,9 +17,9 @@ import Utils.ReadElf
 import Utils.Storage
 
 type DMemory dom =
-  Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
-  Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
-  (Signal dom (WishboneS2M (BitVector 32)), Signal dom (WishboneS2M (BitVector 32)))
+  Signal dom (WishboneM2S 32 4) ->
+  Signal dom (WishboneM2S 32 4) ->
+  (Signal dom (WishboneS2M 4), Signal dom (WishboneS2M 4))
 
 loadProgramDmem :: (HiddenClockResetEnable dom) => FilePath -> IO (DMemory dom, DMemory dom)
 loadProgramDmem path = do
@@ -60,8 +60,8 @@ loadProgramDmem path = do
     (a : b : c : d : rest) -> (a, b, c, d) : chunkFill4 fill rest
 
 type Memory dom =
-  ( Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
-    Signal dom (WishboneS2M (BitVector 32))
+  ( Signal dom (WishboneM2S 32 4) ->
+    Signal dom (WishboneS2M 4)
   )
 
 loadProgram :: (HiddenClockResetEnable dom) => FilePath -> IO (Memory dom, Memory dom)

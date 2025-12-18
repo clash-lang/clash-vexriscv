@@ -16,23 +16,23 @@ import Protocols.Wishbone
   of the input and output vectors are the same.
 -}
 interconnectTwo ::
-  Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
+  Signal dom (WishboneM2S 32 4) ->
   -- | sorted by address
-  Vec 2 (BitVector 32, Signal dom (WishboneS2M (BitVector 32))) ->
-  ( Signal dom (WishboneS2M (BitVector 32))
-  , Signal dom (Vec 2 (WishboneM2S 32 4 (BitVector 32)))
+  Vec 2 (BitVector 32, Signal dom (WishboneS2M 4)) ->
+  ( Signal dom (WishboneS2M 4)
+  , Signal dom (Vec 2 (WishboneM2S 32 4))
   )
 interconnectTwo m2s ((aAddr', aS2M') :> (bAddr', bS2M') :> Nil) =
   unbundle (go <$> m2s <*> pure aAddr' <*> aS2M' <*> pure bAddr' <*> bS2M')
  where
   go ::
-    WishboneM2S 32 4 (BitVector 32) ->
+    WishboneM2S 32 4 ->
     BitVector 32 ->
-    WishboneS2M (BitVector 32) ->
+    WishboneS2M 4 ->
     BitVector 32 ->
-    WishboneS2M (BitVector 32) ->
-    ( WishboneS2M (BitVector 32)
-    , Vec 2 (WishboneM2S 32 4 (BitVector 32))
+    WishboneS2M 4 ->
+    ( WishboneS2M 4
+    , Vec 2 (WishboneM2S 32 4)
     )
   go m@WishboneM2S{..} aAddr aS2M bAddr bS2M
     | not (busCycle && strobe) =

@@ -8,7 +8,6 @@ module Tests.Jtag where
 
 import Control.Applicative ((<|>))
 import Control.Monad.Extra (ifM, when)
-import Data.List.Extra (trim)
 import Data.Maybe (fromJust)
 import Data.Proxy
 import GHC.Stack (CallStack, callStack, prettyCallStack)
@@ -20,6 +19,7 @@ import System.Timeout (timeout)
 import Test.Tasty
 import Test.Tasty.HUnit
 import Test.Tasty.Options
+import "extra" Data.List.Extra (trim)
 import Prelude
 
 import Paths_clash_vexriscv_sim (getDataFileName)
