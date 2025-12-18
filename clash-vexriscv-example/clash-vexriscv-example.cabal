@@ -35,6 +35,7 @@ common common-options
     KindSignatures
     LambdaCase
     NoStarIsType
+    PackageImports
     PolyKinds
     RankNTypes
     ScopedTypeVariables
