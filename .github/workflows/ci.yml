@@ -121,7 +121,7 @@ jobs:
 
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.67 # See Note [Updating Rust versions]
+          toolchain: 1.92.0 # See Note [Updating Rust versions]
           profile: minimal
           target: riscv32imc-unknown-none-elf
           components: clippy, rustfmt
@@ -153,7 +153,7 @@ jobs:
           apt-get install -y curl build-essential
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.67.1 # See Note [Updating Rust versions]
+          toolchain: 1.92.0 # See Note [Updating Rust versions]
           profile: minimal
           target: riscv32imc-unknown-none-elf
           components: clippy, rustfmt

@@ -50,12 +50,12 @@ dualPortStorage ::
   -- | contents
   [BitVector 8] ->
   -- | in A
-  Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
+  Signal dom (WishboneM2S 32 4) ->
   -- | in B
-  Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
-  ( Signal dom (WishboneS2M (BitVector 32))
+  Signal dom (WishboneM2S 32 4) ->
+  ( Signal dom (WishboneS2M 4)
   , -- \^ out A
-    Signal dom (WishboneS2M (BitVector 32))
+    Signal dom (WishboneS2M 4)
   )
 -- \^ out B
 
@@ -103,8 +103,8 @@ storage ::
   ) =>
   -- | contents
   [BitVector 8] ->
-  Signal dom (WishboneM2S 32 4 (BitVector 32)) ->
-  Signal dom (WishboneS2M (BitVector 32))
+  Signal dom (WishboneM2S 32 4) ->
+  Signal dom (WishboneS2M 4)
 storage contents = mealy go (MappedMemory $ I.fromAscList $ L.zip [0 ..] contents)
  where
   size = L.length contents
@@ -116,7 +116,7 @@ storage contents = mealy go (MappedMemory $ I.fromAscList $ L.zip [0 ..] content
     | not writeEnable {- read -} =
         case readDataSel mem addr busSelect of
           Nothing -> (MappedMemory mem, emptyWishboneS2M{err = True})
-          Just x -> (MappedMemory mem, (emptyWishboneS2M @(BitVector 32)){acknowledge = True, readData = x})
+          Just x -> (MappedMemory mem, (emptyWishboneS2M @0){acknowledge = True, readData = x})
     | otherwise {- write -} =
         ( MappedMemory (writeDataSel mem addr busSelect writeData)
         , emptyWishboneS2M{acknowledge = True}

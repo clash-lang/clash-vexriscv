@@ -52,14 +52,14 @@ data CpuIn = CpuIn
   { timerInterrupt :: "TIMER_INTERRUPT" ::: Bit
   , externalInterrupt :: "EXTERNAL_INTERRUPT" ::: Bit
   , softwareInterrupt :: "SOFTWARE_INTERRUPT" ::: Bit
-  , iBusWbS2M :: "IBUS_IN_" ::: WishboneS2M (BitVector 32)
-  , dBusWbS2M :: "DBUS_IN_" ::: WishboneS2M (BitVector 32)
+  , iBusWbS2M :: "IBUS_IN_" ::: WishboneS2M 4
+  , dBusWbS2M :: "DBUS_IN_" ::: WishboneS2M 4
   }
   deriving (Generic, NFDataX, ShowX, Eq, BitPack)
 
 data CpuOut = CpuOut
-  { iBusWbM2S :: "IBUS_OUT_" ::: WishboneM2S 30 4 (BitVector 32)
-  , dBusWbM2S :: "DBUS_OUT_" ::: WishboneM2S 30 4 (BitVector 32)
+  { iBusWbM2S :: "IBUS_OUT_" ::: WishboneM2S 30 4
+  , dBusWbM2S :: "DBUS_OUT_" ::: WishboneM2S 30 4
   , ndmreset :: "RST" ::: Bit
   -- ^ Peripheral reset produced by `EmbeddedRiscvJtag` plugin.
   , stoptime :: "STOPTIME" ::: Bit
