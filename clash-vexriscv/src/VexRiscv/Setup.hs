@@ -174,8 +174,8 @@ prepareVexRiscvJar verbosity autogenDir vexriscvSource = do
       jarPaths <- glob (dataDir </> "vexriscv_*.jar")
       jarPath <- case jarPaths of
         [p] -> pure p
-        [] -> error "No bundled VexRiscv JAR found"
-        _ -> error "Multiple bundled VexRiscv JARs found"
+        [] -> error $ "No bundled VexRiscv JAR found, looked in: " <> dataDir
+        _ -> error $ "Multiple bundled VexRiscv JARs found, looked in: " <> dataDir
       info verbosity $ "Using bundled VexRiscv JAR: " ++ jarPath
       return jarPath
     VexRiscvJar p -> do
