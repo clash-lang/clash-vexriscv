@@ -3,7 +3,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE NumericUnderscores #-}
 
-module Utils.ProgramLoad where
+module VexRiscv.Sim.Utils.ProgramLoad where
 
 import Clash.Prelude
 import Control.Exception (assert)
@@ -13,8 +13,8 @@ import qualified Data.ByteString as BS
 import qualified Data.IntMap as I
 import qualified Data.List as L
 
-import Utils.ReadElf
-import Utils.Storage
+import VexRiscv.Sim.Utils.ReadElf
+import VexRiscv.Sim.Utils.Storage
 
 type DMemory dom =
   Signal dom (WishboneM2S 32 4) ->

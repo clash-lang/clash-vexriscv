@@ -19,12 +19,12 @@ import Test.Tasty
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 import Test.Tasty.Options
 import VexRiscv (DumpVcd (NoDumpVcd))
+import VexRiscv.Sim.Utils.ProgramLoad (loadProgramDmem)
 
 import qualified Data.ByteString as BS
 import qualified Data.List as L
 
 import Utils.Cpu (cpu)
-import Utils.ProgramLoad (loadProgramDmem)
 
 import qualified Tests.Jtag
 import qualified Tests.JtagChain

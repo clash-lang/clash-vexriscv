@@ -5,7 +5,7 @@
 -- GHC doesn't think exhaustive matches on Vectors are exhaustive..
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Utils.Interconnect where
+module VexRiscv.Sim.Utils.Interconnect where
 
 import Clash.Prelude
 import Protocols.Wishbone
