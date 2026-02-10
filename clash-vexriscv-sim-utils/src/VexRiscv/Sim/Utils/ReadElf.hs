@@ -2,7 +2,7 @@
 --
 -- SPDX-License-Identifier: Apache-2.0
 
-module Utils.ReadElf (readElf, readElfFromMemory, Address, BinaryData) where
+module VexRiscv.Sim.Utils.ReadElf (readElf, readElfFromMemory, Address, BinaryData) where
 
 import Clash.Prelude
 import Data.Elf

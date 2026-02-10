@@ -16,12 +16,12 @@ import System.IO (hFlush, putChar, stdout)
 import Text.Printf (printf)
 import VexRiscv (CpuOut (dBusWbM2S, iBusWbM2S), DumpVcd (NoDumpVcd))
 import VexRiscv.JtagTcpBridge (vexrJtagBridge)
+import VexRiscv.Sim.Utils.ProgramLoad (loadProgramDmem)
 
 import qualified Data.List as L
 
 import Utils.Cpu (cpu)
 import Utils.DebugConfig (DebugConfiguration (..))
-import Utils.ProgramLoad (loadProgramDmem)
 
 -- change this variable to the configuration you want to use
 

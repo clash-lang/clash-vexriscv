@@ -18,8 +18,8 @@ import VexRiscv.JtagTcpBridge as JTag
 import VexRiscv.VecToTuple (vecToTuple)
 import VexRiscv_Example
 
-import Utils.Interconnect (interconnectTwo)
-import Utils.ProgramLoad (DMemory, Memory)
+import VexRiscv.Sim.Utils.Interconnect (interconnectTwo)
+import VexRiscv.Sim.Utils.ProgramLoad (DMemory, Memory)
 
 import qualified VexRiscv.Reset as MinReset
 

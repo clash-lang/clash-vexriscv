@@ -6,7 +6,7 @@
 -- it doesn't like lazy matching on `Signal`s it seems?
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
-module Utils.Storage (
+module VexRiscv.Sim.Utils.Storage (
   storage,
   dualPortStorage,
 ) where
