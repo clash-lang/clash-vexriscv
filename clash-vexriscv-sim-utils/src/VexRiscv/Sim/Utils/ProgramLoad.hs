@@ -7,7 +7,7 @@ module VexRiscv.Sim.Utils.ProgramLoad where
 
 import Clash.Prelude
 import Control.Exception (assert)
-import Protocols.Wishbone
+import Protocols.Experimental.Wishbone
 
 import qualified Data.ByteString as BS
 import qualified Data.IntMap as I

@@ -12,7 +12,7 @@ import Clash.Explicit.Prelude (unsafeOrReset)
 import Clash.Prelude
 import Data.Maybe (fromMaybe)
 import GHC.Stack (HasCallStack)
-import Protocols.Wishbone
+import Protocols.Experimental.Wishbone
 import VexRiscv (CpuIn (..), CpuOut (dBusWbM2S, iBusWbM2S, ndmreset), DumpVcd, JtagIn, JtagOut)
 import VexRiscv.JtagTcpBridge as JTag
 import VexRiscv.VecToTuple (vecToTuple)

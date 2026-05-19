@@ -8,7 +8,7 @@
 module VexRiscv.Sim.Utils.Interconnect where
 
 import Clash.Prelude
-import Protocols.Wishbone
+import Protocols.Experimental.Wishbone
 
 {- | A single-master interconnect for two slave circuits.
 

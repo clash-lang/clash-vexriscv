@@ -1,12 +1,26 @@
 cabal-version:       3.8
 name:                clash-vexriscv
 version:             0.1
+synopsis:            VexRiscv CPU core for use in Clash designs
+description:
+  Provides the tooling to integrate a
+  <https://github.com/SpinalHDL/VexRiscv VexRiscv> CPU core into a Clash
+  design. The package does not offer a CPU directly; instead it provides
+  Cabal @Setup.hs@ hooks that generate a CPU from a Scala-based
+  configuration at build time, together with the Haskell bindings
+  (FFI, blackboxes, simulation helpers) needed to use the resulting core
+  from Clash.
 License:             Apache-2.0
 license-file:        LICENSE
 author:              QBayLogic B.V.
 maintainer:          devops@qbaylogic.com
 Copyright:           Copyright © 2022 Google LLC
 build-type:          Simple
+category:            Development
+
+extra-doc-files:
+  README.md
+  CHANGELOG.md
 
 data-files:
   data/vexriscv/build.sbt
@@ -79,14 +93,15 @@ common common-options
     -fno-worker-wrapper
       -- clash-prelude will set suitable version bounds for the plugins
   build-depends:
-    base >= 4.16 && < 4.21,
+    base >= 4.18 && < 4.22,
     clash-prelude >= 1.9.0,
-    containers >= 0.6 && < 0.8,
+    containers >= 0.6 && < 0.9,
     ghc-typelits-natnormalise,
     ghc-typelits-extra,
     ghc-typelits-knownnat,
 
   other-modules: Paths_clash_vexriscv
+  autogen-modules: Paths_clash_vexriscv
 
 library
   import: common-options
@@ -105,19 +120,12 @@ library
     VexRiscv.Setup
     VexRiscv.VecToTuple
 
-  autogen-modules:
-    Paths_clash_vexriscv
-
-  other-modules:
-    Paths_clash_vexriscv
-
   build-depends:
     async,
-    base,
     bytestring >= 0.10 && < 0.13,
-    Cabal >= 3.14 && < 4.0,
+    Cabal >= 3.14 && < 4,
     clash-lib,
-    clash-prelude >= 1.9.0,
+    clash-prelude >= 1.10 && < 1.12,
     clash-protocols,
     containers,
     deepseq,
@@ -145,6 +153,7 @@ library
 test-suite unittests
   import: common-options
   hs-source-dirs: tests/unittests
+  default-language: Haskell2010
   type: exitcode-stdio-1.0
   main-is: main.hs
   ghc-options: -Wall -Wcompat -threaded -rtsopts
@@ -156,12 +165,12 @@ test-suite unittests
   build-depends:
     HUnit,
     base,
-    clash-prelude-hedgehog  >= 1.9.0,
+    clash-prelude-hedgehog,
     clash-vexriscv,
     bytestring,
-    hedgehog >= 1.0 && < 1.5,
+    hedgehog >= 1.5 && < 1.8,
     tasty >= 1.4 && < 1.6,
-    tasty-hedgehog >= 1.2 && < 1.5,
+    tasty-hedgehog,
     tasty-hunit,
     tasty-th,
     template-haskell,

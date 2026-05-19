@@ -9,7 +9,7 @@ import Clash.Prelude
 import Control.Monad (forM_, when)
 import Data.Char (chr)
 import Data.Maybe (catMaybes)
-import Protocols.Wishbone
+import Protocols.Experimental.Wishbone
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 import System.IO (hFlush, putChar, stdout)

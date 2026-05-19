@@ -69,7 +69,7 @@ convert ::
   MinCyclesReset dom n ->
   MinCyclesReset dom m
 convert clk (MinCyclesReset rst) = MinCyclesReset $ case compareSNat (SNat @(n + 1)) (SNat @m) of
-  SNatLE -> holdReset clk enableGen (SNat @(m - n + 1)) rst
+  SNatLE -> holdReset clk enableGen (SNat @(m - n)) rst
   SNatGT -> rst
 
 {- | Extends a 'MinCyclesReset' to a new 'MinCyclesReset' with a higher minimum cycle count.

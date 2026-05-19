@@ -11,8 +11,8 @@ module VexRiscv.Internal where
 
 import Clash.Prelude
 import Protocols
+import Protocols.Experimental.Wishbone
 import Protocols.Idle
-import Protocols.Wishbone
 
 import VexRiscv.FFI
 import VexRiscv.Random (unsafeMakeDefinedRandom)
