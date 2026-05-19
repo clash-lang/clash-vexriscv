@@ -119,23 +119,17 @@ jobs:
           apt-get update
           apt-get install -y curl build-essential
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.92.0 # See Note [Updating Rust versions]
-          profile: minimal
-          target: riscv32imc-unknown-none-elf
+          targets: riscv32imc-unknown-none-elf
           components: clippy, rustfmt
 
       - name: Rust formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
 
-      - uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --target riscv32imc-unknown-none-elf --all-features
+      - name: Clippy
+        run: cargo clippy --target riscv32imc-unknown-none-elf --all-features
 
   rust-build-programs:
     name: Build Programs
@@ -151,26 +145,20 @@ jobs:
         run: |
           apt-get update
           apt-get install -y curl build-essential
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.92.0 # See Note [Updating Rust versions]
-          profile: minimal
-          target: riscv32imc-unknown-none-elf
+          targets: riscv32imc-unknown-none-elf
           components: clippy, rustfmt
 
       - name: Caching
         uses: Swatinem/rust-cache@v2
 
       - name: Build release binaries
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release
+        run: cargo build --release
 
       - name: Build debug binaries
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
+        run: cargo build
 
       - name: Archive Integration Test Binaries
         run: |
