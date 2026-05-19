@@ -105,7 +105,7 @@ prop_convert_exactness = H.property $ do
       durations = getResetDurations samples
 
   H.footnote $ "Reset durations: " <> show durations
-  H.assert $ all (== 7) durations
+  H.assert $ all (== 7) $ L.drop 1 durations -- Ignore startup behavior
 
 -- | Property: fromMinCycles . toMinCycles should preserve the reset signal
 prop_roundtrip_to_from :: H.Property

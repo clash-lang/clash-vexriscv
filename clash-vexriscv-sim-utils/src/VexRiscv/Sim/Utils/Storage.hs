@@ -15,7 +15,7 @@ import Clash.Prelude
 import Clash.Signal.Internal (Signal ((:-)))
 import Data.Either (isLeft)
 import GHC.Stack (HasCallStack)
-import Protocols.Wishbone
+import Protocols.Experimental.Wishbone
 
 import qualified Data.IntMap.Strict as I
 import qualified Data.List as L

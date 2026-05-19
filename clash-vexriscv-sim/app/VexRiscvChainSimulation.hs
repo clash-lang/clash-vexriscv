@@ -11,7 +11,7 @@ import Control.Monad (forM_, when)
 import GHC.Char (chr)
 import GHC.IO.Handle (Handle, hFlush, hPutStr)
 import Options.Applicative (Parser, auto, execParser, fullDesc, header, help, helper, info, long, option, progDesc, short, showDefault, strOption, switch, value)
-import Protocols.Wishbone
+import Protocols.Experimental.Wishbone
 import System.Exit (exitFailure)
 import System.IO (IOMode (WriteMode), hPutChar, hPutStrLn, openFile, stdout)
 import Text.Printf (hPrintf, printf)
