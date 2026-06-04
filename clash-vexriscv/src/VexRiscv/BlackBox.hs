@@ -10,7 +10,7 @@ module VexRiscv.BlackBox where
 
 import Prelude
 
-import Clash.Core.TermLiteral (TermLiteral (termToData))
+import Clash.Core.TermLiteral (termToData)
 import Control.Monad.State (State)
 import Data.Either (lefts)
 import Data.List.Infinite (Infinite (..), (...))
