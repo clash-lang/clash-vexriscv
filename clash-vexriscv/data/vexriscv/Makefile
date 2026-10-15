@@ -50,7 +50,9 @@ $(CPU_NAME)VexRiscv.v: src/main/scala/cpu/$(CPU_NAME).scala lib/vexriscv.jar bui
 	sbt "runMain cpu.$(CPU_NAME)"
 	sed -i -E '/\/\/ Git hash  :.*$$/d' $(CPU_NAME)VexRiscv.v
 
-$(VERILATOR_DIR)/V$(CPU_NAME)VexRiscv.mk $(VERILATOR_DIR)/V$(CPU_NAME)VexRiscv.h: $(CPU_NAME)VexRiscv.v $(CLASH_VEXRISCV_DATA_DIR)/Makefile
+# Grouped target (&:), so that make runs Verilator once for both outputs. A
+# plain multi-target rule would run it once per target, concurrently under -j.
+$(VERILATOR_DIR)/V$(CPU_NAME)VexRiscv.mk $(VERILATOR_DIR)/V$(CPU_NAME)VexRiscv.h &: $(CPU_NAME)VexRiscv.v $(CLASH_VEXRISCV_DATA_DIR)/Makefile
 	verilator $(VERILATOR_FLAGS) --cc -Mdir $(VERILATOR_DIR) $(CPU_NAME)VexRiscv.v
 
 $(VERILATOR_DIR)/V$(CPU_NAME)VexRiscv__ALL.a: $(VERILATOR_DIR)/V$(CPU_NAME)VexRiscv.mk $(CLASH_VEXRISCV_DATA_DIR)/Makefile
